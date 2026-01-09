@@ -4,6 +4,9 @@
 
 This document details the internal technical operations of the platform.
 
+Youtube Preview
+
+https://www.youtube.com/watch?v=hOz1U8KKDyc
 ---
 
 ## 🏗️ Core Architecture & Tech Stack
