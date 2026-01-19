@@ -288,6 +288,9 @@ export class InstanceManager {
         throw new Error('Failed to retrieve created instance');
       }
 
+      // Generate Nginx Config
+      await this.createNginxConfig(instance);
+
       // Store instance in database for metrics and tracking
       try {
         await this.prisma.instance.create({
@@ -318,6 +321,60 @@ export class InstanceManager {
       }
       logger.error(`Error creating instance ${name}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Generate Nginx configuration for the instance
+   */
+  private async createNginxConfig(instance: SupabaseInstance): Promise<void> {
+    try {
+      // Target: multibase/nginx/sites-enabled
+      const nginxDir = path.resolve(this.templatesPath, 'nginx', 'sites-enabled');
+      if (!fs.existsSync(nginxDir)) {
+        fs.mkdirSync(nginxDir, { recursive: true });
+      }
+
+      const domain = 'backend.tyto-design.de';
+
+      const configContent = `# Auto-generated config for ${instance.name}
+server {
+    listen 80;
+    server_name ${instance.name}.${domain};
+    
+    location / {
+        proxy_pass http://127.0.0.1:${instance.ports.studio};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name ${instance.name}-api.${domain};
+
+    location / {
+        proxy_pass http://127.0.0.1:${instance.ports.kong_http};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+`;
+      const configPath = path.join(nginxDir, `${instance.name}.conf`);
+      fs.writeFileSync(configPath, configContent);
+      logger.info(`Created Nginx config: ${configPath}`);
+    } catch (error) {
+      logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
     }
   }
 
@@ -818,6 +875,20 @@ services:
       logger.error(`Error applying template config to ${instanceName}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Get instance environment configuration
+   */
+  async getInstanceEnv(name: string): Promise<Record<string, string>> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Instance configuration not found at ${envPath}`);
+    }
+
+    return parseEnvFile(envPath);
   }
 
   /**

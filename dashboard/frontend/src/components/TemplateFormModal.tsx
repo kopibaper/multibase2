@@ -7,6 +7,7 @@ import {
   Box,
   Settings,
   Lock,
+  Database,
   Mail,
   Shield,
   Globe,
@@ -14,6 +15,8 @@ import {
   Facebook,
   Twitter,
   Disc,
+  Server,
+  Zap,
 } from 'lucide-react';
 import { templatesApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -47,7 +50,9 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   const { user } = useAuth();
   const isEditMode = !!template;
 
-  const [activeTab, setActiveTab] = useState<'general' | 'deployment' | 'services' | 'auth' | 'env'>('general');
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'deployment' | 'services' | 'database' | 'auth' | 'api' | 'storage' | 'env'
+  >('general');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -90,6 +95,40 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
     }
     setActiveTab('general');
   }, [template, isOpen]);
+
+  // Auto-fill URLs when name or deployment type changes (Only in Create Mode or if explicitly changed)
+  useEffect(() => {
+    if (isEditMode) return; // Don't overwrite existing templates
+
+    if (formData.config.deploymentType === 'cloud' && formData.name) {
+      const domain = 'backend.tyto-design.de';
+      const sanitizedName = formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+      setFormData((prev) => ({
+        ...prev,
+        config: {
+          ...prev.config,
+          env: {
+            ...prev.config.env,
+            SUPABASE_PUBLIC_URL: `https://${sanitizedName}.${domain}`,
+            API_EXTERNAL_URL: `https://${sanitizedName}-api.${domain}`,
+          },
+        },
+      }));
+    } else if (formData.config.deploymentType === 'localhost') {
+      setFormData((prev) => ({
+        ...prev,
+        config: {
+          ...prev.config,
+          env: {
+            ...prev.config.env,
+            SUPABASE_PUBLIC_URL: `http://localhost:${prev.config.basePort}`,
+            API_EXTERNAL_URL: `http://localhost:${prev.config.basePort}`,
+          },
+        },
+      }));
+    }
+  }, [formData.name, formData.config.deploymentType, formData.config.basePort, isEditMode]);
 
   // Fetch System Template
   const { data: systemTemplate } = useQuery({
@@ -156,7 +195,10 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
     { id: 'general', label: 'General Info', icon: Layers },
     { id: 'deployment', label: 'Deployment', icon: () => <Settings className='w-4 h-4' /> },
     { id: 'services', label: 'Services', icon: Box },
+    { id: 'database', label: 'Database', icon: Database },
     { id: 'auth', label: 'Authentication', icon: Lock },
+    { id: 'api', label: 'API & Realtime', icon: Server },
+    { id: 'storage', label: 'Storage', icon: Layers }, // Changed Icon to Layers to distinguish
     { id: 'env', label: 'Environment', icon: Settings },
   ] as const;
 
@@ -241,6 +283,21 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                       />
                     </div>
                   )}
+
+                  <div className='grid gap-2 border-t border-border pt-4 mt-4'>
+                    <label className='text-sm font-medium flex items-center gap-2'>
+                      <Zap className='w-4 h-4 text-yellow-500' />
+                      OpenAI API Key (Optional)
+                    </label>
+                    <input
+                      type='password'
+                      className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                      value={getEnv('OPENAI_API_KEY')}
+                      onChange={(e) => updateEnv('OPENAI_API_KEY', e.target.value)}
+                      placeholder='sk-...'
+                    />
+                    <p className='text-xs text-muted-foreground'>Enables AI features in Supabase Studio SQL Editor.</p>
+                  </div>
                 </div>
               )}
 
@@ -280,6 +337,58 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                       }
                     />
                     <p className='text-xs text-muted-foreground'>Starting port number logic.</p>
+                  </div>
+
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border mt-6'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Globe className='w-4 h-4 text-primary' />
+                      <h3 className='font-semibold'>Connectivity & Public Access</h3>
+                    </div>
+
+                    {formData.config.deploymentType === 'cloud' ? (
+                      <div className='bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 p-3 rounded-md text-sm mb-4 border border-yellow-500/20'>
+                        <strong>Cloud / VPS Mode:</strong> Please ensure your DNS is configured correctly.
+                        <br />
+                        Example: <code>https://supabase.your-domain.com</code>
+                      </div>
+                    ) : (
+                      <div className='bg-blue-500/10 text-blue-600 dark:text-blue-400 p-3 rounded-md text-sm mb-4 border border-blue-500/20'>
+                        <strong>Localhost Mode:</strong> Typically uses <code>http://localhost:8000</code>.
+                      </div>
+                    )}
+
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Public URL (SUPABASE_PUBLIC_URL)</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('SUPABASE_PUBLIC_URL')}
+                          onChange={(e) => updateEnv('SUPABASE_PUBLIC_URL', e.target.value)}
+                          placeholder={
+                            formData.config.deploymentType === 'cloud'
+                              ? 'https://your-project.com'
+                              : 'http://localhost:8000'
+                          }
+                        />
+                        <p className='text-xs text-muted-foreground'> The core URL for your Supabase instance.</p>
+                      </div>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>API External URL (API_EXTERNAL_URL)</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('API_EXTERNAL_URL')}
+                          onChange={(e) => updateEnv('API_EXTERNAL_URL', e.target.value)}
+                          placeholder={
+                            formData.config.deploymentType === 'cloud'
+                              ? 'https://your-project.com'
+                              : 'http://localhost:8000'
+                          }
+                        />
+                        <p className='text-xs text-muted-foreground'>Used for Auth redirects and external access.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -321,6 +430,323 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                     {!systemTemplate && (
                       <div className='col-span-2 text-center py-8 text-muted-foreground'>Loading services...</div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'database' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Database className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>
+                    </div>
+                    <p className='text-sm text-muted-foreground mb-4'>
+                      Configure how clients connect to your database.
+                    </p>
+
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Pool Mode</label>
+                        <select
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_POOL_MODE') || 'transaction'}
+                          onChange={(e) => updateEnv('POOLER_POOL_MODE', e.target.value)}
+                        >
+                          <option value='transaction'>Transaction (Recommended)</option>
+                          <option value='session'>Session</option>
+                        </select>
+                        <p className='text-xs text-muted-foreground'>
+                          Transaction mode creates a temporary connection for each transaction.
+                        </p>
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Client Connections</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_MAX_CLIENT_CONN')}
+                          onChange={(e) => updateEnv('POOLER_MAX_CLIENT_CONN', e.target.value)}
+                          placeholder='100'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Default Pool Size</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_DEFAULT_POOL_SIZE')}
+                          onChange={(e) => updateEnv('POOLER_DEFAULT_POOL_SIZE', e.target.value)}
+                          placeholder='20'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Postgres Port</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POSTGRES_PORT')}
+                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
+                          placeholder='5432'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'api' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  {/* PostgREST */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Server className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>API (PostgREST)</h3>
+                    </div>
+
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Exposed Schemas</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_DB_SCHEMAS')}
+                          onChange={(e) => updateEnv('PGRST_DB_SCHEMAS', e.target.value)}
+                          placeholder='public,storage,graphql_public'
+                        />
+                        <p className='text-xs text-muted-foreground'>
+                          Comma-separated list of schemas accessible via the API.
+                        </p>
+                      </div>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Rows (Limit)</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_MAX_ROWS')}
+                          onChange={(e) => updateEnv('PGRST_MAX_ROWS', e.target.value)}
+                          placeholder='Undefined (No limit)'
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Realtime */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Zap className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Realtime</h3>
+                    </div>
+                    <div className='grid gap-4'>
+                      <div className='flex items-center justify-between'>
+                        <div className='space-y-0.5'>
+                          <label className='text-sm font-medium'>Enable Realtime</label>
+                          <p className='text-xs text-muted-foreground'>Allow WebSocket connections.</p>
+                        </div>
+                        {/* Often controlled by service presence, but maybe we can toggle env? 
+                                    Realtime service is usually always there if enabled in Services tab.
+                                    Here we can configure limits. */}
+                      </div>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Header Length</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('REALTIME_MAX_HEADER_LENGTH')}
+                          onChange={(e) => updateEnv('REALTIME_MAX_HEADER_LENGTH', e.target.value)}
+                          placeholder='4096'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'database' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Database className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>
+                    </div>
+                    <p className='text-sm text-muted-foreground mb-4'>
+                      Configure how clients connect to your database.
+                    </p>
+
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Pool Mode</label>
+                        <select
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_POOL_MODE') || 'transaction'}
+                          onChange={(e) => updateEnv('POOLER_POOL_MODE', e.target.value)}
+                        >
+                          <option value='transaction'>Transaction (Recommended)</option>
+                          <option value='session'>Session</option>
+                        </select>
+                        <p className='text-xs text-muted-foreground'>
+                          Transaction mode creates a temporary connection for each transaction.
+                        </p>
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Client Connections</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_MAX_CLIENT_CONN')}
+                          onChange={(e) => updateEnv('POOLER_MAX_CLIENT_CONN', e.target.value)}
+                          placeholder='100'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Default Pool Size</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_DEFAULT_POOL_SIZE')}
+                          onChange={(e) => updateEnv('POOLER_DEFAULT_POOL_SIZE', e.target.value)}
+                          placeholder='20'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Postgres Port</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POSTGRES_PORT')}
+                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
+                          placeholder='5432'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'api' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  {/* PostgREST */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Server className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>API (PostgREST)</h3>
+                    </div>
+
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Exposed Schemas</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_DB_SCHEMAS')}
+                          onChange={(e) => updateEnv('PGRST_DB_SCHEMAS', e.target.value)}
+                          placeholder='public,storage,graphql_public'
+                        />
+                        <p className='text-xs text-muted-foreground'>
+                          Comma-separated list of schemas accessible via the API. Note: `public` is always recommended.
+                        </p>
+                      </div>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Rows (Limit)</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_MAX_ROWS')}
+                          onChange={(e) => updateEnv('PGRST_MAX_ROWS', e.target.value)}
+                          placeholder='Undefined (No limit)'
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Realtime */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Zap className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Realtime</h3>
+                    </div>
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Header Length</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('REALTIME_MAX_HEADER_LENGTH')}
+                          onChange={(e) => updateEnv('REALTIME_MAX_HEADER_LENGTH', e.target.value)}
+                          placeholder='4096'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'database' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Database className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>
+                    </div>
+                    <p className='text-sm text-muted-foreground mb-4'>
+                      Configure how clients connect to your database.
+                    </p>
+
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Pool Mode</label>
+                        <select
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_POOL_MODE') || 'transaction'}
+                          onChange={(e) => updateEnv('POOLER_POOL_MODE', e.target.value)}
+                        >
+                          <option value='transaction'>Transaction (Recommended)</option>
+                          <option value='session'>Session</option>
+                        </select>
+                        <p className='text-xs text-muted-foreground'>
+                          Transaction mode creates a temporary connection for each transaction.
+                        </p>
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Client Connections</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_MAX_CLIENT_CONN')}
+                          onChange={(e) => updateEnv('POOLER_MAX_CLIENT_CONN', e.target.value)}
+                          placeholder='100'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Default Pool Size</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POOLER_DEFAULT_POOL_SIZE')}
+                          onChange={(e) => updateEnv('POOLER_DEFAULT_POOL_SIZE', e.target.value)}
+                          placeholder='20'
+                        />
+                      </div>
+
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Postgres Port</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('POSTGRES_PORT')}
+                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
+                          placeholder='5432'
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -539,6 +965,177 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'api' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  {/* PostgREST */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Server className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>API (PostgREST)</h3>
+                    </div>
+
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Exposed Schemas</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_DB_SCHEMAS')}
+                          onChange={(e) => updateEnv('PGRST_DB_SCHEMAS', e.target.value)}
+                          placeholder='public,storage,graphql_public'
+                        />
+                        <p className='text-xs text-muted-foreground'>
+                          Comma-separated list of schemas accessible via the API. Note: `public` is always recommended.
+                        </p>
+                      </div>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Rows (Limit)</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('PGRST_MAX_ROWS')}
+                          onChange={(e) => updateEnv('PGRST_MAX_ROWS', e.target.value)}
+                          placeholder='Undefined (No limit)'
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Realtime */}
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
+                      <Zap className='w-5 h-5 text-primary' />
+                      <h3 className='font-semibold'>Realtime</h3>
+                    </div>
+                    <div className='grid gap-4'>
+                      <div className='space-y-2'>
+                        <label className='text-sm font-medium'>Max Header Length</label>
+                        <input
+                          type='number'
+                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                          value={getEnv('REALTIME_MAX_HEADER_LENGTH')}
+                          onChange={(e) => updateEnv('REALTIME_MAX_HEADER_LENGTH', e.target.value)}
+                          placeholder='4096'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'storage' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+                    <h3 className='font-medium mb-1'>Storage Backend</h3>
+                    <p className='text-sm text-muted-foreground mb-4'>
+                      Choose how Supabase stores uploaded files. "Internal" uses the disk (Docker Volume). "External"
+                      uses S3-compatible services (AWS, MinIO, etc.).
+                    </p>
+
+                    <div className='grid grid-cols-2 gap-4'>
+                      <button
+                        type='button'
+                        onClick={() => updateEnv('STORAGE_BACKEND', 'file')}
+                        className={cn(
+                          'p-4 border rounded-lg flex flex-col items-center gap-2 transition-all',
+                          (getEnv('STORAGE_BACKEND') || 'file') === 'file'
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : 'hover:bg-secondary/50'
+                        )}
+                      >
+                        <Database className='w-6 h-6' />
+                        <span className='font-medium'>Internal (File)</span>
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => updateEnv('STORAGE_BACKEND', 's3')}
+                        className={cn(
+                          'p-4 border rounded-lg flex flex-col items-center gap-2 transition-all',
+                          getEnv('STORAGE_BACKEND') === 's3'
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : 'hover:bg-secondary/50'
+                        )}
+                      >
+                        <Globe className='w-6 h-6' />
+                        <span className='font-medium'>External (S3)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {getEnv('STORAGE_BACKEND') === 's3' && (
+                    <div className='space-y-4 animate-in slide-in-from-top-2'>
+                      <div className='flex items-center gap-2 border-b border-border pb-2 mt-6'>
+                        <Settings className='w-4 h-4 text-primary' />
+                        <h3 className='font-semibold'>S3 Configuration</h3>
+                      </div>
+
+                      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                        <div className='space-y-2'>
+                          <label className='text-sm font-medium'>Region</label>
+                          <input
+                            type='text'
+                            placeholder='us-east-1'
+                            className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                            value={getEnv('REGION')}
+                            onChange={(e) => updateEnv('REGION', e.target.value)}
+                          />
+                        </div>
+                        <div className='space-y-2'>
+                          <label className='text-sm font-medium'>Bucket Name</label>
+                          <input
+                            type='text'
+                            placeholder='my-supabase-bucket'
+                            className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                            value={getEnv('GLOBAL_S3_BUCKET')}
+                            onChange={(e) => updateEnv('GLOBAL_S3_BUCKET', e.target.value)}
+                          />
+                        </div>
+                        <div className='space-y-2 col-span-2'>
+                          <label className='text-sm font-medium'>Endpoint URL (Optional)</label>
+                          <input
+                            type='text'
+                            placeholder='https://s3.amazonaws.com'
+                            className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                            value={getEnv('STORAGE_S3_ENDPOINT')}
+                            onChange={(e) => updateEnv('STORAGE_S3_ENDPOINT', e.target.value)}
+                          />
+                          <p className='text-xs text-muted-foreground'>Required for MinIO, DigitalOcean Spaces, etc.</p>
+                        </div>
+                        <div className='space-y-2'>
+                          <label className='text-sm font-medium'>Access Key ID</label>
+                          <input
+                            type='text'
+                            className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                            value={getEnv('AWS_ACCESS_KEY_ID')}
+                            onChange={(e) => updateEnv('AWS_ACCESS_KEY_ID', e.target.value)}
+                          />
+                        </div>
+                        <div className='space-y-2'>
+                          <label className='text-sm font-medium'>Secret Access Key</label>
+                          <input
+                            type='password'
+                            className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                            value={getEnv('AWS_SECRET_ACCESS_KEY')}
+                            onChange={(e) => updateEnv('AWS_SECRET_ACCESS_KEY', e.target.value)}
+                          />
+                        </div>
+
+                        <div className='flex items-center justify-between col-span-2 p-3 border rounded-md'>
+                          <div className='space-y-0.5'>
+                            <label className='text-sm font-medium'>Force Path Style</label>
+                            <p className='text-xs text-muted-foreground'>Often needed for MinIO or self-hosted S3.</p>
+                          </div>
+                          <Switch
+                            checked={getEnv('STORAGE_S3_FORCE_PATH_STYLE') === 'true'}
+                            onCheckedChange={(c) => updateEnv('STORAGE_S3_FORCE_PATH_STYLE', String(c))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

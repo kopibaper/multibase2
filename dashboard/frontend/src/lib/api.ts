@@ -91,6 +91,17 @@ export const instancesApi = {
       body: JSON.stringify(data),
     });
   },
+
+  getEnv: (name: string): Promise<Record<string, string>> => {
+    return fetchApi<Record<string, string>>(`/api/instances/${name}/env`);
+  },
+
+  updateEnv: (name: string, data: Record<string, string>): Promise<void> => {
+    return fetchApi<void>(`/api/instances/${name}/env`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // Health API

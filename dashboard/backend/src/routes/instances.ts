@@ -263,7 +263,6 @@ export function createInstanceRoutes(
           req.body;
 
         // Construct env updates
-        // We explicitly map config fields to SMTP_* env vars
         const configUpdates: Record<string, string> = {};
 
         if (smtp_host) configUpdates.SMTP_HOST = smtp_host;
@@ -273,18 +272,74 @@ export function createInstanceRoutes(
         if (smtp_sender_name) configUpdates.SMTP_SENDER_NAME = smtp_sender_name;
         if (smtp_admin_email) configUpdates.SMTP_ADMIN_EMAIL = smtp_admin_email;
 
-        // If passing empty string, maybe we should remove the var?
-        // For now, Supabase expects them to be set or uses defaults.
-        // If we want to "reset" to global, we might need a flag.
-        // But usually local .env takes precedence. If we want to use Global, we should remove them from .env.
-        // Current implementation just sets them.
-
         await instanceManager.updateInstanceConfig(name, configUpdates);
 
         res.json({ message: 'Instance SMTP settings updated' });
       } catch (error: any) {
         logger.error(`Error updating SMTP settings for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to update settings' });
+      }
+    }
+  );
+
+  /**
+   * GET /api/instances/:name/env
+   * Get instance environment variables
+   */
+  router.get('/:name/env', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { name } = req.params;
+      const { keys } = req.query; // Optional: comma-separated list of keys to fetch
+
+      // We need to expose a method in InstanceManager to get raw env
+      // But we can use parseEnvFile through a new method or expose it
+      // For now, let's assume we implement `getInstanceConfig` in InstanceManager
+      const config = await instanceManager.getInstanceEnv(name);
+
+      if (!config) {
+        return res.status(404).json({ error: 'Instance config not found' });
+      }
+
+      // Filter keys if requested
+      if (keys) {
+        const requestedKeys = (keys as string).split(',');
+        const filteredConfig: Record<string, string> = {};
+        requestedKeys.forEach((key) => {
+          if (config[key] !== undefined) {
+            filteredConfig[key] = config[key];
+          }
+        });
+        return res.json(filteredConfig);
+      }
+
+      // Security: Filter out highly sensitive keys if needed?
+      // Admin should see everything usually.
+      res.json(config);
+    } catch (error: any) {
+      logger.error(`Error getting env for ${req.params.name}:`, error);
+      res.status(500).json({ error: error.message || 'Failed to get env' });
+    }
+  });
+
+  /**
+   * PUT /api/instances/:name/env
+   * Update instance environment variables directly
+   */
+  router.put(
+    '/:name/env',
+    requireAuth,
+    auditLog('INSTANCE_UPDATE_ENV', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const configUpdates = req.body; // Expects Record<string, string>
+
+        await instanceManager.updateInstanceConfig(name, configUpdates);
+
+        res.json({ message: 'Instance configuration updated' });
+      } catch (error: any) {
+        logger.error(`Error updating env for ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to update env' });
       }
     }
   );
