@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Plus, AlertCircle, Check } from 'lucide-react';
+import { X, Plus, AlertCircle, Check, Globe, Laptop } from 'lucide-react';
 import { useCreateInstance } from '../hooks/useInstances';
 import { CreateInstanceRequest, InstanceTemplate } from '../types';
 import { toast } from 'sonner';
 import { templatesApi } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
+import { Switch } from './ui/Switch';
+import { cn } from '../lib/utils';
 
 interface CreateInstanceModalProps {
   open: boolean;
@@ -21,10 +23,10 @@ interface FormData extends CreateInstanceRequest {
 
 const initialFormData: FormData = {
   name: '',
-  deploymentType: 'localhost',
+  deploymentType: 'localhost', // Default to localhost
   basePort: undefined,
   domain: '',
-  protocol: 'http',
+  protocol: 'https', // Default HTTPS for cloud
   corsOriginsList: '',
   templateId: undefined,
 };
@@ -44,7 +46,6 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
   // Pre-fill form when initialTemplate is provided
   useEffect(() => {
     if (open && initialTemplate) {
-      // config is typed as any in InstanceTemplate, but let's be safe
       const config =
         typeof initialTemplate.config === 'string' ? JSON.parse(initialTemplate.config) : initialTemplate.config;
 
@@ -60,24 +61,15 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       }));
       toast.info(`Loaded template: ${initialTemplate.name}`);
     } else if (!open) {
-      // Reset form when closed (optional, but good for cleanup)
-      // Actually handleModalClose in parent might reset initialTemplate
+      setFormData(initialFormData);
+      setErrors({});
     }
   }, [open, initialTemplate]);
-
-  // Effect to update form when initialTemplate changes or modal opens
-  // We use a simple effect here: if initialTemplate is provided and we are opening, fill it.
-  // Note: Since this component might be mounted but hidden, we should check 'open'
-  // But usually we want to react to 'initialTemplate' changing.
-
-  // This is a bit tricky with "initial" vs "state".
-  // Let's use an effect that runs when initialTemplate changes.
-  // We need to import useEffect first.
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validate name (required, alphanumeric + hyphens, Docker-compatible)
+    // Validate name
     if (!formData.name.trim()) {
       newErrors.name = 'Instance name is required';
     } else if (!/^[a-zA-Z0-9-_]+$/.test(formData.name)) {
@@ -88,15 +80,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       newErrors.name = 'Name must be less than 50 characters';
     }
 
-    // Validate base port (optional, but must be valid if provided)
-    if (formData.basePort) {
-      const port = Number(formData.basePort);
-      if (isNaN(port) || port < 1024 || port > 65535) {
-        newErrors.basePort = 'Port must be between 1024 and 65535';
-      }
-    }
-
-    // Validate domain for cloud deployment
+    // Validate cloud domain
     if (formData.deploymentType === 'cloud') {
       if (!formData.domain || !formData.domain.trim()) {
         newErrors.domain = 'Domain is required for cloud deployment';
@@ -105,38 +89,14 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       }
     }
 
-    // Validate CORS origins (optional, but must be valid URLs if provided)
-    if (formData.corsOriginsList.trim()) {
-      const origins = formData.corsOriginsList.split(',').map((o) => o.trim());
-      for (const origin of origins) {
-        if (origin && !isValidUrl(origin)) {
-          newErrors.corsOriginsList = `Invalid URL: ${origin}`;
-          break;
-        }
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
 
-    if (!validateForm()) {
-      return;
-    }
-
-    // Prepare request data
     const requestData: CreateInstanceRequest = {
       name: formData.name.trim(),
       deploymentType: formData.deploymentType,
@@ -146,7 +106,6 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       ...(formData.templateId && { templateId: Number(formData.templateId) }),
     };
 
-    // Parse CORS origins if provided
     if (formData.corsOriginsList.trim()) {
       requestData.corsOrigins = formData.corsOriginsList
         .split(',')
@@ -156,19 +115,10 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
 
     try {
       await createInstance.mutateAsync(requestData);
-
-      // Show success toast with credentials info
       toast.success('Instance created successfully!', {
-        description: `${formData.name} is being initialized. Credentials have been auto-generated.`,
-        duration: 5000,
+        description: `${formData.name} is being initialized.`,
       });
-
-      // Reset form and close modal
-      setFormData(initialFormData);
-      setErrors({});
       onOpenChange(false);
-
-      // Navigate to instance detail page
       navigate(`/instances/${formData.name}`);
     } catch (error: any) {
       toast.error('Failed to create instance', {
@@ -177,292 +127,232 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
     }
   };
 
-  const handleTemplateChange = (templateIdVal: string) => {
-    const tId = Number(templateIdVal);
-    if (!tId) {
-      setFormData((prev) => ({ ...prev, templateId: undefined }));
-      return;
-    }
-
-    const template = templates.find((t) => t.id === tId);
-    if (template) {
-      // config is typed as any in InstanceTemplate, but let's be safe
-      const config = typeof template.config === 'string' ? JSON.parse(template.config) : template.config;
-
-      setFormData((prev) => ({
-        ...prev,
-        templateId: tId,
-        // Pre-fill fields if they exist in config
-        deploymentType: config.deploymentType || prev.deploymentType,
-        basePort: config.basePort || prev.basePort,
-        domain: config.domain || prev.domain,
-        protocol: config.protocol || prev.protocol,
-        corsOriginsList: config.corsOrigins ? config.corsOrigins.join(', ') : prev.corsOriginsList,
-      }));
-      toast.info(`Loaded template: ${template.name}`);
-    }
-  };
-
-  const handleInputChange = (field: keyof FormData, value: string | number) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-  };
+  const isLocal = formData.deploymentType === 'localhost';
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50' />
-        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto z-50'>
-          <div className='flex items-center justify-between mb-6'>
-            <Dialog.Title className='text-2xl font-bold text-foreground flex items-center gap-2'>
-              <Plus className='w-6 h-6' />
-              Create New Instance
-            </Dialog.Title>
-            <Dialog.Close className='text-muted-foreground hover:text-foreground'>
+        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto z-50 p-0'>
+          {/* Header */}
+          <div className='flex items-center justify-between p-6 border-b border-border'>
+            <div>
+              <Dialog.Title className='text-2xl font-bold text-foreground flex items-center gap-2'>
+                <Plus className='w-6 h-6 text-primary' />
+                Create New Instance
+              </Dialog.Title>
+              <Dialog.Description className='text-muted-foreground mt-1'>
+                Configure your new Supabase instance deployment.
+              </Dialog.Description>
+            </div>
+            <Dialog.Close className='text-muted-foreground hover:text-foreground p-2 hover:bg-secondary rounded-full transition-colors'>
               <X className='w-5 h-5' />
             </Dialog.Close>
           </div>
 
-          <Dialog.Description className='text-sm text-muted-foreground mb-6'>
-            Create a new Supabase instance. All credentials will be auto-generated securely.
-          </Dialog.Description>
-
-          <form onSubmit={handleSubmit} className='space-y-6'>
-            {/* Basic Information Section */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold text-foreground border-b border-border pb-2'>Basic Information</h3>
-
-              {/* Template Selection */}
-              {templates.length > 0 && (
-                <div>
-                  <label htmlFor='template' className='block text-sm font-medium text-foreground mb-1'>
-                    Use Template (Optional)
-                  </label>
-                  <select
-                    id='template'
-                    value={formData.templateId || ''}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    className='w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground'
-                  >
-                    <option value=''>-- Select a Template --</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Instance Name */}
-              <div>
-                <label htmlFor='name' className='block text-sm font-medium text-foreground mb-1'>
-                  Instance Name <span className='text-destructive'>*</span>
-                </label>
-                <input
-                  type='text'
-                  id='name'
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder='my-supabase-instance'
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground placeholder:text-muted-foreground ${
-                    errors.name ? 'border-destructive' : 'border-border'
-                  }`}
-                />
-                {errors.name && (
-                  <p className='mt-1 text-sm text-destructive flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
-                    {errors.name}
-                  </p>
-                )}
-                <p className='mt-1 text-xs text-muted-foreground'>
-                  Alphanumeric characters, hyphens, and underscores only (3-50 chars)
-                </p>
-              </div>
-
-              {/* Deployment Type */}
-              <div>
-                <label htmlFor='deploymentType' className='block text-sm font-medium text-foreground mb-1'>
-                  Deployment Type <span className='text-destructive'>*</span>
-                </label>
-                <select
-                  id='deploymentType'
-                  value={formData.deploymentType}
-                  onChange={(e) => handleInputChange('deploymentType', e.target.value as 'localhost' | 'cloud')}
-                  className='w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground'
-                >
-                  <option value='localhost'>Localhost (Development)</option>
-                  <option value='cloud'>Cloud (Production)</option>
-                </select>
-                <p className='mt-1 text-xs text-muted-foreground'>
-                  {formData.deploymentType === 'localhost'
-                    ? 'Instance will be accessible on localhost'
-                    : 'Instance will be configured for cloud deployment with custom domain'}
-                </p>
-              </div>
-            </div>
-
-            {/* Port Configuration Section */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold text-foreground border-b border-border pb-2'>Port Configuration</h3>
-
-              {/* Base Port */}
-              <div>
-                <label htmlFor='basePort' className='block text-sm font-medium text-foreground mb-1'>
-                  Base Port (Optional)
-                </label>
-                <input
-                  type='number'
-                  id='basePort'
-                  value={formData.basePort || ''}
-                  onChange={(e) => handleInputChange('basePort', e.target.value)}
-                  placeholder='Auto-assigned (recommended)'
-                  min='1024'
-                  max='65535'
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground placeholder:text-muted-foreground ${
-                    errors.basePort ? 'border-destructive' : 'border-border'
-                  }`}
-                />
-                {errors.basePort && (
-                  <p className='mt-1 text-sm text-destructive flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
-                    {errors.basePort}
-                  </p>
-                )}
-                <p className='mt-1 text-xs text-muted-foreground'>
-                  Leave empty for automatic port allocation. Services will use consecutive ports from base.
-                </p>
-              </div>
-            </div>
-
-            {/* Cloud Configuration Section */}
-            {formData.deploymentType === 'cloud' && (
+          <form onSubmit={handleSubmit} className='flex flex-col md:flex-row'>
+            {/* Left Column: Core Settings */}
+            <div className='flex-1 p-6 space-y-6 border-r border-border'>
               <div className='space-y-4'>
-                <h3 className='text-lg font-semibold text-foreground border-b border-border pb-2'>
-                  Cloud Configuration
+                <h3 className='font-semibold text-lg flex items-center gap-2'>
+                  <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm'>
+                    1
+                  </div>
+                  Deployment Mode
                 </h3>
 
-                {/* Domain */}
+                {/* Deployment Type Toggle */}
+                <div className='flex p-1 bg-secondary rounded-lg'>
+                  <button
+                    type='button'
+                    onClick={() => setFormData((prev) => ({ ...prev, deploymentType: 'localhost' }))}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all',
+                      isLocal ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Laptop className='w-4 h-4' />
+                    Localhost
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setFormData((prev) => ({ ...prev, deploymentType: 'cloud' }))}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all',
+                      !isLocal ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Globe className='w-4 h-4' />
+                    Cloud / VPS
+                  </button>
+                </div>
+
+                <div className='text-sm text-muted-foreground bg-secondary/30 p-3 rounded-md border border-border'>
+                  {isLocal
+                    ? 'Best for local development. Your instance will be accessible at http://localhost:[port].'
+                    : 'For production deployments on a VPS. Requires a valid domain name configured in your DNS.'}
+                </div>
+              </div>
+
+              <div className='space-y-4 pt-4'>
+                <h3 className='font-semibold text-lg flex items-center gap-2'>
+                  <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm'>
+                    2
+                  </div>
+                  Instance Config
+                </h3>
+
                 <div>
-                  <label htmlFor='domain' className='block text-sm font-medium text-foreground mb-1'>
-                    Domain <span className='text-destructive'>*</span>
+                  <label className='block text-sm font-medium mb-1'>
+                    Instance Name <span className='text-destructive'>*</span>
                   </label>
                   <input
                     type='text'
-                    id='domain'
-                    value={formData.domain}
-                    onChange={(e) => handleInputChange('domain', e.target.value)}
-                    placeholder='api.example.com'
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground placeholder:text-muted-foreground ${
-                      errors.domain ? 'border-destructive' : 'border-border'
-                    }`}
+                    value={formData.name}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder='my-project'
+                    className={cn(
+                      'w-full px-3 py-2 border rounded-md bg-input focus:ring-2 focus:ring-primary focus:outline-none',
+                      errors.name ? 'border-destructive' : 'border-border'
+                    )}
                   />
-                  {errors.domain && (
-                    <p className='mt-1 text-sm text-destructive flex items-center gap-1'>
-                      <AlertCircle className='w-4 h-4' />
-                      {errors.domain}
-                    </p>
-                  )}
+                  {errors.name && <p className='text-destructive text-xs mt-1'>{errors.name}</p>}
                 </div>
 
-                {/* Protocol */}
+                {/* Cloud Domain Input */}
+                {!isLocal && (
+                  <div className='animate-in fade-in slide-in-from-top-2'>
+                    <label className='block text-sm font-medium mb-1'>
+                      Domain <span className='text-destructive'>*</span>
+                    </label>
+                    <div className='flex'>
+                      <span className='inline-flex items-center px-3 rounded-l-md border border-r-0 border-border bg-secondary text-muted-foreground text-sm'>
+                        https://
+                      </span>
+                      <input
+                        type='text'
+                        value={formData.domain}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, domain: e.target.value }))}
+                        placeholder='api.example.com'
+                        className={cn(
+                          'w-full px-3 py-2 border rounded-r-md bg-input focus:ring-2 focus:ring-primary focus:outline-none',
+                          errors.domain ? 'border-destructive' : 'border-border'
+                        )}
+                      />
+                    </div>
+                    {errors.domain && <p className='text-destructive text-xs mt-1'>{errors.domain}</p>}
+                  </div>
+                )}
+
+                {/* Template Selection */}
+                {templates.length > 0 && (
+                  <div>
+                    <label className='block text-sm font-medium mb-1'>Template (Optional)</label>
+                    <select
+                      value={formData.templateId || ''}
+                      onChange={(e) => {
+                        const t = templates.find((t) => t.id === Number(e.target.value));
+                        if (t) {
+                          const config = typeof t.config === 'string' ? JSON.parse(t.config) : t.config;
+                          setFormData((p) => ({
+                            ...p,
+                            templateId: t.id,
+                            deploymentType: config.deploymentType || p.deploymentType,
+                            // don't overwrite name
+                          }));
+                        }
+                      }}
+                      className='w-full px-3 py-2 border border-border rounded-md bg-input'
+                    >
+                      <option value=''>-- None --</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Advanced & Preview */}
+            <div className='flex-1 p-6 space-y-6 bg-secondary/5'>
+              <div className='space-y-4'>
+                <h3 className='font-semibold text-lg flex items-center gap-2'>
+                  <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm'>
+                    3
+                  </div>
+                  Advanced Setup
+                </h3>
+
                 <div>
-                  <label htmlFor='protocol' className='block text-sm font-medium text-foreground mb-1'>
-                    Protocol
-                  </label>
-                  <select
-                    id='protocol'
-                    value={formData.protocol}
-                    onChange={(e) => handleInputChange('protocol', e.target.value as 'http' | 'https')}
-                    className='w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground'
-                  >
-                    <option value='http'>HTTP</option>
-                    <option value='https'>HTTPS (Recommended)</option>
-                  </select>
+                  <label className='block text-sm font-medium mb-1'>Base Port (Optional)</label>
+                  <input
+                    type='number'
+                    value={formData.basePort || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, basePort: e.target.value }))}
+                    placeholder='Auto-assigned'
+                    className='w-full px-3 py-2 border border-border rounded-md bg-input'
+                  />
+                  <p className='text-xs text-muted-foreground mt-1'>If empty, we'll find a free port automatically.</p>
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium mb-1'>CORS Origins</label>
+                  <input
+                    type='text'
+                    value={formData.corsOriginsList}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, corsOriginsList: e.target.value }))}
+                    placeholder='https://frontend.com, http://localhost:3000'
+                    className='w-full px-3 py-2 border border-border rounded-md bg-input'
+                  />
+                  <p className='text-xs text-muted-foreground mt-1'>Comma-separated allowed origins.</p>
                 </div>
               </div>
-            )}
 
-            {/* Advanced Options Section */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold text-foreground border-b border-border pb-2'>Advanced Options</h3>
-
-              {/* CORS Origins */}
-              <div>
-                <label htmlFor='corsOrigins' className='block text-sm font-medium text-foreground mb-1'>
-                  CORS Origins (Optional)
-                </label>
-                <input
-                  type='text'
-                  id='corsOrigins'
-                  value={formData.corsOriginsList}
-                  onChange={(e) => handleInputChange('corsOriginsList', e.target.value)}
-                  placeholder='https://app.example.com, https://admin.example.com'
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input text-foreground placeholder:text-muted-foreground ${
-                    errors.corsOriginsList ? 'border-destructive' : 'border-border'
-                  }`}
-                />
-                {errors.corsOriginsList && (
-                  <p className='mt-1 text-sm text-destructive flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
-                    {errors.corsOriginsList}
-                  </p>
-                )}
-                <p className='mt-1 text-xs text-muted-foreground'>
-                  Comma-separated list of allowed origins. Leave empty to allow all origins.
-                </p>
-              </div>
-            </div>
-
-            {/* Security Notice */}
-            <div className='bg-primary/10 border border-primary/20 rounded-md p-4'>
-              <div className='flex gap-2'>
-                <Check className='w-5 h-5 text-primary flex-shrink-0 mt-0.5' />
-                <div className='text-sm text-foreground'>
-                  <p className='font-semibold mb-1'>Auto-Generated Credentials</p>
-                  <p className='text-muted-foreground'>
-                    All credentials (JWT secret, database password, API keys, etc.) will be automatically generated
-                    using cryptographically secure methods. You can view them on the instance detail page after
-                    creation.
-                  </p>
+              {/* Live Preview Card */}
+              <div className='mt-8 pt-6 border-t border-border'>
+                <h4 className='text-sm font-semibold mb-3'>Live Preview</h4>
+                <div className='bg-card border border-border p-4 rounded-lg shadow-sm space-y-2'>
+                  <div className='flex justify-between items-center text-sm'>
+                    <span className='text-muted-foreground'>Studio URL:</span>
+                    <code className='bg-secondary px-2 py-0.5 rounded text-primary font-mono'>
+                      {isLocal
+                        ? `http://localhost:${formData.basePort || '54323'}`
+                        : `https://${formData.name}.${formData.domain || 'example.com'}`}
+                    </code>
+                  </div>
+                  <div className='flex justify-between items-center text-sm'>
+                    <span className='text-muted-foreground'>API URL:</span>
+                    <code className='bg-secondary px-2 py-0.5 rounded text-foreground font-mono'>
+                      {isLocal
+                        ? `http://localhost:${formData.basePort || '54323'}/api`
+                        : `https://${formData.name}.${formData.domain || 'example.com'}/api`}
+                    </code>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Form Actions */}
-            <div className='flex gap-3 pt-4 border-t border-border'>
-              <button
-                type='button'
-                onClick={() => onOpenChange(false)}
-                disabled={createInstance.isPending}
-                className='flex-1 px-4 py-2 border border-border rounded-md text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                Cancel
-              </button>
-              <button
-                type='submit'
-                disabled={createInstance.isPending}
-                className='flex-1 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              >
-                {createInstance.isPending ? (
-                  <>
-                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plus className='w-4 h-4' />
-                    Create Instance
-                  </>
-                )}
-              </button>
+              <div className='pt-6 flex gap-3 justify-end'>
+                <button
+                  type='button'
+                  onClick={() => onOpenChange(false)}
+                  className='px-4 py-2 border border-border rounded-md hover:bg-secondary'
+                >
+                  Cancel
+                </button>
+                <button
+                  type='submit'
+                  disabled={createInstance.isPending}
+                  className='px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2'
+                >
+                  {createInstance.isPending && (
+                    <div className='w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full' />
+                  )}
+                  Deploy Instance
+                </button>
+              </div>
             </div>
           </form>
         </Dialog.Content>
