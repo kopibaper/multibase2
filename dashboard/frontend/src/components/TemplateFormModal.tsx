@@ -1,12 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { X, Save, Layers, Box, Settings } from 'lucide-react';
+import {
+  X,
+  Save,
+  Layers,
+  Box,
+  Settings,
+  Lock,
+  Mail,
+  Shield,
+  Globe,
+  Github,
+  Facebook,
+  Twitter,
+  Disc,
+} from 'lucide-react';
 import { templatesApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { InstanceTemplate } from '../types';
 import { toast } from 'sonner';
 import { Switch } from './ui/Switch';
 import { cn } from '../lib/utils';
+
+// Helper to manage Auth Provider Icon mapping
+const ProviderIcons: Record<string, any> = {
+  google: Globe,
+  github: Github,
+  discord: Disc,
+  facebook: Facebook,
+  twitter: Twitter,
+  gitlab: Box,
+  bitbucket: Box,
+  apple: Box,
+};
+
+const authProviders = ['google', 'github', 'discord', 'facebook', 'twitter', 'gitlab', 'bitbucket', 'apple'];
 
 interface TemplateFormModalProps {
   isOpen: boolean;
@@ -19,7 +47,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   const { user } = useAuth();
   const isEditMode = !!template;
 
-  const [activeTab, setActiveTab] = useState<'general' | 'deployment' | 'services' | 'env'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'deployment' | 'services' | 'auth' | 'env'>('general');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -108,14 +136,17 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   };
 
   const updateEnv = (key: string, value: string) => {
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       config: {
-        ...formData.config,
-        env: { ...formData.config.env, [key]: value },
+        ...prev.config,
+        env: { ...prev.config.env, [key]: value },
       },
-    });
+    }));
   };
+
+  // Helper to get env var safely
+  const getEnv = (key: string) => formData.config.env?.[key] || '';
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -125,6 +156,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
     { id: 'general', label: 'General Info', icon: Layers },
     { id: 'deployment', label: 'Deployment', icon: () => <Settings className='w-4 h-4' /> },
     { id: 'services', label: 'Services', icon: Box },
+    { id: 'auth', label: 'Authentication', icon: Lock },
     { id: 'env', label: 'Environment', icon: Settings },
   ] as const;
 
@@ -289,6 +321,223 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                     {!systemTemplate && (
                       <div className='col-span-2 text-center py-8 text-muted-foreground'>Loading services...</div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'auth' && (
+                <div className='space-y-8 animate-in fade-in'>
+                  {/* Section 1: Auth Providers */}
+                  <div className='space-y-4'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2'>
+                      <Globe className='w-4 h-4 text-primary' />
+                      <h3 className='font-semibold text-lg'>Auth Providers</h3>
+                    </div>
+                    <div className='space-y-3'>
+                      {authProviders.map((provider) => {
+                        const Icon = ProviderIcons[provider] || Globe;
+                        const envPrefix = `GOTRUE_EXTERNAL_${provider.toUpperCase()}`;
+                        const isEnabled = getEnv(`${envPrefix}_ENABLED`) === 'true';
+
+                        return (
+                          <div
+                            key={provider}
+                            className={cn(
+                              'border rounded-md transition-all',
+                              isEnabled ? 'bg-primary/5 border-primary/20' : 'border-border'
+                            )}
+                          >
+                            <div className='flex items-center justify-between p-3'>
+                              <div className='flex items-center gap-3'>
+                                <div className='w-8 h-8 rounded-full bg-background flex items-center justify-center border border-border'>
+                                  <Icon className='w-4 h-4' />
+                                </div>
+                                <span className='capitalize font-medium'>{provider}</span>
+                              </div>
+                              <Switch
+                                checked={isEnabled}
+                                onCheckedChange={(c) => updateEnv(`${envPrefix}_ENABLED`, String(c))}
+                              />
+                            </div>
+                            {isEnabled && (
+                              <div className='p-3 pt-0 grid gap-3 animate-in slide-in-from-top-2'>
+                                <div className='grid gap-1.5'>
+                                  <label className='text-xs font-medium text-muted-foreground'>Client ID</label>
+                                  <input
+                                    type='text'
+                                    className='w-full px-2 py-1.5 text-sm rounded border border-input bg-background/50'
+                                    value={getEnv(`${envPrefix}_CLIENT_ID`)}
+                                    onChange={(e) => updateEnv(`${envPrefix}_CLIENT_ID`, e.target.value)}
+                                  />
+                                </div>
+                                <div className='grid gap-1.5'>
+                                  <label className='text-xs font-medium text-muted-foreground'>Client Secret</label>
+                                  <input
+                                    type='password'
+                                    className='w-full px-2 py-1.5 text-sm rounded border border-input bg-background/50'
+                                    value={getEnv(`${envPrefix}_SECRET`)}
+                                    onChange={(e) => updateEnv(`${envPrefix}_SECRET`, e.target.value)}
+                                  />
+                                </div>
+                                {provider === 'google' && (
+                                  <div className='grid gap-1.5'>
+                                    <label className='text-xs font-medium text-muted-foreground'>
+                                      Redirect URI (Optional)
+                                    </label>
+                                    <input
+                                      type='text'
+                                      className='w-full px-2 py-1.5 text-sm rounded border border-input bg-background/50'
+                                      value={getEnv(`${envPrefix}_REDIRECT_URI`)}
+                                      onChange={(e) => updateEnv(`${envPrefix}_REDIRECT_URI`, e.target.value)}
+                                      placeholder='Auto-inferred if empty'
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Section 2: Email & SMTP */}
+                  <div className='space-y-4'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2'>
+                      <Mail className='w-4 h-4 text-primary' />
+                      <h3 className='font-semibold text-lg'>Email & SMTP</h3>
+                    </div>
+
+                    {/* General Email Toggles */}
+                    <div className='space-y-3 p-4 bg-secondary/5 rounded-md border border-border'>
+                      <div className='flex items-center justify-between'>
+                        <div className='space-y-0.5'>
+                          <label className='text-sm font-medium'>Enable Email Signup</label>
+                          <p className='text-xs text-muted-foreground'>Allow users to sign up with email/password.</p>
+                        </div>
+                        <Switch
+                          checked={getEnv('GOTRUE_EXTERNAL_EMAIL_ENABLED') !== 'false'}
+                          onCheckedChange={(c) => updateEnv('GOTRUE_EXTERNAL_EMAIL_ENABLED', String(c))}
+                        />
+                      </div>
+                      <div className='flex items-center justify-between'>
+                        <div className='space-y-0.5'>
+                          <label className='text-sm font-medium'>Confirm Email</label>
+                          <p className='text-xs text-muted-foreground'>Require email confirmation before login.</p>
+                        </div>
+                        <Switch
+                          checked={getEnv('GOTRUE_MAILER_AUTOCONFIRM') === 'false'}
+                          onCheckedChange={(c) => updateEnv('GOTRUE_MAILER_AUTOCONFIRM', String(!c))}
+                        />
+                      </div>
+                    </div>
+
+                    {/* SMTP Config */}
+                    <div className='border rounded-md'>
+                      <div className='flex items-center justify-between p-3 bg-secondary/10 border-b border-border'>
+                        <span className='font-medium text-sm'>Custom SMTP Settings</span>
+                        <Switch
+                          checked={getEnv('GOTRUE_SMTP_HOST') !== ''}
+                          onCheckedChange={(c) => {
+                            if (!c) {
+                              updateEnv('GOTRUE_SMTP_HOST', '');
+                            }
+                          }}
+                        />
+                      </div>
+                      {getEnv('GOTRUE_SMTP_HOST') !== '' && (
+                        <div className='p-4 grid grid-cols-2 gap-4 animate-in slide-in-from-top-2'>
+                          <div className='col-span-2'>
+                            <label className='text-xs font-medium'>Sender Email</label>
+                            <input
+                              type='email'
+                              required
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_ADMIN_EMAIL')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_ADMIN_EMAIL', e.target.value)}
+                            />
+                          </div>
+                          <div className='col-span-2'>
+                            <label className='text-xs font-medium'>Sender Name</label>
+                            <input
+                              type='text'
+                              required
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_SENDER_NAME')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_SENDER_NAME', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>SMTP Host</label>
+                            <input
+                              type='text'
+                              placeholder='smtp.example.com'
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_HOST')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_HOST', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>Port</label>
+                            <input
+                              type='number'
+                              placeholder='587'
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_PORT')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_PORT', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>User</label>
+                            <input
+                              type='text'
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_USER')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_USER', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>Password</label>
+                            <input
+                              type='password'
+                              className='w-full px-2 py-1.5 text-sm rounded border border-input'
+                              value={getEnv('GOTRUE_SMTP_PASS')}
+                              onChange={(e) => updateEnv('GOTRUE_SMTP_PASS', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 3: Security & Others */}
+                  <div className='space-y-4'>
+                    <div className='flex items-center gap-2 border-b border-border pb-2'>
+                      <Shield className='w-4 h-4 text-primary' />
+                      <h3 className='font-semibold text-lg'>Security</h3>
+                    </div>
+                    <div className='space-y-3 p-4 bg-secondary/5 rounded-md border border-border'>
+                      <div className='flex items-center justify-between'>
+                        <div className='space-y-0.5'>
+                          <label className='text-sm font-medium'>Enable Anonymous Signins</label>
+                          <p className='text-xs text-muted-foreground'>Allow temporary guest accounts.</p>
+                        </div>
+                        <Switch
+                          checked={getEnv('GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED') === 'true'}
+                          onCheckedChange={(c) => updateEnv('GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED', String(c))}
+                        />
+                      </div>
+                      <div className='flex items-center justify-between'>
+                        <div className='space-y-0.5'>
+                          <label className='text-sm font-medium'>Enable Phone Signup</label>
+                          <p className='text-xs text-muted-foreground'>Requires SMS provider configuration.</p>
+                        </div>
+                        <Switch
+                          checked={getEnv('GOTRUE_EXTERNAL_PHONE_ENABLED') === 'true'}
+                          onCheckedChange={(c) => updateEnv('GOTRUE_EXTERNAL_PHONE_ENABLED', String(c))}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
