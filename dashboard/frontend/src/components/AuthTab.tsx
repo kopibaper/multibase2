@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Globe, Github, Disc, Facebook, Twitter, Box, Lock, Mail, Shield, Loader2, Save, FileText } from 'lucide-react';
+import { Globe, Github, Disc, Facebook, Twitter, Box, Mail, Shield, Loader2, Save, FileText } from 'lucide-react';
 import { Switch } from './ui/Switch';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
