@@ -123,7 +123,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
 
   const tabs = [
     { id: 'general', label: 'General Info', icon: Layers },
-    { id: 'deployment', label: 'Deployment', icon: (settings) => <Settings className='w-4 h-4' /> },
+    { id: 'deployment', label: 'Deployment', icon: () => <Settings className='w-4 h-4' /> },
     { id: 'services', label: 'Services', icon: Box },
     { id: 'env', label: 'Environment', icon: Settings },
   ] as const;

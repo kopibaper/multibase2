@@ -258,8 +258,14 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                             ...p,
                             templateId: t.id,
                             deploymentType: config.deploymentType || p.deploymentType,
-                            // don't overwrite name
+                            basePort: config.basePort || p.basePort,
+                            domain: config.domain || p.domain,
+                            protocol: config.protocol || p.protocol,
+                            corsOriginsList: config.corsOrigins ? config.corsOrigins.join(', ') : p.corsOriginsList,
                           }));
+                          toast.info(`Loaded template: ${t.name}`);
+                        } else {
+                          setFormData((p) => ({ ...p, templateId: undefined }));
                         }
                       }}
                       className='w-full px-3 py-2 border border-border rounded-md bg-input'
