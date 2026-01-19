@@ -39,7 +39,7 @@ jobs:
           # Deploy only the dist folder content
           SOURCE: 'dashboard/frontend/dist/'
           # Target directory on VPS 1
-          TARGET: '/var/www/multibase-dashboard/'
+          TARGET: '/home/lafftale-multibase/htdocs/multibase.lafftale.online'
           # Create target if not exists
           ARGS: '-rltgoDzvO --delete'
 
