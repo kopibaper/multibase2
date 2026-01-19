@@ -18,7 +18,7 @@ import {
   Server,
   Zap,
 } from 'lucide-react';
-import { templatesApi } from '../lib/api';
+import { templatesApi, settingsApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { InstanceTemplate } from '../types';
 import { toast } from 'sonner';
@@ -97,17 +97,35 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   }, [template, isOpen]);
 
   // Auto-fill URLs when name or deployment type changes (Only in Create Mode or if explicitly changed)
+  // Derive domain from VITE_API_URL (e.g., https://backend.tyto-design.de -> backend.tyto-design.de)
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const derivedDomain = (() => {
+    try {
+      return new URL(apiUrl).hostname;
+    } catch {
+      return 'localhost';
+    }
+  })();
+
+  // Fetch system settings for CORS defaults
+  const { data: systemSettings } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: settingsApi.getSystem,
+    enabled: isOpen,
+  });
+
   useEffect(() => {
     if (isEditMode) return; // Don't overwrite existing templates
 
     if (formData.config.deploymentType === 'cloud' && formData.name) {
-      const domain = 'backend.tyto-design.de';
+      const domain = derivedDomain;
       const sanitizedName = formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
       setFormData((prev) => ({
         ...prev,
         config: {
           ...prev.config,
+          corsOrigins: systemSettings?.cors ? systemSettings.cors.split(',') : prev.config.corsOrigins,
           env: {
             ...prev.config.env,
             SUPABASE_PUBLIC_URL: `https://${sanitizedName}.${domain}`,
@@ -128,7 +146,14 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
         },
       }));
     }
-  }, [formData.name, formData.config.deploymentType, formData.config.basePort, isEditMode]);
+  }, [
+    formData.name,
+    formData.config.deploymentType,
+    formData.config.basePort,
+    isEditMode,
+    derivedDomain,
+    systemSettings,
+  ]);
 
   // Fetch System Template
   const { data: systemTemplate } = useQuery({

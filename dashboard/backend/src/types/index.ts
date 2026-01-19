@@ -25,6 +25,7 @@ export interface PortMapping {
 
 export interface InstanceCredentials {
   project_url: string;
+  studio_url: string;
   anon_key: string;
   service_role_key: string;
   postgres_password: string;

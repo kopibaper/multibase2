@@ -355,4 +355,7 @@ export const settingsApi = {
       body: JSON.stringify({ to }),
     });
   },
+  getSystem: () => {
+    return fetchApi<{ cors: string; api_url: string }>('/api/settings/system');
+  },
 };

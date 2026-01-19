@@ -175,12 +175,12 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
                 {stopMutation.isPending ? 'Stopping...' : 'Stop'}
               </button>
               <a
-                href={`http://${window.location.hostname}:${instance.ports.studio}`}
+                href={instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`}
                 target='_blank'
                 rel='noopener noreferrer'
                 onClick={(e) => e.stopPropagation()}
                 className='flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium'
-                title={`Open Studio (Port ${instance.ports.studio})`}
+                title={instance.credentials.studio_url ? 'Open Studio' : `Open Studio (Port ${instance.ports.studio})`}
               >
                 <ExternalLink className='w-4 h-4' />
                 Studio

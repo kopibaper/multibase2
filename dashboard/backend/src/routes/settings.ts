@@ -23,9 +23,9 @@ const requireAdmin = async (req: Request, res: Response, next: any) => {
     }
 
     (req as any).user = session.user;
-    next();
+    return next();
   } catch (error) {
-    res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 };
 
@@ -156,6 +156,26 @@ export function createSettingsRoutes() {
       }
     }
   );
+
+  /**
+   * GET /api/settings/system
+   * Get system environment variables for defaults
+   */
+  router.get('/system', requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const cors = process.env.CORS_ORIGIN || '';
+      // Also return API URL if available (optional)
+      // If API_EXTERNAL_URL is not set, we can stick to cors.
+      return res.json({
+        cors,
+        // Assuming user might add API_EXTERNAL_URL to .env in future
+        api_url: process.env.API_EXTERNAL_URL || process.env.PUBLIC_REST_URL || '',
+      });
+    } catch (error) {
+      logger.error('Error fetching system settings:', error);
+      return res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+  });
 
   return router;
 }

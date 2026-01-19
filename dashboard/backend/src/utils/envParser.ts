@@ -43,6 +43,7 @@ export function parseEnvFile(filePath: string): EnvConfig {
 export function extractCredentials(envConfig: EnvConfig): InstanceCredentials {
   return {
     project_url: envConfig.API_EXTERNAL_URL || envConfig.PUBLIC_REST_URL || '',
+    studio_url: envConfig.SUPABASE_PUBLIC_URL || '',
     anon_key: envConfig.ANON_KEY || '',
     service_role_key: envConfig.SERVICE_ROLE_KEY || '',
     postgres_password: envConfig.POSTGRES_PASSWORD || '',

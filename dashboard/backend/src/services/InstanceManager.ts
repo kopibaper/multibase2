@@ -390,6 +390,33 @@ server {
       const configPath = path.join(nginxDir, `${instance.name}.conf`);
       fs.writeFileSync(configPath, configContent);
       logger.info(`Created Nginx config: ${configPath}`);
+
+      // Reload Nginx to apply changes
+      const execAsync = promisify(exec);
+      try {
+        await execAsync('sudo nginx -s reload');
+        logger.info('Nginx reloaded successfully');
+      } catch (reloadError) {
+        logger.error('Failed to reload Nginx. Configurations might not be applied:', reloadError);
+        // If reload fails, Certbot might also fail if it relies on the running server
+      }
+
+      // Run Certbot for SSL
+      // Note: This requires the backend process to have sudo permissions without password
+      try {
+        const studioDomain = `${instance.name}.${domain}`;
+        const apiDomain = `${instance.name}-api.${domain}`;
+        const email = 'notification@tyto-design.de';
+
+        logger.info('Starting Certbot for auto-SSL...');
+        await execAsync(
+          `sudo certbot --nginx -d ${studioDomain} -d ${apiDomain} --non-interactive --agree-tos --redirect --email ${email}`
+        );
+        logger.info(`Certbot finished successfully for ${studioDomain} and ${apiDomain}`);
+      } catch (certbotError) {
+        logger.error('Certbot failed to generate SSL certificates:', certbotError);
+        // Do not throw, allow instance creation to complete (user can fix SSL manually)
+      }
     } catch (error) {
       logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
     }
