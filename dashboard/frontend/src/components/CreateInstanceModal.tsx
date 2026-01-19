@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Plus, AlertCircle, Check, Globe, Laptop } from 'lucide-react';
+import { X, Plus, Globe, Laptop } from 'lucide-react';
 import { useCreateInstance } from '../hooks/useInstances';
 import { CreateInstanceRequest, InstanceTemplate } from '../types';
 import { toast } from 'sonner';
 import { templatesApi } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
-import { Switch } from './ui/Switch';
 import { cn } from '../lib/utils';
 
 interface CreateInstanceModalProps {
@@ -16,7 +15,8 @@ interface CreateInstanceModalProps {
   initialTemplate?: InstanceTemplate | null;
 }
 
-interface FormData extends CreateInstanceRequest {
+interface FormData extends Omit<CreateInstanceRequest, 'basePort'> {
+  basePort: string | number | undefined;
   corsOriginsList: string; // Comma-separated list for UI
   templateId?: number;
 }
