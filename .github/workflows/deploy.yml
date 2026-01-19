@@ -86,7 +86,7 @@ jobs:
             echo "LOG_LEVEL=info" >> .env
             echo "DATABASE_URL=file:./data/multibase.db" >> .env
             echo "REDIS_URL=redis://localhost:6379" >> .env
-            echo "CORS_ORIGIN=https://supabase.tyto-design.de,http://localhost:5173" >> .env
+            echo "CORS_ORIGIN=https://multibase.lafftale.online,https://supabase.tyto-design.de,http://localhost:5173" >> .env
             echo "METRICS_INTERVAL=15000" >> .env
             echo "HEALTH_CHECK_INTERVAL=10000" >> .env
             echo "ALERT_CHECK_INTERVAL=60000" >> .env
