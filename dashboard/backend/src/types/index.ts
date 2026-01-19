@@ -102,6 +102,7 @@ export interface CreateInstanceRequest {
   protocol?: 'http' | 'https';
   corsOrigins?: string[];
   templateId?: number;
+  env?: Record<string, string>;
 }
 
 export interface UpdateInstanceRequest {

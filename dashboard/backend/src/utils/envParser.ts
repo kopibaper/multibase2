@@ -59,7 +59,7 @@ export function extractPorts(envConfig: EnvConfig): PortMapping {
   // Extract port from either "8000" or "host:8000" format
   const extractPort = (value: string | undefined, defaultPort: string, name: string): number => {
     logger.debug(`extractPort called for ${name}: value="${value}", default="${defaultPort}"`);
-    
+
     if (!value) {
       // Try to parse default port
       const portMatch = defaultPort.match(/:?(\d+)$/);
@@ -67,14 +67,14 @@ export function extractPorts(envConfig: EnvConfig): PortMapping {
       logger.debug(`  -> no value, using default: ${result}`);
       return result;
     }
-    
+
     // Check if value is just a number
     if (/^\d+$/.test(value)) {
       const result = parseInt(value, 10);
       logger.debug(`  -> plain number: ${result}`);
       return result;
     }
-    
+
     // Extract from host:port format
     const match = value.match(/:(\d+)$/);
     const result = match ? parseInt(match[1], 10) : 0;
@@ -90,7 +90,7 @@ export function extractPorts(envConfig: EnvConfig): PortMapping {
     pooler: extractPort(envConfig.POOLER_PORT, '6543', 'POOLER_PORT'),
     analytics: extractPort(envConfig.ANALYTICS_PORT, '4000', 'ANALYTICS_PORT'),
   };
-  
+
   logger.debug('Extracted ports:', ports);
   return ports;
 }

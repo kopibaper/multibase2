@@ -282,6 +282,23 @@ export class InstanceManager {
       logger.info(`Script output: ${stdout}`);
       logger.info(`Successfully created instance: ${name}`);
 
+      // Apply Environment Overrides (e.g. Public URLs)
+      if (request.env && Object.keys(request.env).length > 0) {
+        try {
+          const envPath = path.join(projectPath, '.env');
+          if (fs.existsSync(envPath)) {
+            const currentEnv = parseEnvFile(envPath);
+            const newEnv = { ...currentEnv, ...request.env };
+            writeEnvFile(envPath, newEnv);
+            logger.info(`Applied environment overrides for ${name}`);
+          } else {
+            logger.warn(`Could not find .env file to update for ${name}`);
+          }
+        } catch (envError) {
+          logger.error(`Failed to update environment overrides for ${name}:`, envError);
+        }
+      }
+
       // Get and return the created instance
       const instance = await this.getInstance(name);
       if (!instance) {
