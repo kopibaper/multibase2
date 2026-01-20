@@ -203,6 +203,9 @@ export class InstanceManager {
     const { name, basePort } = request;
 
     logger.info(`Creating new instance: ${name}`);
+    logger.info(
+      `Request details: deploymentType=${request.deploymentType}, env keys=${request.env ? Object.keys(request.env).join(',') : 'none'}`
+    );
 
     // Validate name
     if (!/^[a-z0-9-]+$/.test(name)) {

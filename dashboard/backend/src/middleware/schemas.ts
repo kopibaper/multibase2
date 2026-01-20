@@ -58,6 +58,7 @@ export const CreateInstanceSchema = z.object({
   protocol: z.enum(['http', 'https']).optional(),
   corsOrigins: z.array(z.string()).optional(),
   templateId: z.number().int().positive().optional(),
+  env: z.record(z.string()).optional(), // Environment variable overrides for cloud deployment
 });
 
 export const InstanceNameParamSchema = z.object({
