@@ -5,7 +5,7 @@ import { X, Plus, Globe, Laptop } from 'lucide-react';
 import { useCreateInstance } from '../hooks/useInstances';
 import { CreateInstanceRequest, InstanceTemplate } from '../types';
 import { toast } from 'sonner';
-import { templatesApi } from '../lib/api';
+import { templatesApi, settingsApi } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '../lib/utils';
 
@@ -37,11 +37,28 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Derive domain from VITE_API_URL
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const derivedDomain = (() => {
+    try {
+      return new URL(apiUrl).hostname;
+    } catch {
+      return 'localhost';
+    }
+  })();
+
   const { data: templatesData } = useQuery({
     queryKey: ['templates'],
     queryFn: templatesApi.list,
   });
   const templates = templatesData?.templates || [];
+
+  // Fetch system settings for CORS defaults
+  const { data: systemSettings } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: settingsApi.getSystem,
+    enabled: open,
+  });
 
   // Pre-fill form when initialTemplate is provided
   useEffect(() => {
@@ -61,7 +78,11 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       }));
       toast.info(`Loaded template: ${initialTemplate.name}`);
     } else if (!open) {
-      setFormData(initialFormData);
+      setFormData({
+        ...initialFormData,
+        domain: derivedDomain !== 'localhost' ? derivedDomain : '',
+        corsOriginsList: systemSettings?.cors || '',
+      });
       setErrors({});
     }
   }, [open, initialTemplate]);
@@ -111,6 +132,15 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
         .split(',')
         .map((o) => o.trim())
         .filter((o) => o.length > 0);
+    }
+
+    // Add env overrides for cloud deployment
+    if (formData.deploymentType === 'cloud' && formData.domain && formData.name) {
+      const sanitizedName = formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      requestData.env = {
+        SUPABASE_PUBLIC_URL: `https://${sanitizedName}.${formData.domain}`,
+        API_EXTERNAL_URL: `https://${sanitizedName}-api.${formData.domain}`,
+      };
     }
 
     try {

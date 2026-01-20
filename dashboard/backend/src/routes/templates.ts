@@ -54,10 +54,10 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
         config: JSON.parse(t.config),
       }));
 
-      res.json({ templates: parsedTemplates });
+      return res.json({ templates: parsedTemplates });
     } catch (error) {
       logger.error('Error fetching templates:', error);
-      res.status(500).json({ error: 'Failed to fetch templates' });
+      return res.status(500).json({ error: 'Failed to fetch templates' });
     }
   });
 
@@ -68,10 +68,10 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.get('/system', requireAuth, async (req: Request, res: Response) => {
     try {
       const template = await instanceManager.getSystemTemplate();
-      res.json(template);
+      return res.json(template);
     } catch (error) {
       logger.error('Error fetching system template:', error);
-      res.status(500).json({ error: 'Failed to fetch system template' });
+      return res.status(500).json({ error: 'Failed to fetch system template' });
     }
   });
 
@@ -109,7 +109,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
           },
         });
 
-        res.status(201).json({
+        return res.status(201).json({
           ...template,
           config: JSON.parse(template.config),
         });
@@ -118,7 +118,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
         if ((error as any).code === 'P2002') {
           return res.status(409).json({ error: 'Template name already exists' });
         }
-        res.status(500).json({ error: 'Failed to create template' });
+        return res.status(500).json({ error: 'Failed to create template' });
       }
     }
   );
@@ -153,13 +153,13 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      res.json({
+      return res.json({
         ...template,
         config: JSON.parse(template.config),
       });
     } catch (error) {
       logger.error(`Error fetching template ${req.params.id}:`, error);
-      res.status(500).json({ error: 'Failed to fetch template' });
+      return res.status(500).json({ error: 'Failed to fetch template' });
     }
   });
 
@@ -199,13 +199,13 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
           data: updateData,
         });
 
-        res.json({
+        return res.json({
           ...updated,
           config: JSON.parse(updated.config),
         });
       } catch (error) {
         logger.error('Error updating template:', error);
-        res.status(500).json({ error: 'Failed to update template' });
+        return res.status(500).json({ error: 'Failed to update template' });
       }
     }
   );
@@ -243,10 +243,10 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
           where: { id },
         });
 
-        res.json({ message: 'Template deleted successfully' });
+        return res.json({ message: 'Template deleted successfully' });
       } catch (error) {
         logger.error(`Error deleting template ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to delete template' });
+        return res.status(500).json({ error: 'Failed to delete template' });
       }
     }
   );
@@ -288,13 +288,13 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
 
       logger.info(`Instance created from template ${id}: ${instance.name}`);
 
-      res.status(201).json({
+      return res.status(201).json({
         message: 'Instance created successfully',
         instance,
       });
     } catch (error: any) {
       logger.error('Error using template:', error);
-      res.status(500).json({ error: error.message || 'Failed to create instance' });
+      return res.status(500).json({ error: error.message || 'Failed to create instance' });
     }
   });
 
