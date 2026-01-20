@@ -65,7 +65,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates/system
    * Get system template (docker-compose.yml structure)
    */
-  router.get('/system', requireAuth, async (req: Request, res: Response) => {
+  router.get('/system', requireAuth, async (_req: Request, res: Response) => {
     try {
       const template = await instanceManager.getSystemTemplate();
       return res.json(template);

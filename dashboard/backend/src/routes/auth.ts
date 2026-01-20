@@ -405,7 +405,7 @@ export function createAuthRoutes() {
    */
   router.post(
     '/avatar',
-    (req: Request, res: Response, next) => {
+    (req: Request, _res: Response, next) => {
       // Extract user ID before multer runs
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (token) {

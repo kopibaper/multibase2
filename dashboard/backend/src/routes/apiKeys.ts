@@ -75,7 +75,7 @@ export function createApiKeyRoutes() {
       logger.info(`API key created: ${keyPrefix} by user ${user.id}`);
 
       // Return the full key only once - it cannot be retrieved later
-      res.status(201).json({
+      return res.status(201).json({
         ...apiKey,
         key, // Full key - only shown once!
         scopes: JSON.parse(apiKey.scopes),
@@ -83,7 +83,7 @@ export function createApiKeyRoutes() {
       });
     } catch (error) {
       logger.error('Error creating API key:', error);
-      res.status(500).json({ error: 'Failed to create API key' });
+      return res.status(500).json({ error: 'Failed to create API key' });
     }
   });
 
@@ -110,7 +110,7 @@ export function createApiKeyRoutes() {
         orderBy: { createdAt: 'desc' },
       });
 
-      res.json({
+      return res.json({
         keys: keys.map((k) => ({
           ...k,
           scopes: JSON.parse(k.scopes),
@@ -118,7 +118,7 @@ export function createApiKeyRoutes() {
       });
     } catch (error) {
       logger.error('Error listing API keys:', error);
-      res.status(500).json({ error: 'Failed to list API keys' });
+      return res.status(500).json({ error: 'Failed to list API keys' });
     }
   });
 
@@ -148,7 +148,7 @@ export function createApiKeyRoutes() {
       const activeKeys = keys.filter((k) => k.lastUsedAt && k.lastUsedAt >= sevenDaysAgo).length;
       const expiredKeys = keys.filter((k) => k.expiresAt && k.expiresAt < now).length;
 
-      res.json({
+      return res.json({
         totalKeys,
         totalUsage,
         activeKeys,
@@ -156,7 +156,7 @@ export function createApiKeyRoutes() {
       });
     } catch (error) {
       logger.error('Error getting API key stats:', error);
-      res.status(500).json({ error: 'Failed to get API key stats' });
+      return res.status(500).json({ error: 'Failed to get API key stats' });
     }
   });
 
@@ -191,13 +191,13 @@ export function createApiKeyRoutes() {
         return res.status(404).json({ error: 'API key not found' });
       }
 
-      res.json({
+      return res.json({
         ...key,
         scopes: JSON.parse(key.scopes),
       });
     } catch (error) {
       logger.error('Error getting API key:', error);
-      res.status(500).json({ error: 'Failed to get API key' });
+      return res.status(500).json({ error: 'Failed to get API key' });
     }
   });
 
@@ -232,10 +232,10 @@ export function createApiKeyRoutes() {
         });
 
         logger.info(`API key revoked: ${key.keyPrefix} by user ${user.id}`);
-        res.json({ message: 'API key revoked successfully' });
+        return res.json({ message: 'API key revoked successfully' });
       } catch (error) {
         logger.error('Error revoking API key:', error);
-        res.status(500).json({ error: 'Failed to revoke API key' });
+        return res.status(500).json({ error: 'Failed to revoke API key' });
       }
     }
   );
@@ -310,6 +310,6 @@ export const authenticateApiKey = async (
     next();
   } catch (error) {
     logger.error('Error authenticating API key:', error);
-    res.status(500).json({ error: 'Authentication failed' });
+    return res.status(500).json({ error: 'Authentication failed' });
   }
 };

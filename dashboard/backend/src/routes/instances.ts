@@ -20,13 +20,13 @@ export function createInstanceRoutes(
    * GET /api/instances
    * List all instances
    */
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireAuth, async (_req: Request, res: Response) => {
     try {
       const instances = await instanceManager.listInstances();
-      res.json(instances);
+      return res.json(instances);
     } catch (error: any) {
       logger.error('Error listing instances:', error);
-      res.status(500).json({ error: error.message || 'Failed to list instances' });
+      return res.status(500).json({ error: error.message || 'Failed to list instances' });
     }
   });
 
@@ -44,10 +44,10 @@ export function createInstanceRoutes(
         return res.status(404).json({ error: 'Instance not found' });
       }
 
-      res.json(instance);
+      return res.json(instance);
     } catch (error: any) {
       logger.error(`Error getting instance ${req.params.name}:`, error);
-      res.status(500).json({ error: error.message || 'Failed to get instance' });
+      return res.status(500).json({ error: error.message || 'Failed to get instance' });
     }
   });
 
@@ -314,10 +314,10 @@ export function createInstanceRoutes(
 
       // Security: Filter out highly sensitive keys if needed?
       // Admin should see everything usually.
-      res.json(config);
+      return res.json(config);
     } catch (error: any) {
       logger.error(`Error getting env for ${req.params.name}:`, error);
-      res.status(500).json({ error: error.message || 'Failed to get env' });
+      return res.status(500).json({ error: error.message || 'Failed to get env' });
     }
   });
 
