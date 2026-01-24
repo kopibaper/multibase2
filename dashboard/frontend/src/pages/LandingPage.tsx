@@ -50,9 +50,7 @@ const LandingPage = () => {
       <nav className='z-10 border-b border-white/5 backdrop-blur-md sticky top-0'>
         <div className='container mx-auto px-6 h-16 flex items-center justify-between'>
           <div className='flex items-center gap-2 font-bold text-xl tracking-tight'>
-            <div className='w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white'>
-              <Database size={20} />
-            </div>
+            <img src='/logo.png' alt='Multibase' className='w-8 h-8' />
             Multibase
           </div>
           <div className='flex items-center gap-4'>
@@ -175,9 +173,7 @@ const LandingPage = () => {
         <div className='container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-8'>
           <div>
             <div className='flex items-center gap-2 font-bold mb-4'>
-              <div className='w-6 h-6 bg-brand-500/20 rounded-md flex items-center justify-center text-brand-500'>
-                <Database size={14} />
-              </div>
+              <img src='/logo.png' alt='Multibase' className='w-6 h-6' />
               Multibase
             </div>
             <p className='text-sm text-muted-foreground'>The open source backend for your next application.</p>
