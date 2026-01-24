@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Database, Shield, Activity, Zap, Layers } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // Generic Button component to avoid dependency issues if shadcn isn't fully set up or we want custom Supabase style
 const SupabaseButton = ({ className, variant = 'primary', children, ...props }: any) => {
@@ -35,6 +36,7 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: any; title: str
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className='min-h-screen bg-background text-foreground flex flex-col overflow-hidden relative selection:bg-brand-500/30'>
@@ -62,10 +64,16 @@ const LandingPage = () => {
             >
               Documentation
             </a>
-            <SupabaseButton variant='ghost' onClick={() => navigate('/login')} className='hidden sm:inline-flex'>
-              Sign In
-            </SupabaseButton>
-            <SupabaseButton onClick={() => navigate('/login')}>Get Started</SupabaseButton>
+            {user ? (
+              <SupabaseButton onClick={() => navigate('/dashboard')}>Dashboard</SupabaseButton>
+            ) : (
+              <>
+                <SupabaseButton variant='ghost' onClick={() => navigate('/login')} className='hidden sm:inline-flex'>
+                  Sign In
+                </SupabaseButton>
+                <SupabaseButton onClick={() => navigate('/login')}>Get Started</SupabaseButton>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -92,12 +100,21 @@ const LandingPage = () => {
           </p>
 
           <div className='flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up [animation-delay:300ms]'>
-            <SupabaseButton
-              className='h-12 px-8 text-base bg-brand-500 hover:bg-brand-600 text-white'
-              onClick={() => navigate('/login')}
-            >
-              Start your project
-            </SupabaseButton>
+            {user ? (
+              <SupabaseButton
+                className='h-12 px-8 text-base bg-brand-500 hover:bg-brand-600 text-white'
+                onClick={() => navigate('/dashboard')}
+              >
+                Go to Dashboard
+              </SupabaseButton>
+            ) : (
+              <SupabaseButton
+                className='h-12 px-8 text-base bg-brand-500 hover:bg-brand-600 text-white'
+                onClick={() => navigate('/login')}
+              >
+                Start your project
+              </SupabaseButton>
+            )}
             <SupabaseButton
               variant='secondary'
               className='h-12 px-8 text-base'
