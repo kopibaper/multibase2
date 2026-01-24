@@ -109,6 +109,112 @@ export class AuthService {
   }
 
   /**
+   * Verify email with token
+   */
+  async verifyEmail(token: string): Promise<void> {
+    try {
+      const user = await prisma.user.findFirst({
+        where: { verificationToken: token },
+      });
+
+      if (!user) {
+        throw new Error('Invalid or expired verification token');
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+          verificationToken: null,
+          isActive: true, // Activate user upon verification
+        },
+      });
+
+      logger.info(`Email verified for user: ${user.email}`);
+    } catch (error) {
+      logger.error('Error verifying email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Request password reset
+   */
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        // Don't reveal user existence
+        logger.info(`Password reset requested for non-existent email: ${email}`);
+        return;
+      }
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetPasswordToken: resetToken,
+          resetPasswordExpires: resetExpires,
+        },
+      });
+
+      // Send email
+      await EmailService.sendPasswordResetEmail(user.email, resetToken);
+      logger.info(`Password reset email sent to: ${user.email}`);
+    } catch (error) {
+      logger.error('Error in forgot password service:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          resetPasswordToken: token,
+          resetPasswordExpires: {
+            gt: new Date(),
+          },
+        },
+      });
+
+      if (!user) {
+        throw new Error('Invalid or expired reset token');
+      }
+
+      const passwordHash = await this.hashPassword(newPassword);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        },
+      });
+
+      // Optional: Revoke all existing sessions
+      await prisma.session.deleteMany({
+        where: { userId: user.id },
+      });
+
+      logger.info(`Password successfully reset for user: ${user.email}`);
+    } catch (error) {
+      logger.error('Error resetting password:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Login user and create session
    */
   async login(

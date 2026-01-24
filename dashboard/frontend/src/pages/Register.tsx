@@ -27,8 +27,25 @@ export default function Register() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    // Password complexity validation
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one number');
+      return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      setError('Password must contain at least one special character');
       return;
     }
 
@@ -134,7 +151,7 @@ export default function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
-                  placeholder='••••••'
+                  placeholder='••••••••'
                   disabled={isLoading}
                 />
               </div>
@@ -149,10 +166,24 @@ export default function Register() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
-                  placeholder='••••••'
+                  placeholder='••••••••'
                   disabled={isLoading}
                 />
               </div>
+            </div>
+
+            {/* Password Requirements */}
+            <div className='text-xs text-muted-foreground space-y-1 bg-muted/50 rounded-md p-3'>
+              <p className='font-medium text-foreground mb-1'>Password requirements:</p>
+              <ul className='list-disc list-inside space-y-0.5'>
+                <li className={password.length >= 8 ? 'text-green-500' : ''}>At least 8 characters</li>
+                <li className={/[A-Z]/.test(password) ? 'text-green-500' : ''}>One uppercase letter (A-Z)</li>
+                <li className={/[a-z]/.test(password) ? 'text-green-500' : ''}>One lowercase letter (a-z)</li>
+                <li className={/[0-9]/.test(password) ? 'text-green-500' : ''}>One number (0-9)</li>
+                <li className={/[^a-zA-Z0-9]/.test(password) ? 'text-green-500' : ''}>
+                  One special character (!@#$...)
+                </li>
+              </ul>
             </div>
 
             <button
