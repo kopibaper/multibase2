@@ -28,8 +28,11 @@ services:
     depends_on:
       analytics:
         condition: service_healthy
+      storage:
+        condition: service_healthy
     environment:
       STUDIO_PG_META_URL: http://meta:8080
+      STORAGE_URL: http://storage:5000
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
       DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION}

@@ -361,6 +361,19 @@ export class InstanceManager {
 server {
     listen 80;
     server_name ${instance.name}.${domain};
+    client_max_body_size 100M;
+
+    # Fix for Studio UI expecting storage API on same domain
+    location /storage/ {
+        proxy_pass http://127.0.0.1:${instance.ports.kong_http}/storage/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
     
     location / {
         proxy_pass http://127.0.0.1:${instance.ports.studio};
@@ -377,6 +390,7 @@ server {
 server {
     listen 80;
     server_name ${instance.name}-api.${domain};
+    client_max_body_size 100M;
 
     location / {
         proxy_pass http://127.0.0.1:${instance.ports.kong_http};

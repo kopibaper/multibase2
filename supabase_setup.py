@@ -13,6 +13,36 @@ import subprocess
 import random
 import string
 from pathlib import Path
+import hmac
+import hashlib
+import base64
+import json
+import time
+
+def generate_jwt_token(secret, role):
+    """Generate a JWT token signed with the given secret."""
+    header = {'alg': 'HS256', 'typ': 'JWT'}
+    now = int(time.time())
+    payload = {
+        'role': role,
+        'iss': 'supabase',
+        'iat': now,
+        'exp': now + (10 * 365 * 24 * 60 * 60)  # 10 years
+    }
+    
+    # Simple base64url encode without external dependencies
+    def base64url_encode(data):
+        return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
+    
+    header_b64 = base64url_encode(json.dumps(header).encode())
+    payload_b64 = base64url_encode(json.dumps(payload).encode())
+    
+    message = f'{header_b64}.{payload_b64}'
+    signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
+    signature_b64 = base64url_encode(signature)
+    
+    return f'{header_b64}.{payload_b64}.{signature_b64}'
+
 
 
 class SupabaseProjectGenerator:
@@ -712,14 +742,18 @@ networks:
         vault_enc_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         logflare_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         
+        # Generate JWT tokens using the same secret
+        anon_key = generate_jwt_token(jwt_secret, 'anon')
+        service_role_key = generate_jwt_token(jwt_secret, 'service_role')
+        
         self.templates["env"] = f"""############
 # Secrets
 # YOU MUST CHANGE THESE BEFORE GOING INTO PRODUCTION
 ############
 POSTGRES_PASSWORD={password}
 JWT_SECRET={jwt_secret}
-ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+ANON_KEY={anon_key}
+SERVICE_ROLE_KEY={service_role_key}
 DASHBOARD_USERNAME=supabase
 DASHBOARD_PASSWORD={self.project_name}
 SECRET_KEY_BASE={secret_key_base}
