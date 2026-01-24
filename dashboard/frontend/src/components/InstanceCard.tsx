@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SupabaseInstance } from '../types';
-import { AlertTriangle } from 'lucide-react';
+import {
+  Activity,
+  Server,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  AlertTriangle,
+  Play,
+  Square,
+  ExternalLink,
+  Save,
+} from 'lucide-react';
 import { useStartInstance, useStopInstance } from '../hooks/useInstances';
 import { useAlerts } from '../hooks/useAlerts';
 import SaveTemplateModal from './SaveTemplateModal';
@@ -19,34 +30,31 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
 
-  const getStatusColor = (status: string) => {
+  const getHealthColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'text-emerald-400';
+        return 'text-green-600 bg-green-100';
       case 'degraded':
-        return 'text-yellow-400';
+        return 'text-yellow-600 bg-yellow-100';
       case 'unhealthy':
-        return 'text-red-400';
+        return 'text-red-600 bg-red-100';
       case 'stopped':
-        return 'text-gray-500';
+        return 'text-gray-600 bg-gray-100';
       default:
-        return 'text-gray-500';
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
-  const getStatusDot = (status: string) => {
-    const baseClasses = 'w-2 h-2 rounded-full';
+  const getHealthIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return `${baseClasses} bg-emerald-400`;
+        return <CheckCircle className='w-5 h-5' />;
       case 'degraded':
-        return `${baseClasses} bg-yellow-400`;
+        return <AlertCircle className='w-5 h-5' />;
       case 'unhealthy':
-        return `${baseClasses} bg-red-400`;
-      case 'stopped':
-        return `${baseClasses} bg-gray-500`;
+        return <XCircle className='w-5 h-5' />;
       default:
-        return `${baseClasses} bg-gray-500`;
+        return <Activity className='w-5 h-5' />;
     }
   };
 
@@ -56,6 +64,11 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
     await startMutation.mutateAsync(instance.name);
   };
 
+  const handleStop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowStopConfirm(true);
+  };
   const confirmStop = async () => {
     setShowStopConfirm(false);
     await stopMutation.mutateAsync(instance.name);
@@ -65,84 +78,127 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
     navigate(`/instances/${instance.name}`);
   };
 
-  const handleManage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigate(`/instances/${instance.name}`);
-  };
-
-  const handleRestart = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (instance.health.overall !== 'stopped') {
-      await stopMutation.mutateAsync(instance.name);
-      setTimeout(async () => {
-        await startMutation.mutateAsync(instance.name);
-      }, 2000);
-    }
-  };
-
-  const handleSettings = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigate(`/instances/${instance.name}?tab=settings`);
-  };
-
   return (
     <>
       <div
         onClick={handleCardClick}
-        className='bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-5 hover:border-emerald-500/30 hover:bg-slate-800/70 transition-all cursor-pointer group'
+        className='bg-card border rounded-lg p-6 hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer'
       >
         {/* Header */}
-        <div className='mb-4'>
-          <div className='flex items-center justify-between'>
-            <h3 className='text-lg font-semibold text-white group-hover:text-emerald-400 transition-colors'>
+        <div className='flex items-start justify-between mb-4'>
+          <div className='flex-1'>
+            <h3 className='text-xl font-semibold text-foreground flex items-center gap-2'>
+              <Server className='w-5 h-5 text-primary' />
               {instance.name}
               {alerts && alerts.length > 0 && (
                 <span
-                  className='ml-2 inline-flex'
+                  className='relative flex items-center'
                   title={`${alerts.length} active alert${alerts.length !== 1 ? 's' : ''}`}
                 >
-                  <AlertTriangle className='w-4 h-4 text-orange-400 animate-pulse' />
+                  <AlertTriangle className='w-5 h-5 text-orange-500 animate-pulse' />
+                  <span className='absolute -top-1 -right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center'>
+                    {alerts.length}
+                  </span>
                 </span>
               )}
             </h3>
+            <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
           </div>
 
-          {/* Status */}
-          <div className='flex items-center gap-2 mt-2'>
-            <span className={getStatusDot(instance.health.overall)} />
-            <span className={`text-sm capitalize ${getStatusColor(instance.health.overall)}`}>
-              {instance.health.overall === 'healthy' ? 'Running' : instance.health.overall}
-            </span>
+          <div className='flex gap-2 items-center'>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSaveModal(true);
+              }}
+              className='p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors'
+              title='Save as Template'
+            >
+              <Save className='w-4 h-4' />
+            </button>
+
+            <div
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getHealthColor(
+                instance.health.overall
+              )}`}
+            >
+              {getHealthIcon(instance.health.overall)}
+              <span className='capitalize'>{instance.health.overall}</span>
+            </div>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className='flex items-center gap-4 text-sm'>
-          <button onClick={handleManage} className='text-slate-400 hover:text-white transition-colors'>
-            Manage
-          </button>
+        {/* Services Stats */}
+        <div className='mb-4 pb-4 border-b'>
+          <div className='flex items-center justify-between text-sm'>
+            <span className='text-muted-foreground'>Services</span>
+            <span className='font-medium'>
+              {instance.health.healthyServices} / {instance.health.totalServices} healthy
+            </span>
+          </div>
+          <div className='mt-2 flex-1 bg-muted rounded-full h-2 overflow-hidden'>
+            <div
+              className='bg-green-500 h-full transition-all'
+              style={{
+                width: `${(instance.health.healthyServices / instance.health.totalServices) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
 
+        {/* Metrics */}
+        {instance.metrics && (
+          <div className='grid grid-cols-2 gap-4 mb-4'>
+            <div>
+              <p className='text-xs text-muted-foreground'>CPU</p>
+              <p className='text-lg font-semibold'>{instance.metrics.cpu.toFixed(1)}%</p>
+            </div>
+            <div>
+              <p className='text-xs text-muted-foreground'>Memory</p>
+              <p className='text-lg font-semibold'>{(instance.metrics.memory / 1024).toFixed(1)} GB</p>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className='flex gap-2'>
+          {/* Show Stop button for any running/healthy/degraded/unhealthy instance */}
           {instance.health.overall !== 'stopped' ? (
-            <button
-              onClick={handleRestart}
-              disabled={stopMutation.isPending || startMutation.isPending}
-              className='text-slate-400 hover:text-white transition-colors disabled:opacity-50'
-            >
-              Restart
-            </button>
+            <>
+              <button
+                onClick={handleStop}
+                disabled={stopMutation.isPending}
+                className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20 transition-colors text-sm font-medium disabled:opacity-50'
+              >
+                <Square className='w-4 h-4' />
+                {stopMutation.isPending ? 'Stopping...' : 'Stop'}
+              </button>
+              <a
+                href={instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                onClick={(e) => e.stopPropagation()}
+                className='flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium'
+                title={instance.credentials.studio_url ? 'Open Studio' : `Open Studio (Port ${instance.ports.studio})`}
+              >
+                <ExternalLink className='w-4 h-4' />
+                Studio
+              </a>
+            </>
           ) : (
             <button
               onClick={handleStart}
               disabled={startMutation.isPending}
-              className='text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50'
+              className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors text-sm font-medium disabled:opacity-50'
             >
-              Start
+              <Play className='w-4 h-4' />
+              {startMutation.isPending ? 'Starting...' : 'Start'}
             </button>
           )}
+        </div>
 
-          <button onClick={handleSettings} className='text-slate-400 hover:text-white transition-colors'>
-            Settings
-          </button>
+        <div className='mt-4 pt-4 border-t text-xs text-muted-foreground'>
+          Last checked: {new Date(instance.health.lastChecked).toLocaleTimeString()}
         </div>
       </div>
 
