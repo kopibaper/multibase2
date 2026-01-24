@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
 import { CreateInstanceSchema } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
-import { requireAuth } from '../middleware/auth';
+import { requireViewer, requireUser } from '../middleware/authMiddleware';
 
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
@@ -20,7 +20,7 @@ export function createInstanceRoutes(
    * GET /api/instances
    * List all instances
    */
-  router.get('/', requireAuth, async (_req: Request, res: Response) => {
+  router.get('/', requireViewer, async (_req: Request, res: Response) => {
     try {
       const instances = await instanceManager.listInstances();
       return res.json(instances);
@@ -34,7 +34,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name
    * Get a specific instance by name
    */
-  router.get('/:name', requireAuth, async (req: Request, res: Response) => {
+  router.get('/:name', requireViewer, async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const instances = await instanceManager.listInstances();
@@ -57,7 +57,7 @@ export function createInstanceRoutes(
    */
   router.post(
     '/',
-    requireAuth,
+    requireUser,
     validate(CreateInstanceSchema),
     auditLog('INSTANCE_CREATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
@@ -116,33 +116,43 @@ export function createInstanceRoutes(
    * DELETE /api/instances/:name
    * Delete an instance
    */
-  router.delete('/:name', auditLog('INSTANCE_DELETE'), async (req: Request, res: Response) => {
-    try {
-      const { name } = req.params;
-      const { removeVolumes } = req.query;
+  router.delete(
+    '/:name',
+    requireUser,
+    auditLog('INSTANCE_DELETE'),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { removeVolumes } = req.query;
 
-      await instanceManager.deleteInstance(name, removeVolumes === 'true');
-      res.json({ message: `Instance ${name} deleted successfully` });
-    } catch (error: any) {
-      logger.error(`Error deleting instance ${req.params.name}:`, error);
-      res.status(500).json({ error: error.message || 'Failed to delete instance' });
+        await instanceManager.deleteInstance(name, removeVolumes === 'true');
+        res.json({ message: `Instance ${name} deleted successfully` });
+      } catch (error: any) {
+        logger.error(`Error deleting instance ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to delete instance' });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/instances/:name/start
    * Start an instance
    */
-  router.post('/:name/start', auditLog('INSTANCE_START'), async (req: Request, res: Response) => {
-    try {
-      const { name } = req.params;
-      await instanceManager.startInstance(name);
-      res.json({ message: `Instance ${name} started successfully` });
-    } catch (error: any) {
-      logger.error(`Error starting instance ${req.params.name}:`, error);
-      res.status(500).json({ error: error.message || 'Failed to start instance' });
+  router.post(
+    '/:name/start',
+    requireUser,
+    auditLog('INSTANCE_START'),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        await instanceManager.startInstance(name);
+        res.json({ message: `Instance ${name} started successfully` });
+      } catch (error: any) {
+        logger.error(`Error starting instance ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to start instance' });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/instances/:name/stop
@@ -150,7 +160,7 @@ export function createInstanceRoutes(
    */
   router.post(
     '/:name/stop',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_STOP'),
     async (req: Request, res: Response) => {
       try {
@@ -172,7 +182,7 @@ export function createInstanceRoutes(
    */
   router.post(
     '/:name/restart',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_RESTART'),
     async (req: Request, res: Response) => {
       try {
@@ -192,7 +202,7 @@ export function createInstanceRoutes(
    */
   router.post(
     '/:name/services/:service/restart',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_SERVICE_RESTART', {
       getResource: (req) => `${req.params.name}:${req.params.service}`,
     }),
@@ -217,7 +227,7 @@ export function createInstanceRoutes(
    */
   router.put(
     '/:name/credentials',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_UPDATE_CREDENTIALS', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -237,7 +247,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/services
    * Get services status for an instance
    */
-  router.get('/:name/services', requireAuth, async (req: Request, res: Response) => {
+  router.get('/:name/services', requireViewer, async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const services = await dockerManager.getServiceStatus(name);
@@ -254,7 +264,7 @@ export function createInstanceRoutes(
    */
   router.put(
     '/:name/smtp',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_UPDATE_SMTP', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -286,7 +296,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/env
    * Get instance environment variables
    */
-  router.get('/:name/env', requireAuth, async (req: Request, res: Response) => {
+  router.get('/:name/env', requireViewer, async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { keys } = req.query; // Optional: comma-separated list of keys to fetch
@@ -327,7 +337,7 @@ export function createInstanceRoutes(
    */
   router.put(
     '/:name/env',
-    requireAuth,
+    requireUser,
     auditLog('INSTANCE_UPDATE_ENV', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {

@@ -16,6 +16,7 @@ import {
   TrendingUp,
   LogOut,
   Users,
+  User,
   Database,
   Key,
   Mail,
@@ -96,13 +97,15 @@ export default function Dashboard() {
               Templates
             </Link>
 
-            <button
-              className='flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors'
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <Plus className='w-4 h-4' />
-              Create Instance
-            </button>
+            {user?.role !== 'viewer' && (
+              <button
+                className='flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors'
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                <Plus className='w-4 h-4' />
+                Create Instance
+              </button>
+            )}
 
             {/* User Menu */}
             <div className='relative'>
@@ -122,6 +125,16 @@ export default function Dashboard() {
                     <p className='text-sm font-medium text-foreground'>{user?.username}</p>
                     <p className='text-xs text-muted-foreground'>{user?.email}</p>
                     <p className='text-xs text-primary mt-1 capitalize'>{user?.role}</p>
+                  </div>
+                  <div className='py-1 border-b border-border'>
+                    <Link
+                      to='/profile'
+                      className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <User className='w-4 h-4' />
+                      My Profile
+                    </Link>
                   </div>
                   <div className='py-1'>
                     <Link

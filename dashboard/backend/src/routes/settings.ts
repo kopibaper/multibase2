@@ -1,33 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
 import { auditLog } from '../middleware/auditLog';
+import { requireAdmin } from '../middleware/authMiddleware';
 
 const prisma = new PrismaClient();
-
-/**
- * Middleware to check admin authentication
- */
-const requireAdmin = async (req: Request, res: Response, next: any) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const session = await AuthService.validateSession(token);
-    if (!session || session.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    (req as any).user = session.user;
-    return next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-};
 
 export function createSettingsRoutes() {
   const router = Router();

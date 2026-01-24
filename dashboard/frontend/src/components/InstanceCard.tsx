@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SupabaseInstance } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Activity,
   Server,
@@ -24,6 +25,8 @@ interface InstanceCardProps {
 
 export default function InstanceCard({ instance }: InstanceCardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canTakeActions = user?.role !== 'viewer';
   const startMutation = useStartInstance();
   const stopMutation = useStopInstance();
   const { data: alerts } = useAlerts({ instanceId: instance.id, status: 'active' });
@@ -106,16 +109,18 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
           </div>
 
           <div className='flex gap-2 items-center'>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSaveModal(true);
-              }}
-              className='p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors'
-              title='Save as Template'
-            >
-              <Save className='w-4 h-4' />
-            </button>
+            {canTakeActions && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSaveModal(true);
+                }}
+                className='p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors'
+                title='Save as Template'
+              >
+                <Save className='w-4 h-4' />
+              </button>
+            )}
 
             <div
               className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getHealthColor(
@@ -165,14 +170,16 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
           {/* Show Stop button for any running/healthy/degraded/unhealthy instance */}
           {instance.health.overall !== 'stopped' ? (
             <>
-              <button
-                onClick={handleStop}
-                disabled={stopMutation.isPending}
-                className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20 transition-colors text-sm font-medium disabled:opacity-50'
-              >
-                <Square className='w-4 h-4' />
-                {stopMutation.isPending ? 'Stopping...' : 'Stop'}
-              </button>
+              {canTakeActions && (
+                <button
+                  onClick={handleStop}
+                  disabled={stopMutation.isPending}
+                  className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20 transition-colors text-sm font-medium disabled:opacity-50'
+                >
+                  <Square className='w-4 h-4' />
+                  {stopMutation.isPending ? 'Stopping...' : 'Stop'}
+                </button>
+              )}
               <a
                 href={instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`}
                 target='_blank'
@@ -186,14 +193,16 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
               </a>
             </>
           ) : (
-            <button
-              onClick={handleStart}
-              disabled={startMutation.isPending}
-              className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors text-sm font-medium disabled:opacity-50'
-            >
-              <Play className='w-4 h-4' />
-              {startMutation.isPending ? 'Starting...' : 'Start'}
-            </button>
+            canTakeActions && (
+              <button
+                onClick={handleStart}
+                disabled={startMutation.isPending}
+                className='flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors text-sm font-medium disabled:opacity-50'
+              >
+                <Play className='w-4 h-4' />
+                {startMutation.isPending ? 'Starting...' : 'Start'}
+              </button>
+            )
           )}
         </div>
 

@@ -4,8 +4,7 @@ import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
 import { CreateBackupSchema } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
-
-import { requireAuth } from '../middleware/auth';
+import { requireViewer, requireUser, requireAdmin } from '../middleware/authMiddleware';
 
 export function createBackupRoutes() {
   const router = Router();
@@ -16,7 +15,7 @@ export function createBackupRoutes() {
    */
   router.post(
     '/',
-    requireAuth,
+    requireUser,
     validate(CreateBackupSchema),
     auditLog('BACKUP_CREATE', {
       includeBody: true,
@@ -55,7 +54,7 @@ export function createBackupRoutes() {
    * GET /api/backups
    * List all backups
    */
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireViewer, async (req: Request, res: Response) => {
     try {
       const { type } = req.query;
 
@@ -73,7 +72,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id
    * Get backup by ID
    */
-  router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireViewer, async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -94,7 +93,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id/preview
    * Preview what's in a backup (before restoring)
    */
-  router.get('/:id/preview', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id/preview', requireViewer, async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -139,7 +138,7 @@ export function createBackupRoutes() {
    */
   router.post(
     '/:id/restore',
-    requireAuth,
+    requireAdmin,
     auditLog('BACKUP_RESTORE', {
       getResource: (req) => req.params.id,
       includeBody: true,
@@ -176,7 +175,7 @@ export function createBackupRoutes() {
    */
   router.delete(
     '/:id',
-    requireAuth,
+    requireAdmin,
     auditLog('BACKUP_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {
