@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../utils/logger';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Load email configuration from environment variables
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -10,38 +13,64 @@ const SMTP_FROM = process.env.SMTP_FROM || '"Multibase" <no-reply@multibase.io>'
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 class EmailService {
-  private transporter: nodemailer.Transporter;
-  private isConfigured: boolean = false;
+  /**
+   * Get transporter with current settings (DB or Env)
+   */
+  private async getTransporter(): Promise<{
+    transporter: nodemailer.Transporter | null;
+    fromEmail: string;
+  }> {
+    // 1. Try DB Settings
+    try {
+      // Need a fresh prisma instance or import a singleton. Using new client here should be fine for now,
+      // or ideally import the shared one but avoiding circular deps if possible.
+      // Since this is a service, let's just use a local instance or import if we had a db file.
+      // We'll import PrismaClient.
+      // Note: In a real app we might want to cache this configuration to avoid DB hit every email.
+      const settings = await prisma.globalSettings.findUnique({ where: { id: 1 } });
 
-  constructor() {
+      if (settings && settings.smtp_host && settings.smtp_user && settings.smtp_pass) {
+        const transporter = nodemailer.createTransport({
+          host: settings.smtp_host,
+          port: settings.smtp_port || 587,
+          secure: settings.smtp_port === 465,
+          auth: {
+            user: settings.smtp_user,
+            pass: settings.smtp_pass,
+          },
+        });
+        const fromEmail = `"${settings.smtp_sender_name || 'Multibase Admin'}" <${settings.smtp_admin_email || settings.smtp_user}>`;
+        return { transporter, fromEmail };
+      }
+    } catch (error) {
+      logger.warn('EmailService: Failed to fetch settings from DB, falling back to env', error);
+    }
+
+    // 2. Fallback to Env
     if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-      this.transporter = nodemailer.createTransport({
+      const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: SMTP_PORT,
-        secure: SMTP_PORT === 465, // true for 465, false for other ports
+        secure: SMTP_PORT === 465,
         auth: {
           user: SMTP_USER,
           pass: SMTP_PASS,
         },
       });
-      this.isConfigured = true;
-      logger.info('EmailService: SMTP configured successfully');
-    } else {
-      // Create a dummy transporter that just logs
-      this.transporter = nodemailer.createTransport({
-        jsonTransport: true,
-      });
-      logger.warn('EmailService: SMTP credentials missing in .env. Emails will not be sent.');
+      return { transporter, fromEmail: SMTP_FROM };
     }
+
+    return { transporter: null, fromEmail: '' };
   }
 
   /**
    * Verify SMTP connection
    */
   async verifyConnection(): Promise<boolean> {
-    if (!this.isConfigured) return false;
+    const { transporter } = await this.getTransporter();
+    if (!transporter) return false;
     try {
-      await this.transporter.verify();
+      await transporter.verify();
       return true;
     } catch (error) {
       logger.error('EmailService: SMTP connection failed', error);
@@ -53,13 +82,16 @@ class EmailService {
    * Send an email
    */
   async sendEmail(to: string, subject: string, html: string, text?: string): Promise<boolean> {
-    if (!this.isConfigured) {
-      logger.warn(`EmailService: Mock send to ${to} - Subject: ${subject}`);
+    const { transporter, fromEmail } = await this.getTransporter();
+
+    if (!transporter) {
+      logger.warn(`EmailService: No SMTP config found. Mock send to ${to} - Subject: ${subject}`);
       return false;
     }
+
     try {
-      await this.transporter.sendMail({
-        from: SMTP_FROM,
+      await transporter.sendMail({
+        from: fromEmail,
         to,
         subject,
         html,
