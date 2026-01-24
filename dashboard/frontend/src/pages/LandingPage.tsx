@@ -62,6 +62,12 @@ const LandingPage = () => {
             >
               Documentation
             </a>
+            <a
+              href='/setup'
+              className='text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block'
+            >
+              Setup Guide
+            </a>
             {user ? (
               <SupabaseButton onClick={() => navigate('/dashboard')}>Dashboard</SupabaseButton>
             ) : (
@@ -84,7 +90,7 @@ const LandingPage = () => {
               <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75'></span>
               <span className='relative inline-flex rounded-full h-2 w-2 bg-brand-500'></span>
             </span>
-            Multibase v2.0 is now live
+            Multibase is now live
           </div>
 
           <h1 className='text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-br from-white to-white/60 pb-2 animate-fade-in-up [animation-delay:100ms]'>

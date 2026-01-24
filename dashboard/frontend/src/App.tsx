@@ -20,6 +20,8 @@ import ApiDocs from './pages/ApiDocs';
 import Templates from './pages/Templates';
 import Migrations from './pages/Migrations';
 import GlobalSmtpSettings from './pages/GlobalSmtpSettings';
+import SetupLayout from './layouts/SetupLayout';
+import SetupPage from './pages/SetupPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Create React Query client
@@ -167,6 +169,11 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        {/* Setup Routes */}
+        <Route path='/setup' element={<SetupLayout />}>
+          <Route index element={<Navigate to='/setup/getting-started/requirements' replace />} />
+          <Route path=':category/:slug' element={<SetupPage />} />
+        </Route>
         {/* Fallback to Landing Page */}
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
