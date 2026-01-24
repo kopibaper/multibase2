@@ -204,46 +204,46 @@ export default function Dashboard() {
       <main className='container mx-auto px-6 py-8'>
         {/* Stats Overview */}
         <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6'>
             <div className='flex items-center justify-between'>
               <div>
-                <p className='text-sm text-muted-foreground'>Total Instances</p>
-                <p className='text-3xl font-bold mt-1 text-foreground'>{instances?.length || 0}</p>
+                <p className='text-sm text-slate-400'>Total Instances</p>
+                <p className='text-3xl font-bold mt-1 text-white'>{instances?.length || 0}</p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-emerald-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 12h14M12 5l7 7-7 7' />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6'>
             <div className='flex items-center justify-between'>
               <div>
-                <p className='text-sm text-muted-foreground'>Healthy</p>
-                <p className='text-3xl font-bold mt-1 text-primary'>
+                <p className='text-sm text-slate-400'>Healthy</p>
+                <p className='text-3xl font-bold mt-1 text-emerald-400'>
                   {instances?.filter((i) => i.health.overall === 'healthy').length || 0}
                 </p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-emerald-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6'>
             <div className='flex items-center justify-between'>
               <div>
-                <p className='text-sm text-muted-foreground'>Total Services</p>
-                <p className='text-3xl font-bold mt-1 text-foreground'>
+                <p className='text-sm text-slate-400'>Total Services</p>
+                <p className='text-3xl font-bold mt-1 text-white'>
                   {instances?.reduce((sum, i) => sum + i.services.length, 0) || 0}
                 </p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-emerald-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path
                     strokeLinecap='round'
                     strokeLinejoin='round'
