@@ -76,7 +76,7 @@ jobs:
             cd /opt/multibase/dashboard/backend
 
             # Install production dependencies
-            npm ci --production
+            npm ci
 
             # Create .env.production from secrets if needed, or rely on manual file
             # Ideally, we inject secrets here:
