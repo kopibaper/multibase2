@@ -56,12 +56,6 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
     await startMutation.mutateAsync(instance.name);
   };
 
-  const handleStop = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setShowStopConfirm(true);
-  };
-
   const confirmStop = async () => {
     setShowStopConfirm(false);
     await stopMutation.mutateAsync(instance.name);
