@@ -18,6 +18,7 @@ export default function GlobalSmtpSettings() {
     smtp_pass: '',
     smtp_sender_name: 'Multibase Admin',
     smtp_admin_email: '',
+    app_url: '',
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -35,6 +36,7 @@ export default function GlobalSmtpSettings() {
         smtp_pass: settings.smtp_pass || '', // Will be '********' or null
         smtp_sender_name: settings.smtp_sender_name || 'Multibase Admin',
         smtp_admin_email: settings.smtp_admin_email || '',
+        app_url: settings.app_url || '',
       });
     }
   }, [settings]);
@@ -202,6 +204,24 @@ export default function GlobalSmtpSettings() {
                   />
                   <p className='text-xs text-muted-foreground mt-1'>Default recipient for system alerts.</p>
                 </div>
+              </div>
+            </div>
+
+            <div className='border-t pt-4 mt-4'>
+              <h4 className='text-sm font-medium text-muted-foreground mb-3'>Public URL</h4>
+              <div>
+                <label className='block text-sm font-medium mb-1'>App URL</label>
+                <input
+                  type='url'
+                  name='app_url'
+                  value={formData.app_url}
+                  onChange={handleChange}
+                  placeholder='https://yourdomain.com'
+                  className='w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50'
+                />
+                <p className='text-xs text-muted-foreground mt-1'>
+                  Used for email links (verification, password reset). Leave empty to use default.
+                </p>
               </div>
             </div>
 

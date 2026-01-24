@@ -67,8 +67,15 @@ export function createSettingsRoutes() {
     async (req: Request, res: Response) => {
       try {
         const data = req.body;
-        const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_sender_name, smtp_admin_email } =
-          data;
+        const {
+          smtp_host,
+          smtp_port,
+          smtp_user,
+          smtp_pass,
+          smtp_sender_name,
+          smtp_admin_email,
+          app_url,
+        } = data;
 
         // Check if updating or creating
         // We always use ID 1 for global settings
@@ -80,6 +87,7 @@ export function createSettingsRoutes() {
           smtp_user,
           smtp_sender_name,
           smtp_admin_email,
+          app_url,
         };
 
         // Only update password if provided and not mask

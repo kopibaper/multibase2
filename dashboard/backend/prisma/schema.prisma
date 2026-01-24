@@ -287,5 +287,6 @@ model GlobalSettings {
   smtp_pass         String?
   smtp_sender_name  String?
   smtp_admin_email  String?
+  app_url           String?  // Public URL for email links
   updatedAt         DateTime @updatedAt
 }
