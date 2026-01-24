@@ -18,37 +18,50 @@ export default {
     extend: {
       colors: {
         // Supabase Studio inspired dark theme
-        border: '#333333',
-        input: '#2a2a2a',
-        ring: '#3ecf8e',
-        background: '#1a1a1a',
-        foreground: '#e5e5e5',
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        brand: {
+          DEFAULT: '#3ECF8E', // Supabase Green
+          50: '#F2FCF8',
+          100: '#E2F8EF',
+          200: '#C2F1DE',
+          300: '#9FE9CC',
+          400: '#7CD1B8', // Muted green
+          500: '#3ECF8E', // Primary
+          600: '#34B27B',
+          700: '#2A9566',
+          800: '#207752',
+          900: '#165B3E',
+        },
         primary: {
-          DEFAULT: '#3ecf8e',
-          foreground: '#ffffff',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         secondary: {
-          DEFAULT: '#242424',
-          foreground: '#e5e5e5',
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
         destructive: {
-          DEFAULT: '#ef4444',
-          foreground: '#ffffff',
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
         muted: {
-          DEFAULT: '#2a2a2a',
-          foreground: '#a3a3a3',
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: '#2a2a2a',
-          foreground: '#e5e5e5',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
         },
         popover: {
-          DEFAULT: '#242424',
-          foreground: '#e5e5e5',
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
         card: {
-          DEFAULT: '#1f1f1f',
+          DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
       },
@@ -66,10 +79,20 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: 0 },
         },
+        'fade-in-up': {
+          '0%': { opacity: 0, transform: 'translateY(10px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' },
+        },
+        glow: {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

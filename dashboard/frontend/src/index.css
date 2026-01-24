@@ -3,20 +3,85 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 0 0% 11%; /* #1c1c1c - Base background */
+    --foreground: 0 0% 93%; /* #ededed - Base text */
+
+    --card: 0 0% 12%; /* #1f1f1f - Card background */
+    --card-foreground: 0 0% 93%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 153 60% 53%; /* #3ecf8e - Supabase Green */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 14%; /* #242424 */
+    --secondary-foreground: 0 0% 93%;
+
+    --muted: 0 0% 16.5%; /* #2a2a2a */
+    --muted-foreground: 0 0% 64%; /* #a3a3a3 */
+
+    --accent: 0 0% 16.5%;
+    --accent-foreground: 0 0% 93%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%; /* #333333 */
+    --input: 0 0% 16.5%;
+    --ring: 153 60% 53%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 11%;
+    --foreground: 0 0% 93%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 153 60% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 0 0% 16.5%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 0 0% 16.5%;
+    --accent-foreground: 0 0% 93%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 16.5%;
+    --ring: 153 60% 53%;
+  }
+
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-      'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-family:
+      'Circular Std',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      'Roboto',
+      'Oxygen',
+      'Ubuntu',
+      'Cantarell',
+      'Fira Sans',
+      'Droid Sans',
+      'Helvetica Neue',
+      sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   #root {
-    @apply min-h-screen bg-background;
+    @apply min-h-screen bg-background text-foreground;
   }
 }
 

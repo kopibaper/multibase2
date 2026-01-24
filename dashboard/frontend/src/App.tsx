@@ -30,17 +30,23 @@ const queryClient = new QueryClient({
   },
 });
 
+import LandingPage from './pages/LandingPage';
+
 function AppContent() {
   // Initialize WebSocket connection for real-time updates
   useWebSocket();
 
   return (
-    <div className='min-h-screen bg-background'>
+    <div className='min-h-screen bg-background text-foreground font-sans'>
       <Toaster position='top-right' richColors />
       <Routes>
+        {/* Public Routes */}
+        <Route path='/' element={<LandingPage />} />
         <Route path='/login' element={<Login />} />
+
+        {/* Protected Dashboard Routes */}
         <Route
-          path='/'
+          path='/dashboard'
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -151,6 +157,7 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        {/* Fallback to Landing Page */}
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </div>
