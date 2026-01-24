@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger';
+import EmailService from './EmailService';
 
 const prisma = new PrismaClient();
 
@@ -72,6 +73,9 @@ export class AuthService {
       // Hash password
       const passwordHash = await this.hashPassword(data.password);
 
+      // Generate verification token
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+
       // Create user
       const user = await prisma.user.create({
         data: {
@@ -79,7 +83,9 @@ export class AuthService {
           username: data.username,
           passwordHash,
           role: data.role || 'user',
-          isActive: true,
+          isActive: true, // Allow login but require verification? Or disable until verified?
+          isEmailVerified: false,
+          verificationToken,
         },
         select: {
           id: true,
@@ -90,6 +96,9 @@ export class AuthService {
           createdAt: true,
         },
       });
+
+      // Send verification email
+      await EmailService.sendVerificationEmail(user.email, verificationToken, user.username);
 
       logger.info(`User registered: ${user.email}`);
       return user;

@@ -19,6 +19,10 @@ export interface AuthContextType {
   loginWith2FA: (email: string, password: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -137,8 +141,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(error.error || 'Registration failed');
       }
 
-      // Auto-login after registration
-      await login(email, password);
+      // Auto-login after registration is NOT performed if email verification is required
+      // But for now, we'll assume we might want to let them login or show a "check email" message on the UI
+      // The backend register returns the user.
+
+      // If we want to auto-login, we'd need to handle the case where isActive is false or verified is false
+      // For this implementation, we will NOT auto-login, but let the UI handle the success message
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to request password reset');
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const verifyEmail = async (token: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to verify email');
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const deleteAccount = async (password: string) => {
+    try {
+      if (!token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${API_URL}/api/auth/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete account');
+      }
+
+      // Logout on success
+      await logout();
     } catch (error) {
       throw error;
     }
@@ -198,6 +279,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginWith2FA,
     logout,
     register,
+    forgotPassword,
+    resetPassword,
+    verifyEmail,
+    deleteAccount,
     refreshUser,
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin',

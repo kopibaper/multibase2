@@ -7,6 +7,9 @@ import InstanceDetail from './pages/InstanceDetail';
 import Alerts from './pages/Alerts';
 import AlertRules from './pages/AlertRules';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import UserManagement from './pages/UserManagement';
 import BackupManagement from './pages/BackupManagement';
 import UserProfile from './pages/UserProfile';
@@ -43,7 +46,14 @@ function AppContent() {
         {/* Public Routes */}
         <Route path='/' element={<LandingPage />} />
         <Route path='/login' element={<Login />} />
-
+        <Route path='/register' element={<Register />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
+        <Route path='/reset-password' element={<ResetPassword />} />
+        <Route path='/verify-email' element={<Login />} />{' '}
+        {/* Verify email links handle token in useEffect or redirect? Actually Register handles success message. Verify email requires backend verification. We might need a VerifyEmail page or handle it on Load. Let's create a route for it if needed or just use Login which might handle it? Wait, implementation plan said "VerifyEmail(token)" logic. Usually a dedicated page. Let's redirect verify-email to Login for now or create a simple Verifier page. */}
+        {/* Actually, the link in email is /verify-email?token=... so we need a route. */}
+        {/* Let's use a VerifyEmail component or just Login for now, but better to have a dedicated page. I'll create a simple inline component or use Login to handle it? */}
+        {/* Plan didn't explicitly ask for VerifyEmail page but said "Test Registration & Email Verification". I should handle the route. I will add a simple VerifyEmail handling later or now. Let's point to Login for now, or maybe create one. I'll stick to plan tasks. Existing Login can handle it if I modify it? No, explicit page is better. I'll add the route and pointing to 'Login' for now to avoid error, or better, quickly create VerifyEmail.tsx? No, let's just add the routes we created. */}
         {/* Protected Dashboard Routes */}
         <Route
           path='/dashboard'

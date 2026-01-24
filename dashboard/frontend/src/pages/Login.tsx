@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -85,6 +85,12 @@ export default function Login() {
               />
             </div>
 
+            <div className='flex items-center justify-between text-sm'>
+              <Link to='/forgot-password' className='text-primary hover:underline font-medium'>
+                Forgot password?
+              </Link>
+            </div>
+
             <button
               type='submit'
               disabled={isLoading}
@@ -103,6 +109,15 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          <div className='mt-6 pt-6 border-t border-border text-center'>
+            <p className='text-sm text-muted-foreground'>
+              Don't have an account?{' '}
+              <Link to='/register' className='text-primary hover:underline font-medium'>
+                Sign up
+              </Link>
+            </p>
+          </div>
 
           {/* Info */}
           {/* <div className='mt-6 pt-6 border-t border-border text-center'>

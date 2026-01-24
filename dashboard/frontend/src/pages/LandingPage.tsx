@@ -45,7 +45,7 @@ const LandingPage = () => {
       </div>
 
       {/* Navbar */}
-      <nav className='relative z-10 border-b border-white/5 backdrop-blur-md sticky top-0'>
+      <nav className='z-10 border-b border-white/5 backdrop-blur-md sticky top-0'>
         <div className='container mx-auto px-6 h-16 flex items-center justify-between'>
           <div className='flex items-center gap-2 font-bold text-xl tracking-tight'>
             <div className='w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white'>

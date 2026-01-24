@@ -105,6 +105,13 @@ model User {
   avatar           String?             // Avatar URL/Path
   twoFactorEnabled Boolean             @default(false)
   twoFactorSecret  String?             // TOTP Secret for 2FA
+  
+  // Password Reset & Email Verification
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  verificationToken    String?
+  isEmailVerified      Boolean         @default(false)
+  
   lastLogin        DateTime?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt

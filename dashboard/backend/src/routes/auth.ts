@@ -687,5 +687,92 @@ export function createAuthRoutes() {
     }
   });
 
+  // ... (existing routes)
+
+  /**
+   * POST /api/auth/verify-email
+   */
+  router.post('/verify-email', async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: 'Token required' });
+      }
+      await AuthService.verifyEmail(token);
+      res.json({ message: 'Email verified successfully' });
+    } catch (error) {
+      logger.error('Error verifying email:', error);
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid verification token',
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/forgot-password
+   */
+  router.post('/forgot-password', async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email required' });
+      }
+      await AuthService.forgotPassword(email);
+      res.json({ message: 'If an account exists, a password reset email has been sent.' });
+    } catch (error) {
+      logger.error('Error in forgot password route:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /api/auth/reset-password
+   */
+  router.post('/reset-password', async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ error: 'Token and new password required' });
+      }
+      await AuthService.resetPassword(token, password);
+      res.json({ message: 'Password reset successfully' });
+    } catch (error) {
+      logger.error('Error in reset password route:', error);
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to reset password',
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/delete-account
+   */
+  router.post('/delete-account', async (req: Request, res: Response): Promise<any> => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const session = await AuthService.validateSession(token);
+      if (!session) {
+        return res.status(401).json({ error: 'Invalid or expired session' });
+      }
+
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ error: 'Password required' });
+      }
+
+      await AuthService.deleteSelf(session.user.id, password);
+      res.json({ message: 'Account deleted successfully' });
+    } catch (error) {
+      logger.error('Error in delete account route:', error);
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to delete account',
+      });
+    }
+  });
+
   return router;
 }
