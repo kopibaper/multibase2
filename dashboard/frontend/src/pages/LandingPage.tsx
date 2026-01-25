@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Database, Shield, Activity, Zap, Layers } from 'lucide-react';
+import { Database, Shield, Activity, Zap, Layers, Github } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 // Generic Button component to avoid dependency issues if shadcn isn't fully set up or we want custom Supabase style
@@ -60,7 +60,7 @@ const LandingPage = () => {
               rel='noopener noreferrer'
               className='text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block'
             >
-              Documentation
+              Supabase Docs
             </a>
             <a
               href='/setup'
@@ -124,7 +124,8 @@ const LandingPage = () => {
               className='h-12 px-8 text-base'
               onClick={() => window.open('https://github.com/skipper159/multibase2', '_blank')}
             >
-              View Documentation
+              <Github className='w-5 h-5 mr-2' />
+              Repository
             </SupabaseButton>
           </div>
         </div>

@@ -44,7 +44,7 @@ export default function Navbar() {
             rel='noopener noreferrer'
             className='text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block'
           >
-            Documentation
+            Supabase Docs
           </a>
           <a
             href='/setup'
