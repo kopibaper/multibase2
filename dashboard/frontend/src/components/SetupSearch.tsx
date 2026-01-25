@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, FileText, ChevronRight } from 'lucide-react';
+import { Search, FileText, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // Load all markdown files for search
