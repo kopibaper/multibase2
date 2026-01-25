@@ -4,6 +4,7 @@ import { Book, Code, Layers, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
+import SetupSearch from '../components/SetupSearch';
 
 interface SetupLayoutProps {}
 
@@ -38,6 +39,7 @@ export default function SetupLayout({}: SetupLayoutProps) {
       <div className='flex flex-1 pt-16 container mx-auto'>
         {/* Sidebar */}
         <aside className='w-64 border-r border-border h-full overflow-y-auto py-6 pr-6 hidden md:block'>
+          <SetupSearch />
           <SidebarGroup title='Getting Started'>
             <SidebarLink to='/setup/getting-started/requirements' icon={Book}>
               Requirements
