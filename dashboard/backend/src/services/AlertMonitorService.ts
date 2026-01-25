@@ -247,7 +247,7 @@ export class AlertMonitorService {
   }
 
   /**
-   * Send email notification using Global Settings
+   * Send email notification using Global Settings with modern dark template
    */
   private async sendEmail(alert: any, rule: any): Promise<void> {
     try {
@@ -269,17 +269,123 @@ export class AlertMonitorService {
         },
       });
 
-      const subject = `[Alert] ${alert.name} triggered on ${rule.instance?.name || 'Instance'}`;
+      const instanceName = rule.instance?.name || rule.instanceId;
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      const alertTime = new Date().toLocaleString('de-DE', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+
+      // Get severity color based on alert type
+      const getSeverityInfo = (ruleType: string) => {
+        switch (ruleType) {
+          case 'high_cpu':
+          case 'high_memory':
+          case 'high_disk':
+            return { color: '#f59e0b', icon: '⚠️', label: 'Warning' };
+          case 'service_down':
+            return { color: '#ef4444', icon: '🚨', label: 'Critical' };
+          default:
+            return { color: '#f59e0b', icon: '⚠️', label: 'Alert' };
+        }
+      };
+
+      const severity = getSeverityInfo(rule.rule);
+
+      const subject = `${severity.icon} [${severity.label}] ${alert.name} - ${instanceName}`;
+
       const html = `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #ef4444;">🚨 Alert Triggered</h2>
-          <p><strong>Alert:</strong> ${alert.name}</p>
-          <p><strong>Instance:</strong> ${rule.instance?.name || rule.instanceId}</p>
-          <p><strong>Message:</strong> ${alert.message}</p>
-          <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #64748b;">Sent from Multibase Dashboard</p>
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #1e293b; border-radius: 16px; border: 1px solid #334155; overflow: hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #334155;">
+              <div style="display: inline-flex; align-items: center; gap: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" fill="#10b981"/>
+                </svg>
+                <span style="font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">Multibase</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Alert Badge -->
+          <tr>
+            <td style="padding: 24px 32px 0; text-align: center;">
+              <div style="display: inline-block; background-color: ${severity.color}20; border: 1px solid ${severity.color}40; border-radius: 20px; padding: 8px 16px;">
+                <span style="font-size: 14px; font-weight: 600; color: ${severity.color};">${severity.icon} ${severity.label}</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 24px 32px 32px;">
+              <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #ffffff; text-align: center;">
+                ${alert.name}
+              </h1>
+              <p style="margin: 0 0 24px; font-size: 14px; color: #94a3b8; text-align: center;">
+                Alert triggered on <strong style="color: #10b981;">${instanceName}</strong>
+              </p>
+              
+              <!-- Alert Details Box -->
+              <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #334155;">
+                      <span style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Message</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0 16px;">
+                      <span style="font-size: 15px; color: #f1f5f9; line-height: 1.5;">${alert.message}</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #334155;">
+                      <span style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Time</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0 0;">
+                      <span style="font-size: 15px; color: #f1f5f9;">${alertTime}</span>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- CTA Button -->
+              <div style="text-align: center;">
+                <a href="${appUrl}/alerts" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 8px;">
+                  View Alerts Dashboard
+                </a>
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #0f172a; border-top: 1px solid #334155; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">
+                © ${new Date().getFullYear()} Multibase. All rights reserved.
+              </p>
+              <p style="margin: 8px 0 0; font-size: 12px; color: #475569;">
+                Self-hosted Supabase Management Dashboard
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
       `;
 
       await transporter.sendMail({

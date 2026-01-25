@@ -97,6 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
+
+      // Handle 2FA requirement
+      if (data.require2fa) {
+        setRequires2FA(true);
+        setPending2FAEmail(email);
+        return;
+      }
+
       const { user: userData, session } = data;
 
       setUser(userData);
@@ -228,12 +236,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Login with 2FA
   const loginWith2FA = async (email: string, password: string, code: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/login-2fa`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, code }),
+        body: JSON.stringify({ email, password, twoFactorToken: code }),
       });
 
       if (!response.ok) {

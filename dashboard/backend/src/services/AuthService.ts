@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
 export interface LoginCredentials {
   email: string;
   password: string;
+  twoFactorToken?: string;
 }
 
 export interface RegisterData {
@@ -221,7 +222,7 @@ export class AuthService {
     credentials: LoginCredentials,
     ipAddress?: string,
     userAgent?: string
-  ): Promise<{ user: any; session: SessionData }> {
+  ): Promise<{ user: any; session: SessionData | null; require2fa?: boolean }> {
     try {
       // Find user
       const user = await prisma.user.findUnique({
@@ -236,6 +237,28 @@ export class AuthService {
       const isValid = await this.verifyPassword(credentials.password, user.passwordHash);
       if (!isValid) {
         throw new Error('Invalid credentials');
+      }
+
+      // Check 2FA
+      if (user.twoFactorEnabled) {
+        if (!credentials.twoFactorToken) {
+          // 2FA required but no token provided
+          return {
+            user: { id: user.id },
+            session: null,
+            require2fa: true,
+          };
+        }
+
+        // Verify token
+        const isTokenValid = authenticator.verify({
+          token: credentials.twoFactorToken,
+          secret: user.twoFactorSecret!,
+        });
+
+        if (!isTokenValid) {
+          throw new Error('Invalid 2FA code');
+        }
       }
 
       // Create session
@@ -524,21 +547,56 @@ export class AuthService {
    */
   async deleteSession(sessionId: string, userId: string): Promise<void> {
     try {
-      // Verify the session belongs to the user
+      // Verify the session belongs to the user (or caller is admin - checked in route)
       const session = await prisma.session.findFirst({
-        where: { id: sessionId, userId },
+        where: {
+          id: sessionId,
+          userId,
+        },
       });
 
       if (!session) {
-        throw new Error('Session not found');
+        throw new Error('Session not found or access denied');
       }
 
       await prisma.session.delete({
         where: { id: sessionId },
       });
-      logger.info(`Session deleted: ${sessionId}`);
+
+      logger.info(`Session ${sessionId} deleted for user ${userId}`);
     } catch (error) {
       logger.error('Error deleting session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete self account
+   */
+  async deleteSelf(userId: string, password: string): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Verify password
+      const isValid = await this.verifyPassword(password, user.passwordHash);
+      if (!isValid) {
+        throw new Error('Invalid password');
+      }
+
+      // Delete user (cascades to sessions usually)
+      await prisma.user.delete({
+        where: { id: userId },
+      });
+
+      logger.info(`User deleted own account: ${user.email}`);
+    } catch (error) {
+      logger.error('Error deleting own account:', error);
       throw error;
     }
   }

@@ -55,13 +55,17 @@ export function createAuthRoutes() {
     auditLog('USER_LOGIN'),
     async (req: Request, res: Response): Promise<any> => {
       try {
-        const { email, password } = req.body;
+        const { email, password, twoFactorToken } = req.body;
 
         // Validation is now handled by Zod middleware
         const ipAddress = req.ip;
         const userAgent = req.get('user-agent');
 
-        const result = await AuthService.login({ email, password }, ipAddress, userAgent);
+        const result = await AuthService.login(
+          { email, password, twoFactorToken },
+          ipAddress,
+          userAgent
+        );
 
         // Set user in request for audit logger
         (req as any).user = result.user;

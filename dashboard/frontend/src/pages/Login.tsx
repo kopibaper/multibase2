@@ -7,10 +7,11 @@ import { toast } from 'sonner';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, loginWith2FA, requires2FA } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,9 +20,18 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      toast.success('Login successful!');
-      navigate('/dashboard');
+      if (requires2FA) {
+        await loginWith2FA(email, password, twoFactorCode);
+        toast.success('Login successful!');
+        navigate('/dashboard');
+      } else {
+        await login(email, password);
+        // If 2FA is required, requires2FA will become true via context, causing re-render
+        if (!requires2FA) {
+          // If still false (no 2FA needed), we are done
+          // Navigation happens in useEffect or next render if successful
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
@@ -30,6 +40,12 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  // Redirect if logged in (except when just switched to 2FA mode)
+  /* useEffect(() => {
+     // ...
+  }, [isAuthenticated, requires2FA]); */
+  // NOTE: AuthContext handles user state. We just react to requires2FA.
 
   return (
     <div className='min-h-screen bg-background flex items-center justify-center p-4'>
@@ -40,7 +56,9 @@ export default function Login() {
             <img src='/logo.png' alt='Multibase Logo' className='h-16 w-auto' />
           </div>
           <h1 className='text-3xl font-bold text-foreground'>Multibase Dashboard</h1>
-          <p className='text-muted-foreground mt-2'>Sign in to manage your Supabase instances</p>
+          <p className='text-muted-foreground mt-2'>
+            {requires2FA ? 'Enter your 2FA code' : 'Sign in to manage your Supabase instances'}
+          </p>
         </div>
 
         {/* Login Form */}
@@ -53,43 +71,68 @@ export default function Login() {
               </div>
             )}
 
-            <div>
-              <label htmlFor='email' className='block text-sm font-medium text-foreground mb-2'>
-                Email
-              </label>
-              <input
-                id='email'
-                type='email'
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
-                placeholder='admin@multibase.local'
-                disabled={isLoading}
-              />
-            </div>
+            {requires2FA ? (
+              <div>
+                <label htmlFor='2fa' className='block text-sm font-medium text-foreground mb-2'>
+                  Two-Factor Authentication Code
+                </label>
+                <input
+                  id='2fa'
+                  type='text'
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  required
+                  className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground text-center tracking-widest text-lg'
+                  placeholder='000 000'
+                  disabled={isLoading}
+                  autoFocus
+                  maxLength={6}
+                />
+                <p className='text-xs text-muted-foreground mt-2 text-center'>
+                  Open your authenticator app to view your code.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label htmlFor='email' className='block text-sm font-medium text-foreground mb-2'>
+                    Email
+                  </label>
+                  <input
+                    id='email'
+                    type='email'
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
+                    placeholder='admin@multibase.local'
+                    disabled={isLoading}
+                  />
+                </div>
 
-            <div>
-              <label htmlFor='password' className='block text-sm font-medium text-foreground mb-2'>
-                Password
-              </label>
-              <input
-                id='password'
-                type='password'
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
-                placeholder='Enter your password'
-                disabled={isLoading}
-              />
-            </div>
+                <div>
+                  <label htmlFor='password' className='block text-sm font-medium text-foreground mb-2'>
+                    Password
+                  </label>
+                  <input
+                    id='password'
+                    type='password'
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className='w-full px-4 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground'
+                    placeholder='Enter your password'
+                    disabled={isLoading}
+                  />
+                </div>
 
-            <div className='flex items-center justify-between text-sm'>
-              <Link to='/forgot-password' className='text-primary hover:underline font-medium'>
-                Forgot password?
-              </Link>
-            </div>
+                <div className='flex items-center justify-between text-sm'>
+                  <Link to='/forgot-password' className='text-primary hover:underline font-medium'>
+                    Forgot password?
+                  </Link>
+                </div>
+              </>
+            )}
 
             <button
               type='submit'
@@ -99,12 +142,12 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white'></div>
-                  Signing in...
+                  {requires2FA ? 'Verifying...' : 'Signing in...'}
                 </>
               ) : (
                 <>
                   <LogIn className='w-5 h-5' />
-                  Sign In
+                  {requires2FA ? 'Verify Code' : 'Sign In'}
                 </>
               )}
             </button>
