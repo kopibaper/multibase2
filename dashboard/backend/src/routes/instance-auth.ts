@@ -15,7 +15,7 @@ export function createInstanceAuthRoutes() {
    */
   router.get('/verify-instance-access', async (req: Request, res: Response): Promise<any> => {
     try {
-      // 1. Token aus Cookie oder Authorization Header extrahieren
+      // 1. Extract token from cookie or Authorization header
       const token = req.cookies?.auth_token || 
                     req.headers.authorization?.replace('Bearer ', '');
       
@@ -24,7 +24,7 @@ export function createInstanceAuthRoutes() {
         return res.status(401).json({ error: 'Unauthorized - No token' });
       }
 
-      // 2. Session validieren
+      // 2. Validate session
       const session = await AuthService.validateSession(token);
       
       if (!session) {
@@ -32,17 +32,17 @@ export function createInstanceAuthRoutes() {
         return res.status(401).json({ error: 'Unauthorized - Invalid session' });
       }
 
-      // 3. Prüfe ob User aktiv ist
+      // 3. Check if user is active
       if (!session.user.isActive) {
         logger.debug(`Instance access denied: User ${session.user.username} is not active`);
         return res.status(403).json({ error: 'Forbidden - User not active' });
       }
 
-      // 4. Optional: Instanz-spezifische Zugriffskontrolle
+      // 4. Optional: Instance-specific access control
       const instanceName = req.headers['x-instance-name'] as string;
       
       if (instanceName) {
-        // Prüfe ob Instanz existiert
+        // Check if instance exists
         const instance = await prisma.instance.findUnique({
           where: { id: instanceName }
         });
@@ -53,7 +53,7 @@ export function createInstanceAuthRoutes() {
         }
 
         // Optional: Role-based access control
-        // Viewer-Rolle könnte z.B. nur lesenden Zugriff haben
+        // Viewer role could have read-only access
         if (session.user.role === 'viewer') {
           logger.debug(`Instance access granted (read-only): ${session.user.username} → ${instanceName}`);
         } else {
@@ -61,7 +61,7 @@ export function createInstanceAuthRoutes() {
         }
       }
 
-      // 5. Erfolg - Nginx wird Request durchleiten
+      // 5. Success - Nginx will forward the request
       return res.status(200).json({ 
         allowed: true, 
         user: session.user.username,
