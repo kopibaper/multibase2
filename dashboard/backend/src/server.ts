@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
@@ -23,6 +24,7 @@ import { createHealthRoutes } from './routes/health';
 import { createLogsRoutes } from './routes/logs';
 import { createAlertRoutes } from './routes/alerts';
 import { createAuthRoutes } from './routes/auth';
+import { createInstanceAuthRoutes } from './routes/instance-auth';
 import { createBackupRoutes } from './routes/backups';
 import { createProxyRoutes } from './routes/proxy';
 import { createAuditRoutes } from './routes/audit';
@@ -77,6 +79,7 @@ app.use(
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Static file serving for uploads (avatars)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -120,6 +123,7 @@ app.use('/api/health', createHealthRoutes(healthMonitor, prisma, redisCache, doc
 app.use('/api/logs', createLogsRoutes(dockerManager));
 app.use('/api/alerts', createAlertRoutes());
 app.use('/api/auth', createAuthRoutes());
+app.use('/api/auth', createInstanceAuthRoutes());
 app.use('/api/backups', createBackupRoutes());
 app.use('/api/proxy', createProxyRoutes(instanceManager));
 app.use('/api/audit', createAuditRoutes());

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,6 +13,11 @@ export default function Login() {
 
   const { login, loginWith2FA, requires2FA } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Get redirect URL and reason from query params
+  const redirectUrl = searchParams.get('redirect');
+  const reason = searchParams.get('reason');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,13 +28,23 @@ export default function Login() {
       if (requires2FA) {
         await loginWith2FA(email, password, twoFactorCode);
         toast.success('Login successful!');
-        navigate('/dashboard');
+        
+        // Redirect to the original URL if provided
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         await login(email, password);
         // If 2FA is required, requires2FA will become true via context, causing re-render
         if (!requires2FA) {
-          // If still false (no 2FA needed), we are done
-          // Navigation happens in useEffect or next render if successful
+          // If still false (no 2FA needed), redirect
+          if (redirectUrl) {
+            window.location.href = redirectUrl;
+          } else {
+            // Navigation happens in useEffect or next render if successful
+          }
         }
       }
     } catch (err) {
@@ -68,6 +83,22 @@ export default function Login() {
               <div className='bg-destructive/10 border border-destructive/20 rounded-md p-4 flex items-start gap-3'>
                 <AlertCircle className='w-5 h-5 text-destructive flex-shrink-0 mt-0.5' />
                 <p className='text-sm text-destructive'>{error}</p>
+              </div>
+            )}
+
+            {reason === 'auth_required' && (
+              <div className='mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md'>
+                <p className='text-sm text-yellow-800'>
+                  Please log in to access this Supabase instance.
+                </p>
+              </div>
+            )}
+
+            {reason === 'access_denied' && (
+              <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-md'>
+                <p className='text-sm text-red-800'>
+                  Access denied. Please log in with appropriate permissions.
+                </p>
               </div>
             )}
 

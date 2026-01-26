@@ -70,6 +70,17 @@ export function createAuthRoutes() {
         // Set user in request for audit logger
         (req as any).user = result.user;
 
+        // Set cookie for subdomain access if session was created
+        if (result.session) {
+          res.cookie('auth_token', result.session.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined,
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+          });
+        }
+
         res.json(result);
       } catch (error) {
         logger.error('Error in login route:', error);
@@ -102,6 +113,11 @@ export function createAuthRoutes() {
         }
 
         await AuthService.logout(token);
+
+        // Clear cookie
+        res.clearCookie('auth_token', {
+          domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined
+        });
 
         res.json({ message: 'Logged out successfully' });
       } catch (error) {
@@ -601,6 +617,16 @@ export function createAuthRoutes() {
         );
 
         (req as any).user = result.user;
+
+        // Set cookie for subdomain access
+        res.cookie('auth_token', result.session.token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined,
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         res.json(result);
       } catch (error) {
         logger.error('Error in login-2fa route:', error);

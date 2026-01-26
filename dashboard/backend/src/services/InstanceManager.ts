@@ -356,15 +356,48 @@ export class InstanceManager {
       }
 
       const domain = 'backend.tyto-design.de';
+      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.lafftale.online';
+      const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
 
-      const configContent = `# Auto-generated config for ${instance.name}
+      const configContent = `# Auto-generated config for ${instance.name} with authentication
 server {
     listen 80;
     server_name ${instance.name}.${domain};
     client_max_body_size 100M;
 
-    # Fix for Studio UI expecting storage API on same domain
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Auth subrequest to dashboard backend
+    location = /auth-check {
+        internal;
+        proxy_pass ${backendUrl}/api/auth/verify-instance-access;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header X-Instance-Name "${instance.name}";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Health check endpoint (ohne Auth für Monitoring)
+    location /health {
+        access_log off;
+        return 200 "OK";
+        add_header Content-Type text/plain;
+    }
+
+    # Storage endpoint with authentication
     location /storage/ {
+        # Require authentication
+        auth_request /auth-check;
+        
+        # On auth failure, redirect to login
+        error_page 401 = @error401;
+        error_page 403 = @error403;
+
         proxy_pass http://127.0.0.1:${instance.ports.kong_http}/storage/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -375,7 +408,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     
+    # Main location with authentication
     location / {
+        # Require authentication
+        auth_request /auth-check;
+        
+        # On auth failure, redirect to login
+        error_page 401 = @error401;
+        error_page 403 = @error403;
+
         proxy_pass http://127.0.0.1:${instance.ports.studio};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -385,6 +426,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # Error handler for 401 Unauthorized
+    location @error401 {
+        return 302 ${dashboardUrl}/login?redirect=$scheme://$host$request_uri&reason=auth_required;
+    }
+
+    # Error handler for 403 Forbidden
+    location @error403 {
+        return 302 ${dashboardUrl}/login?redirect=$scheme://$host$request_uri&reason=access_denied;
+    }
 }
 
 server {
@@ -392,7 +443,39 @@ server {
     server_name ${instance.name}-api.${domain};
     client_max_body_size 100M;
 
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Auth subrequest to dashboard backend
+    location = /auth-check {
+        internal;
+        proxy_pass ${backendUrl}/api/auth/verify-instance-access;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header X-Instance-Name "${instance.name}";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Health check endpoint (ohne Auth für Monitoring)
+    location /health {
+        access_log off;
+        return 200 "OK";
+        add_header Content-Type text/plain;
+    }
+
+    # Main API location with authentication
     location / {
+        # Require authentication
+        auth_request /auth-check;
+        
+        # On auth failure, redirect to login
+        error_page 401 = @error401;
+        error_page 403 = @error403;
+
         proxy_pass http://127.0.0.1:${instance.ports.kong_http};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -401,12 +484,31 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts for API requests
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # Buffering
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # Error handler for 401 Unauthorized
+    location @error401 {
+        return 302 ${dashboardUrl}/login?redirect=$scheme://$host$request_uri&reason=auth_required;
+    }
+
+    # Error handler for 403 Forbidden
+    location @error403 {
+        return 302 ${dashboardUrl}/login?redirect=$scheme://$host$request_uri&reason=access_denied;
     }
 }
 `;
       const configPath = path.join(nginxDir, `${instance.name}.conf`);
       fs.writeFileSync(configPath, configContent);
-      logger.info(`Created Nginx config: ${configPath}`);
+      logger.info(`Created Nginx config with authentication for ${instance.name}: ${configPath}`);
 
       // Reload Nginx to apply changes
       const execAsync = promisify(exec);
