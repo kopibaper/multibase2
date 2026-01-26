@@ -382,7 +382,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # Health check endpoint (ohne Auth für Monitoring)
+    # Health check endpoint (without auth for monitoring)
     location /health {
         access_log off;
         return 200 "OK";
@@ -460,7 +460,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # Health check endpoint (ohne Auth für Monitoring)
+    # Health check endpoint (without auth for monitoring)
     location /health {
         access_log off;
         return 200 "OK";

@@ -10,8 +10,8 @@ export function createInstanceAuthRoutes() {
 
   /**
    * GET /api/auth/verify-instance-access
-   * Verifiziert ob der User Zugriff auf eine Instanz hat
-   * Wird von Nginx auth_request aufgerufen
+   * Verifies if the user has access to an instance
+   * Called by Nginx auth_request
    */
   router.get('/verify-instance-access', async (req: Request, res: Response): Promise<any> => {
     try {
@@ -76,7 +76,7 @@ export function createInstanceAuthRoutes() {
 
   /**
    * GET /api/auth/instance-login-url
-   * Generiert eine Login-URL mit Redirect zurück zur Instanz
+   * Generates a login URL with redirect back to the instance
    */
   router.get('/instance-login-url', async (req: Request, res: Response): Promise<any> => {
     try {
@@ -86,7 +86,8 @@ export function createInstanceAuthRoutes() {
         return res.status(400).json({ error: 'redirect parameter required' });
       }
 
-      const loginUrl = `https://multibase.lafftale.online/login?redirect=${encodeURIComponent(redirectUrl)}`;
+      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.lafftale.online';
+      const loginUrl = `${dashboardUrl}/login?redirect=${encodeURIComponent(redirectUrl)}`;
       
       return res.json({ loginUrl });
     } catch (error) {
