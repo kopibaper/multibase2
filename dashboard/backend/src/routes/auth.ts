@@ -116,6 +116,9 @@ export function createAuthRoutes() {
 
         // Clear cookie
         res.clearCookie('auth_token', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
           domain: process.env.COOKIE_DOMAIN
         });
 
