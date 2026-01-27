@@ -39,10 +39,11 @@ Location: `dashboard/backend/.env`
 
 ### Security
 
-| Variable         | Required | Description                                         |
-| ---------------- | -------- | --------------------------------------------------- |
-| `SESSION_SECRET` | Yes      | Random string (min 32 chars) for session encryption |
-| `CORS_ORIGIN`    | Yes      | Allowed origins (comma-separated)                   |
+| Variable         | Required | Description                                                         |
+| ---------------- | -------- | ------------------------------------------------------------------- |
+| `SESSION_SECRET` | Yes      | Random string (min 32 chars) for session encryption                 |
+| `CORS_ORIGIN`    | Yes      | Allowed origins (comma-separated)                                   |
+| `COOKIE_DOMAIN`  | No       | Cookie domain for cross-subdomain auth (e.g., `.yourdomain.com`)    |
 
 ### SMTP (Email)
 
@@ -87,6 +88,7 @@ PROJECTS_PATH=/opt/multibase/projects
 # Security
 SESSION_SECRET=your-very-long-random-string-minimum-32-characters
 CORS_ORIGIN=https://multibase.yourdomain.com
+COOKIE_DOMAIN=.yourdomain.com
 
 # SMTP
 SMTP_HOST=smtp.mailgun.org
@@ -120,6 +122,41 @@ openssl rand -hex 32
 # Using Node.js
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+## Cookie Domain Configuration
+
+The `COOKIE_DOMAIN` variable enables cross-subdomain authentication, which is essential for accessing Supabase instances.
+
+### How It Works
+
+When you create Supabase instances, each instance gets its own subdomain:
+- Dashboard: `multibase.yourdomain.com`
+- Instance 1: `instance1.yourdomain.com`
+- Instance 2: `instance2.yourdomain.com`
+
+Setting `COOKIE_DOMAIN=.yourdomain.com` (note the leading dot) allows the authentication cookie to work across all subdomains.
+
+### Configuration Examples
+
+**Production (with custom domain):**
+```env
+COOKIE_DOMAIN=.yourdomain.com
+```
+
+**Development (localhost):**
+```env
+# Leave unset or comment out for localhost
+# COOKIE_DOMAIN=
+```
+
+### Troubleshooting
+
+If you experience authentication issues where you're redirected to the login page when accessing instances:
+
+1. Verify `COOKIE_DOMAIN` is set in your production `.env` file
+2. Ensure it starts with a dot (`.yourdomain.com`)
+3. Restart the backend service after changing the environment variable
+4. Clear your browser cookies and try logging in again
 
 ## Next Steps
 

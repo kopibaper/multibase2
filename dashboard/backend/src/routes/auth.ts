@@ -76,7 +76,7 @@ export function createAuthRoutes() {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined,
+            domain: process.env.COOKIE_DOMAIN,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
           });
         }
@@ -116,7 +116,7 @@ export function createAuthRoutes() {
 
         // Clear cookie
         res.clearCookie('auth_token', {
-          domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined
+          domain: process.env.COOKIE_DOMAIN
         });
 
         res.json({ message: 'Logged out successfully' });
@@ -623,7 +623,7 @@ export function createAuthRoutes() {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          domain: process.env.NODE_ENV === 'production' ? '.tyto-design.de' : undefined,
+          domain: process.env.COOKIE_DOMAIN,
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
