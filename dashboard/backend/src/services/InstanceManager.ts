@@ -821,6 +821,40 @@ services:
   }
 
   /**
+   * Recreate an instance (docker compose down + up)
+   * Use this to apply docker-compose.yml changes like memory limits
+   */
+  async recreateInstance(name: string): Promise<void> {
+    const projectPath = path.join(this.projectsPath, name);
+
+    if (!fs.existsSync(projectPath)) {
+      throw new Error(`Instance ${name} does not exist`);
+    }
+
+    try {
+      logger.info(`Recreating instance: ${name}`);
+
+      // Copy latest docker-compose.yml from template
+      const templateCompose = path.join(__dirname, '..', '..', '..', 'docker-compose.yml');
+      const projectCompose = path.join(projectPath, 'docker-compose.yml');
+
+      if (fs.existsSync(templateCompose)) {
+        fs.copyFileSync(templateCompose, projectCompose);
+        logger.info(`Updated docker-compose.yml for ${name}`);
+      }
+
+      // Force recreate all containers
+      await execAsync('docker compose down', { cwd: projectPath });
+      await execAsync('docker compose up -d --force-recreate', { cwd: projectPath });
+
+      logger.info(`Successfully recreated instance: ${name}`);
+    } catch (error) {
+      logger.error(`Error recreating instance ${name}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete an instance
    */
   async deleteInstance(name: string, removeVolumes: boolean = false): Promise<void> {

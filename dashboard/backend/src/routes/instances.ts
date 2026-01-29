@@ -222,6 +222,26 @@ export function createInstanceRoutes(
   );
 
   /**
+   * POST /api/instances/:name/recreate
+   * Recreate an instance (down + up) to apply config changes
+   */
+  router.post(
+    '/:name/recreate',
+    requireUser,
+    auditLog('INSTANCE_RECREATE'),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        await instanceManager.recreateInstance(name);
+        res.json({ message: `Instance ${name} recreated successfully` });
+      } catch (error: any) {
+        logger.error(`Error recreating instance ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to recreate instance' });
+      }
+    }
+  );
+
+  /**
    * PUT /api/instances/:name/credentials
    * Update instance credentials
    */

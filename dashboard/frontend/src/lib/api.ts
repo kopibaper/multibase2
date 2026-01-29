@@ -85,6 +85,12 @@ export const instancesApi = {
     });
   },
 
+  recreate: (name: string): Promise<{ message: string }> => {
+    return fetchApi<{ message: string }>(`/api/instances/${name}/recreate`, {
+      method: 'POST',
+    });
+  },
+
   updateSmtp: (name: string, data: any): Promise<void> => {
     return fetchApi<void>(`/api/instances/${name}/smtp`, {
       method: 'PUT',

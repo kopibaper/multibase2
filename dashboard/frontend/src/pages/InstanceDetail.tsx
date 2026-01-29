@@ -5,6 +5,7 @@ import {
   useStartInstance,
   useStopInstance,
   useRestartInstance,
+  useRecreateInstance,
   useDeleteInstance,
 } from '../hooks/useInstances';
 import {
@@ -13,6 +14,7 @@ import {
   Play,
   Square,
   RotateCw,
+  RefreshCcw,
   Server,
   Activity,
   BarChart3,
@@ -47,6 +49,7 @@ export default function InstanceDetail() {
   const startMutation = useStartInstance();
   const stopMutation = useStopInstance();
   const restartMutation = useRestartInstance();
+  const recreateMutation = useRecreateInstance();
   const deleteMutation = useDeleteInstance();
 
   const handleDelete = async (removeVolumes: boolean) => {
@@ -139,6 +142,19 @@ export default function InstanceDetail() {
             >
               <RotateCw className={`w-4 h-4 ${restartMutation.isPending ? 'animate-spin' : ''}`} />
               {restartMutation.isPending ? 'Restarting...' : 'Restart'}
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('Recreate will stop all services, update config, and restart. Continue?')) {
+                  recreateMutation.mutate(instance.name);
+                }
+              }}
+              disabled={recreateMutation.isPending}
+              className='flex items-center gap-2 px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-md transition-colors disabled:opacity-50'
+              title='Recreate instance with latest docker-compose config'
+            >
+              <RefreshCcw className={`w-4 h-4 ${recreateMutation.isPending ? 'animate-spin' : ''}`} />
+              {recreateMutation.isPending ? 'Recreating...' : 'Recreate'}
             </button>
             {instance.status === 'running' || instance.health.overall === 'healthy' ? (
               <button

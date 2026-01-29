@@ -178,6 +178,23 @@ export const useRestartInstance = () => {
   });
 };
 
+// Recreate instance mutation (applies docker-compose changes)
+export const useRecreateInstance = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (name: string) => instancesApi.recreate(name),
+    onSuccess: (_, name) => {
+      toast.success(`Instance ${name} recreated successfully with latest config`);
+      queryClient.invalidateQueries({ queryKey: instanceKeys.detail(name) });
+      queryClient.invalidateQueries({ queryKey: instanceKeys.lists() });
+    },
+    onError: (error: any, name) => {
+      toast.error(error.message || `Failed to recreate ${name}`);
+    },
+  });
+};
+
 // Restart service mutation
 export const useRestartService = () => {
   const queryClient = useQueryClient();
