@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          credentials: 'include',
         });
       }
     } catch (error) {
@@ -241,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ email, password, twoFactorToken: code }),
       });
 
@@ -270,6 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
       });
       if (response.ok) {
         const userData = await response.json();
