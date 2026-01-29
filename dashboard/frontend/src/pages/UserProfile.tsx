@@ -87,8 +87,9 @@ export default function UserProfile() {
   const fetchSessions = async () => {
     if (!user || !token) return;
     try {
-      const response = await fetch(`/api/auth/users/${user.id}/sessions`, {
+      const response = await fetch(`${API_URL}/api/auth/users/${user.id}/sessions`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -104,8 +105,9 @@ export default function UserProfile() {
   const fetch2FAStatus = async () => {
     if (!token) return;
     try {
-      const response = await fetch('/api/auth/2fa/status', {
+      const response = await fetch(`${API_URL}/api/auth/2fa/status`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -120,9 +122,10 @@ export default function UserProfile() {
   const handleTerminateSession = async (sessionId: string) => {
     if (!user || !token) return;
     try {
-      const response = await fetch(`/api/auth/users/${user.id}/sessions/${sessionId}`, {
+      const response = await fetch(`${API_URL}/api/auth/users/${user.id}/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         toast.success('Session terminated');
@@ -149,12 +152,13 @@ export default function UserProfile() {
     }
     setChangingPassword(true);
     try {
-      const response = await fetch(`/api/auth/users/${user?.id}/password`, {
+      const response = await fetch(`${API_URL}/api/auth/users/${user?.id}/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (response.ok) {
@@ -182,12 +186,13 @@ export default function UserProfile() {
     }
     setSavingProfile(true);
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           username: editUsername.trim(),
           email: editEmail.trim() || undefined,
@@ -228,9 +233,10 @@ export default function UserProfile() {
     formData.append('avatar', file);
 
     try {
-      const response = await fetch('/api/auth/avatar', {
+      const response = await fetch(`${API_URL}/api/auth/avatar`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         body: formData,
       });
       if (response.ok) {
@@ -252,9 +258,10 @@ export default function UserProfile() {
   const handleRemoveAvatar = async () => {
     setAvatarUploading(true);
     try {
-      const response = await fetch('/api/auth/avatar', {
+      const response = await fetch(`${API_URL}/api/auth/avatar`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         toast.success('Avatar removed');
@@ -274,9 +281,10 @@ export default function UserProfile() {
   const handleEnable2FA = async () => {
     setTwoFALoading(true);
     try {
-      const response = await fetch('/api/auth/2fa/enable', {
+      const response = await fetch(`${API_URL}/api/auth/2fa/enable`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -301,12 +309,13 @@ export default function UserProfile() {
     }
     setTwoFALoading(true);
     try {
-      const response = await fetch('/api/auth/2fa/verify', {
+      const response = await fetch(`${API_URL}/api/auth/2fa/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ code: twoFACode }),
       });
       if (response.ok) {
@@ -351,12 +360,13 @@ export default function UserProfile() {
     }
     setTwoFALoading(true);
     try {
-      const response = await fetch('/api/auth/2fa/disable', {
+      const response = await fetch(`${API_URL}/api/auth/2fa/disable`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ code: disableCode }),
       });
       if (response.ok) {

@@ -90,6 +90,7 @@ export default function BackupManagement() {
     try {
       const response = await fetch(`${API_URL}/api/backups`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -105,6 +106,7 @@ export default function BackupManagement() {
     try {
       const response = await fetch(`${API_URL}/api/schedules`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -135,6 +137,7 @@ export default function BackupManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
 
@@ -164,6 +167,7 @@ export default function BackupManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(scheduleFormData),
       });
 
@@ -186,6 +190,7 @@ export default function BackupManagement() {
     try {
       const response = await fetch(`${API_URL}/api/backups/${backupId}/preview`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -210,6 +215,7 @@ export default function BackupManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ instanceId }),
       });
 
@@ -233,6 +239,7 @@ export default function BackupManagement() {
       const response = await fetch(`${API_URL}/api/backups/${backupId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -254,6 +261,7 @@ export default function BackupManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ enabled: !enabled }),
       });
 
@@ -275,6 +283,7 @@ export default function BackupManagement() {
       const response = await fetch(`${API_URL}/api/schedules/${scheduleId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (response.ok) {

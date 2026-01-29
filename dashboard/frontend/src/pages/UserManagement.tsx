@@ -38,6 +38,7 @@ export default function UserManagement() {
     try {
       const response = await fetch(`${API_URL}/api/auth/users`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -65,6 +66,7 @@ export default function UserManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
 
@@ -92,6 +94,7 @@ export default function UserManagement() {
       const response = await fetch(`${API_URL}/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -116,6 +119,7 @@ export default function UserManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           username: editingUser.username,
           email: editingUser.email,
@@ -146,6 +150,7 @@ export default function UserManagement() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ password: newPassword }),
       });
 
@@ -170,6 +175,7 @@ export default function UserManagement() {
       const response = await fetch(`${API_URL}/api/auth/users/${userId}/2fa`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (!response.ok) {

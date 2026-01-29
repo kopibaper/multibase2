@@ -63,9 +63,11 @@ export default function ActivityLog() {
       const [logsRes, statsRes] = await Promise.all([
         fetch(`${API_URL}/api/audit?${queryParams}`, {
           headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         }),
         fetch(`${API_URL}/api/audit/stats`, {
           headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         }),
       ]);
 
