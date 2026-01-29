@@ -27,8 +27,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ChevronDown, ChevronRight, Download, FileJson } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, FileJson, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
+import * as Select from '@radix-ui/react-select';
 
 interface ExecutionResult {
   message: string;
@@ -302,20 +303,49 @@ export default function Migrations() {
           {/* Instance Selector */}
           <div className='flex items-center gap-3 bg-card p-2 rounded-lg border border-border shadow-sm'>
             <Database className='w-4 h-4 text-muted-foreground' />
-            <select
-              value={selectedInstanceId}
-              onChange={(e) => setSelectedInstanceId(e.target.value)}
-              className='bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer min-w-[200px]'
-            >
-              <option value='' disabled>
-                Select Instance
-              </option>
-              {instances?.map((i) => (
-                <option key={i.id} value={i.name}>
-                  {i.name} ({i.status})
-                </option>
-              ))}
-            </select>
+            <Select.Root value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+              <Select.Trigger className='inline-flex items-center justify-between gap-2 min-w-[200px] px-3 py-1.5 text-sm font-medium bg-transparent hover:bg-secondary/50 rounded-md outline-none cursor-pointer transition-colors'>
+                <Select.Value placeholder='Select Instance' />
+                <Select.Icon>
+                  <ChevronDown className='w-4 h-4 text-muted-foreground' />
+                </Select.Icon>
+              </Select.Trigger>
+              <Select.Portal>
+                <Select.Content
+                  className='overflow-hidden bg-card border border-border rounded-lg shadow-xl z-50'
+                  position='popper'
+                  sideOffset={5}
+                >
+                  <Select.Viewport className='p-1'>
+                    {instances?.map((i) => (
+                      <Select.Item
+                        key={i.id}
+                        value={i.name}
+                        className='relative flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer outline-none select-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-foreground text-foreground transition-colors'
+                      >
+                        <Select.ItemText>
+                          <span className='flex items-center gap-2'>
+                            {i.name}
+                            <span
+                              className={`text-xs px-1.5 py-0.5 rounded ${
+                                i.status === 'running'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {i.status}
+                            </span>
+                          </span>
+                        </Select.ItemText>
+                        <Select.ItemIndicator className='absolute right-2'>
+                          <Check className='w-4 h-4 text-primary' />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    ))}
+                  </Select.Viewport>
+                </Select.Content>
+              </Select.Portal>
+            </Select.Root>
           </div>
         </div>
       </PageHeader>

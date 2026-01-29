@@ -9,78 +9,89 @@ interface GaugeChartProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const colorClasses = {
+const colorConfig = {
   blue: {
-    stroke: 'stroke-blue-600',
-    text: 'text-blue-600',
-    bg: 'bg-blue-100',
-    ringBg: 'stroke-blue-100',
+    gradient: ['#3b82f6', '#60a5fa', '#93c5fd'],
+    glow: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))',
+    text: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    ringBg: 'rgba(59, 130, 246, 0.1)',
   },
   green: {
-    stroke: 'stroke-green-600',
-    text: 'text-green-600',
-    bg: 'bg-green-100',
-    ringBg: 'stroke-green-100',
+    gradient: ['#10b981', '#34d399', '#6ee7b7'],
+    glow: 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.5))',
+    text: 'text-emerald-500',
+    bg: 'bg-emerald-500/10',
+    ringBg: 'rgba(16, 185, 129, 0.1)',
   },
   purple: {
-    stroke: 'stroke-purple-600',
-    text: 'text-purple-600',
-    bg: 'bg-purple-100',
-    ringBg: 'stroke-purple-100',
+    gradient: ['#8b5cf6', '#a78bfa', '#c4b5fd'],
+    glow: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.5))',
+    text: 'text-purple-500',
+    bg: 'bg-purple-500/10',
+    ringBg: 'rgba(139, 92, 246, 0.1)',
   },
   orange: {
-    stroke: 'stroke-orange-600',
-    text: 'text-orange-600',
-    bg: 'bg-orange-100',
-    ringBg: 'stroke-orange-100',
+    gradient: ['#f97316', '#fb923c', '#fdba74'],
+    glow: 'drop-shadow(0 0 8px rgba(249, 115, 22, 0.5))',
+    text: 'text-orange-500',
+    bg: 'bg-orange-500/10',
+    ringBg: 'rgba(249, 115, 22, 0.1)',
   },
   cyan: {
-    stroke: 'stroke-cyan-600',
-    text: 'text-cyan-600',
-    bg: 'bg-cyan-100',
-    ringBg: 'stroke-cyan-100',
+    gradient: ['#06b6d4', '#22d3ee', '#67e8f9'],
+    glow: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.5))',
+    text: 'text-cyan-500',
+    bg: 'bg-cyan-500/10',
+    ringBg: 'rgba(6, 182, 212, 0.1)',
   },
   pink: {
-    stroke: 'stroke-pink-600',
-    text: 'text-pink-600',
-    bg: 'bg-pink-100',
-    ringBg: 'stroke-pink-100',
+    gradient: ['#ec4899', '#f472b6', '#f9a8d4'],
+    glow: 'drop-shadow(0 0 8px rgba(236, 72, 153, 0.5))',
+    text: 'text-pink-500',
+    bg: 'bg-pink-500/10',
+    ringBg: 'rgba(236, 72, 153, 0.1)',
   },
   yellow: {
-    stroke: 'stroke-yellow-600',
-    text: 'text-yellow-600',
-    bg: 'bg-yellow-100',
-    ringBg: 'stroke-yellow-100',
+    gradient: ['#eab308', '#facc15', '#fde047'],
+    glow: 'drop-shadow(0 0 8px rgba(234, 179, 8, 0.5))',
+    text: 'text-yellow-500',
+    bg: 'bg-yellow-500/10',
+    ringBg: 'rgba(234, 179, 8, 0.1)',
   },
   red: {
-    stroke: 'stroke-red-600',
-    text: 'text-red-600',
-    bg: 'bg-red-100',
-    ringBg: 'stroke-red-100',
+    gradient: ['#ef4444', '#f87171', '#fca5a5'],
+    glow: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.5))',
+    text: 'text-red-500',
+    bg: 'bg-red-500/10',
+    ringBg: 'rgba(239, 68, 68, 0.1)',
   },
 };
 
 const sizeConfig = {
   sm: {
-    width: 80,
-    height: 80,
-    strokeWidth: 6,
+    width: 100,
+    height: 100,
+    strokeWidth: 8,
     fontSize: 'text-lg',
     iconSize: 'w-4 h-4',
+    iconPadding: 'p-1.5',
   },
   md: {
-    width: 120,
-    height: 120,
-    strokeWidth: 8,
+    width: 140,
+    height: 140,
+    strokeWidth: 10,
     fontSize: 'text-2xl',
     iconSize: 'w-5 h-5',
+    iconPadding: 'p-2',
   },
   lg: {
-    width: 160,
-    height: 160,
-    strokeWidth: 10,
+    width: 180,
+    height: 180,
+    strokeWidth: 12,
     fontSize: 'text-3xl',
     iconSize: 'w-6 h-6',
+    iconPadding: 'p-2.5',
   },
 };
 
@@ -93,7 +104,7 @@ export default function GaugeChart({
   size = 'md',
 }: GaugeChartProps) {
   // Clamp value between 0-100, handle both undefined and NaN
-  const safeValue = (value == null || isNaN(value)) ? 0 : value;
+  const safeValue = value == null || isNaN(value) ? 0 : value;
   const normalizedValue = Math.min(Math.max(safeValue, 0), 100);
 
   // Get dynamic color based on value if not specified
@@ -105,7 +116,7 @@ export default function GaugeChart({
   };
 
   const finalColor = value > 100 ? getAutoColor(normalizedValue) : color;
-  const colors = colorClasses[finalColor];
+  const colors = colorConfig[finalColor];
   const config = sizeConfig[size];
 
   // SVG circle calculations
@@ -113,57 +124,82 @@ export default function GaugeChart({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (normalizedValue / 100) * circumference;
 
+  const gradientId = `gauge-gradient-${label.replace(/\s/g, '-')}-${color}`;
+  const isHighValue = normalizedValue >= 75;
+
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className='flex flex-col items-center gap-4'>
       {/* Gauge SVG */}
-      <div className="relative" style={{ width: config.width, height: config.height }}>
+      <div
+        className='relative transition-transform hover:scale-105 duration-300'
+        style={{ width: config.width, height: config.height }}
+      >
         <svg
           width={config.width}
           height={config.height}
-          className="transform -rotate-90"
+          className='transform -rotate-90'
           viewBox={`0 0 ${config.width} ${config.height}`}
+          style={{ filter: isHighValue ? colors.glow : undefined }}
         >
+          <defs>
+            <linearGradient id={gradientId} x1='0%' y1='0%' x2='100%' y2='0%'>
+              <stop offset='0%' stopColor={colors.gradient[0]} />
+              <stop offset='50%' stopColor={colors.gradient[1]} />
+              <stop offset='100%' stopColor={colors.gradient[2]} />
+            </linearGradient>
+          </defs>
+
           {/* Background circle */}
           <circle
             cx={config.width / 2}
             cy={config.height / 2}
             r={radius}
-            className={colors.ringBg}
+            stroke={colors.ringBg}
             strokeWidth={config.strokeWidth}
-            fill="none"
+            fill='none'
           />
 
-          {/* Progress circle */}
+          {/* Progress circle with gradient */}
           <circle
             cx={config.width / 2}
             cy={config.height / 2}
             r={radius}
-            className={`${colors.stroke} transition-all duration-500 ease-in-out`}
+            stroke={`url(#${gradientId})`}
             strokeWidth={config.strokeWidth}
-            fill="none"
+            fill='none'
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
+            strokeLinecap='round'
+            className='transition-all duration-700 ease-out'
           />
         </svg>
 
         {/* Center content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className='absolute inset-0 flex flex-col items-center justify-center'>
           {Icon && (
-            <div className={`${colors.bg} p-2 rounded-full mb-1`}>
+            <div className={`${colors.bg} ${config.iconPadding} rounded-full mb-1.5 backdrop-blur-sm`}>
               <Icon className={`${config.iconSize} ${colors.text}`} />
             </div>
           )}
-          <span className={`${config.fontSize} font-bold ${colors.text}`}>
+          <span className={`${config.fontSize} font-bold ${colors.text} tabular-nums`}>
             {displayValue || `${normalizedValue.toFixed(0)}%`}
           </span>
         </div>
+
+        {/* Animated pulse ring for high values */}
+        {isHighValue && (
+          <div
+            className={`absolute inset-0 rounded-full animate-ping opacity-20`}
+            style={{
+              border: `2px solid ${colors.gradient[0]}`,
+              animationDuration: '2s',
+            }}
+          />
+        )}
       </div>
 
       {/* Label */}
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center">
-        {label}
-      </p>
+      <p className='text-sm font-medium text-muted-foreground text-center'>{label}</p>
     </div>
   );
 }

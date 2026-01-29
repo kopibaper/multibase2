@@ -7,7 +7,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
 } from 'recharts';
+import { useState } from 'react';
 
 interface DataPoint {
   name: string;
@@ -42,6 +44,29 @@ const defaultTooltipFormatter = (value: number) => {
   return value.toFixed(2);
 };
 
+// Custom tooltip with glassmorphism
+const CustomTooltip = ({ active, payload, label, bars, tooltipFormatter }: any) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className='bg-card/95 backdrop-blur-md border border-border rounded-xl p-3 shadow-2xl'>
+      <p className='text-sm font-semibold text-foreground mb-2'>{label}</p>
+      <div className='space-y-1.5'>
+        {payload.map((entry: any, index: number) => {
+          const barConfig = bars.find((b: BarConfig) => b.key === entry.dataKey);
+          return (
+            <div key={index} className='flex items-center gap-2'>
+              <div className='w-3 h-3 rounded shadow-sm' style={{ backgroundColor: entry.color }} />
+              <span className='text-xs text-muted-foreground'>{barConfig?.label || entry.name}:</span>
+              <span className='text-sm font-bold text-foreground'>{tooltipFormatter(entry.value, entry.dataKey)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function BarChart({
   data,
   bars,
@@ -52,31 +77,33 @@ export default function BarChart({
   tooltipFormatter = defaultTooltipFormatter,
   loading = false,
 }: BarChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center" style={{ height }}>
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className='flex items-center justify-center' style={{ height }}>
+        <div className='relative'>
+          <div className='w-10 h-10 border-4 border-primary/30 rounded-full' />
+          <div className='w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin absolute inset-0' />
+        </div>
       </div>
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-gray-400" style={{ height }}>
-        <svg
-          className="w-16 h-16 mb-2"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-          />
-        </svg>
-        <p className="text-sm">No data available</p>
+      <div className='flex flex-col items-center justify-center text-muted-foreground' style={{ height }}>
+        <div className='w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-3'>
+          <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              strokeWidth={1.5}
+              d='M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+            />
+          </svg>
+        </div>
+        <p className='text-sm font-medium'>No data available</p>
       </div>
     );
   }
@@ -84,66 +111,93 @@ export default function BarChart({
   return (
     <div>
       {title && (
-        <h3 className="text-base font-semibold mb-4 text-gray-900 dark:text-white">
+        <h3 className='text-base font-semibold mb-4 text-foreground flex items-center gap-2'>
+          <div className='w-1 h-5 bg-primary rounded-full' />
           {title}
         </h3>
       )}
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width='100%' height={height}>
         <RechartsBarChart
           data={data}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 10, right: 30, left: 10, bottom: 5 }}
+          onMouseMove={(state) => {
+            if (state.activeTooltipIndex !== undefined) {
+              setActiveIndex(state.activeTooltipIndex);
+            }
+          }}
+          onMouseLeave={() => setActiveIndex(null)}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <defs>
+            {bars.map((bar) => (
+              <linearGradient key={`gradient-${bar.key}`} id={`barGradient-${bar.key}`} x1='0' y1='0' x2='0' y2='1'>
+                <stop offset='0%' stopColor={bar.color} stopOpacity={1} />
+                <stop offset='100%' stopColor={bar.color} stopOpacity={0.6} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray='3 3' stroke='currentColor' strokeOpacity={0.1} vertical={false} />
           <XAxis
-            dataKey="name"
-            stroke="#6b7280"
-            style={{ fontSize: '12px' }}
+            dataKey='name'
+            stroke='currentColor'
+            strokeOpacity={0.3}
+            tick={{ fill: 'currentColor', opacity: 0.5, fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
             angle={-45}
-            textAnchor="end"
+            textAnchor='end'
             height={80}
+            interval={0}
           />
           <YAxis
             tickFormatter={yAxisFormatter}
-            stroke="#6b7280"
-            style={{ fontSize: '12px' }}
+            stroke='currentColor'
+            strokeOpacity={0.3}
+            tick={{ fill: 'currentColor', opacity: 0.5, fontSize: 11 }}
+            tickLine={false}
+            axisLine={false}
+            width={50}
             label={
               yAxisLabel
                 ? {
                     value: yAxisLabel,
                     angle: -90,
                     position: 'insideLeft',
-                    style: { fontSize: '12px', fill: '#6b7280' },
+                    style: { fontSize: '12px', fill: 'currentColor', opacity: 0.5 },
                   }
                 : undefined
             }
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              padding: '8px 12px',
-            }}
-            formatter={(value: number, name: string) => [
-              tooltipFormatter(value, name),
-              bars.find((b) => b.key === name)?.label || name,
-            ]}
+            content={<CustomTooltip bars={bars} tooltipFormatter={tooltipFormatter} />}
+            cursor={{ fill: 'currentColor', opacity: 0.05 }}
           />
           <Legend
-            wrapperStyle={{ fontSize: '12px' }}
+            wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
             formatter={(value) => {
               const bar = bars.find((b) => b.key === value);
-              return bar?.label || value;
+              return <span className='text-muted-foreground'>{bar?.label || value}</span>;
             }}
+            iconType='rect'
+            iconSize={10}
           />
           {bars.map((bar) => (
             <Bar
               key={bar.key}
               dataKey={bar.key}
-              fill={bar.color}
+              fill={`url(#barGradient-${bar.key})`}
               name={bar.key}
-              radius={[4, 4, 0, 0]}
-            />
+              radius={[6, 6, 0, 0]}
+              animationDuration={800}
+              animationEasing='ease-out'
+            >
+              {data.map((_, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fillOpacity={activeIndex === null || activeIndex === index ? 1 : 0.4}
+                  style={{ transition: 'fill-opacity 0.2s ease' }}
+                />
+              ))}
+            </Bar>
           ))}
         </RechartsBarChart>
       </ResponsiveContainer>
