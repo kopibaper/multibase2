@@ -75,28 +75,55 @@ export class DockerManager {
       let diskRead = 0;
       let diskWrite = 0;
 
-      // cgroups v1 format
-      if (stats.blkio_stats?.io_service_bytes_recursive?.length) {
-        stats.blkio_stats.io_service_bytes_recursive.forEach((io) => {
+      // Debug: Log the blkio_stats structure to understand what Docker returns
+      const blkioStats = stats.blkio_stats;
+
+      // cgroups v1 format - io_service_bytes_recursive is an array with operations
+      if (
+        blkioStats?.io_service_bytes_recursive &&
+        blkioStats.io_service_bytes_recursive.length > 0
+      ) {
+        blkioStats.io_service_bytes_recursive.forEach((io) => {
           if (io.op === 'Read') diskRead += io.value;
           if (io.op === 'Write') diskWrite += io.value;
         });
+        logger.debug(`[Disk I/O] cgroups v1 detected: read=${diskRead}, write=${diskWrite}`);
       }
-      // cgroups v2 format - different structure
-      else if ((stats.blkio_stats as any)?.io_service_bytes) {
-        const ioStats = (stats.blkio_stats as any).io_service_bytes;
-        if (typeof ioStats === 'object') {
-          Object.values(ioStats).forEach((device: any) => {
-            if (device?.Read) diskRead += device.Read;
-            if (device?.Write) diskWrite += device.Write;
-          });
+      // cgroups v2 - blkio_stats might be empty, check for alternative sources
+      else {
+        // Try to find disk I/O in different possible locations
+        const anyStats = stats as any;
+
+        // Some Docker versions put it under blkio_stats with different keys
+        if (blkioStats && typeof blkioStats === 'object') {
+          const keys = Object.keys(blkioStats);
+          logger.debug(`[Disk I/O] blkio_stats keys: ${keys.join(', ') || 'empty'}`);
+
+          // Check for io_merged_recursive or other arrays
+          for (const key of keys) {
+            const value = (blkioStats as any)[key];
+            if (Array.isArray(value) && value.length > 0) {
+              value.forEach((io: any) => {
+                if (io.op === 'Read' || io.op === 'read') diskRead += io.value || 0;
+                if (io.op === 'Write' || io.op === 'write') diskWrite += io.value || 0;
+              });
+            }
+          }
         }
-      }
-      // Fallback: Try to get from storage_stats if available (some Docker versions)
-      else if ((stats as any).storage_stats) {
-        const storageStats = (stats as any).storage_stats;
-        diskRead = storageStats.read_size_bytes || 0;
-        diskWrite = storageStats.write_size_bytes || 0;
+
+        // cgroups v2 alternative: check storage_stats
+        if (diskRead === 0 && diskWrite === 0 && anyStats.storage_stats) {
+          diskRead = anyStats.storage_stats.read_size_bytes || 0;
+          diskWrite = anyStats.storage_stats.write_size_bytes || 0;
+          logger.debug(`[Disk I/O] storage_stats detected: read=${diskRead}, write=${diskWrite}`);
+        }
+
+        // If still 0, log warning for investigation
+        if (diskRead === 0 && diskWrite === 0) {
+          logger.debug(
+            `[Disk I/O] No disk stats found. blkio_stats: ${JSON.stringify(blkioStats)}`
+          );
+        }
       }
 
       return {
