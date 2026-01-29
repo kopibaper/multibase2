@@ -317,6 +317,12 @@ services:
     restart: unless-stopped
     ports:
       - ${ANALYTICS_PORT}:4000
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     # Uncomment to use Big Query backend for analytics
     # volumes:
     #   - type: bind

@@ -7,7 +7,7 @@ export class DockerManager {
 
   constructor(socketPath?: string) {
     let dockerOptions: Docker.DockerOptions;
-    
+
     if (socketPath) {
       dockerOptions = { socketPath };
     } else if (process.env.DOCKER_HOST) {
@@ -71,14 +71,32 @@ export class DockerManager {
         });
       }
 
-      // Disk I/O
+      // Disk I/O - Handle both cgroups v1 and v2
       let diskRead = 0;
       let diskWrite = 0;
-      if (stats.blkio_stats.io_service_bytes_recursive) {
+
+      // cgroups v1 format
+      if (stats.blkio_stats?.io_service_bytes_recursive?.length) {
         stats.blkio_stats.io_service_bytes_recursive.forEach((io) => {
           if (io.op === 'Read') diskRead += io.value;
           if (io.op === 'Write') diskWrite += io.value;
         });
+      }
+      // cgroups v2 format - different structure
+      else if ((stats.blkio_stats as any)?.io_service_bytes) {
+        const ioStats = (stats.blkio_stats as any).io_service_bytes;
+        if (typeof ioStats === 'object') {
+          Object.values(ioStats).forEach((device: any) => {
+            if (device?.Read) diskRead += device.Read;
+            if (device?.Write) diskWrite += device.Write;
+          });
+        }
+      }
+      // Fallback: Try to get from storage_stats if available (some Docker versions)
+      else if ((stats as any).storage_stats) {
+        const storageStats = (stats as any).storage_stats;
+        diskRead = storageStats.read_size_bytes || 0;
+        diskWrite = storageStats.write_size_bytes || 0;
       }
 
       return {
