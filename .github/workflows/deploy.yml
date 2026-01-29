@@ -39,7 +39,7 @@ jobs:
           # Deploy only the dist folder content
           SOURCE: 'dashboard/frontend/dist/'
           # Target directory on VPS 1
-          TARGET: '/home/lafftale-multibase/htdocs/multibase.lafftale.online'
+          TARGET: '/home/tyto-design-multibase/htdocs/multibase.tyto-design.de'
           # Create target if not exists
           ARGS: '-rltgoDzvO --delete'
 
@@ -86,11 +86,14 @@ jobs:
             echo "LOG_LEVEL=info" >> .env
             echo "DATABASE_URL=file:./data/multibase.db" >> .env
             echo "REDIS_URL=redis://localhost:6379" >> .env
-            echo "CORS_ORIGIN=https://multibase.lafftale.online,https://supabase.tyto-design.de,http://localhost:5173" >> .env
+            echo "CORS_ORIGIN=https://multibase.tyto-design.de,http://localhost:5173" >> .env
             echo "METRICS_INTERVAL=15000" >> .env
             echo "HEALTH_CHECK_INTERVAL=10000" >> .env
             echo "ALERT_CHECK_INTERVAL=60000" >> .env
-            # Add secret keys
+            echo "APP_URL=https://multibase.tyto-design.de" >> .env
+            echo "DASHBOARD_URL=https://multibase.tyto-design.de" >> .env
+            echo "BACKEND_URL=https://backend.tyto-design.de" >> .env
+            echo "COOKIE_DOMAIN=.tyto-design.de" >> .env
             echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" >> .env
 
             # Run Migrations

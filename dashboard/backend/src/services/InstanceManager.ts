@@ -356,7 +356,7 @@ export class InstanceManager {
       }
 
       const domain = 'backend.tyto-design.de';
-      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.lafftale.online';
+      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.tyto-design.de';
       const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
 
       const configContent = `# Auto-generated config for ${instance.name} with authentication

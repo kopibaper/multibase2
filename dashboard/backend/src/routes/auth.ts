@@ -74,10 +74,10 @@ export function createAuthRoutes() {
         if (result.session) {
           res.cookie('auth_token', result.session.token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: true, // Required for SameSite=None
+            sameSite: 'none',
             domain: process.env.COOKIE_DOMAIN,
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           });
         }
 
@@ -119,7 +119,7 @@ export function createAuthRoutes() {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          domain: process.env.COOKIE_DOMAIN
+          domain: process.env.COOKIE_DOMAIN,
         });
 
         res.json({ message: 'Logged out successfully' });
@@ -627,7 +627,7 @@ export function createAuthRoutes() {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           domain: process.env.COOKIE_DOMAIN,
-          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
         res.json(result);

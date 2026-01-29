@@ -16,9 +16,8 @@ export function createInstanceAuthRoutes() {
   router.get('/verify-instance-access', async (req: Request, res: Response): Promise<any> => {
     try {
       // 1. Extract token from cookie or Authorization header
-      const token = req.cookies?.auth_token || 
-                    req.headers.authorization?.replace('Bearer ', '');
-      
+      const token = req.cookies?.auth_token || req.headers.authorization?.replace('Bearer ', '');
+
       if (!token) {
         logger.debug('Instance access denied: No token provided');
         return res.status(401).json({ error: 'Unauthorized - No token' });
@@ -26,7 +25,7 @@ export function createInstanceAuthRoutes() {
 
       // 2. Validate session
       const session = await AuthService.validateSession(token);
-      
+
       if (!session) {
         logger.debug('Instance access denied: Invalid session');
         return res.status(401).json({ error: 'Unauthorized - Invalid session' });
@@ -40,11 +39,11 @@ export function createInstanceAuthRoutes() {
 
       // 4. Optional: Instance-specific access control
       const instanceName = req.headers['x-instance-name'] as string;
-      
+
       if (instanceName) {
         // Check if instance exists
         const instance = await prisma.instance.findUnique({
-          where: { id: instanceName }
+          where: { id: instanceName },
         });
 
         if (!instance) {
@@ -55,19 +54,20 @@ export function createInstanceAuthRoutes() {
         // Optional: Role-based access control
         // Viewer role could have read-only access
         if (session.user.role === 'viewer') {
-          logger.debug(`Instance access granted (read-only): ${session.user.username} → ${instanceName}`);
+          logger.debug(
+            `Instance access granted (read-only): ${session.user.username} → ${instanceName}`
+          );
         } else {
           logger.debug(`Instance access granted: ${session.user.username} → ${instanceName}`);
         }
       }
 
       // 5. Success - Nginx will forward the request
-      return res.status(200).json({ 
-        allowed: true, 
+      return res.status(200).json({
+        allowed: true,
         user: session.user.username,
-        role: session.user.role
+        role: session.user.role,
       });
-      
     } catch (error) {
       logger.error('Error verifying instance access:', error);
       return res.status(500).json({ error: 'Internal server error' });
@@ -81,14 +81,14 @@ export function createInstanceAuthRoutes() {
   router.get('/instance-login-url', async (req: Request, res: Response): Promise<any> => {
     try {
       const redirectUrl = req.query.redirect as string;
-      
+
       if (!redirectUrl) {
         return res.status(400).json({ error: 'redirect parameter required' });
       }
 
-      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.lafftale.online';
+      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.tyto-design.de';
       const loginUrl = `${dashboardUrl}/login?redirect=${encodeURIComponent(redirectUrl)}`;
-      
+
       return res.json({ loginUrl });
     } catch (error) {
       logger.error('Error generating login URL:', error);

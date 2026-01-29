@@ -55,6 +55,7 @@ const HEALTH_CHECK_INTERVAL = parseInt(process.env.HEALTH_CHECK_INTERVAL || '100
 
 // Initialize Express app
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Nginx)
 const httpServer = createServer(app);
 
 // Initialize Socket.IO
