@@ -21,9 +21,11 @@ import ConfirmDialog from './ConfirmDialog';
 
 interface InstanceCardProps {
   instance: SupabaseInstance;
+  isSelected?: boolean;
+  onToggleSelect?: (name: string) => void;
 }
 
-export default function InstanceCard({ instance }: InstanceCardProps) {
+export default function InstanceCard({ instance, isSelected, onToggleSelect }: InstanceCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canTakeActions = user?.role !== 'viewer';
@@ -89,6 +91,24 @@ export default function InstanceCard({ instance }: InstanceCardProps) {
       >
         {/* Header */}
         <div className='flex items-start justify-between mb-4'>
+          {/* Selection Checkbox */}
+          {onToggleSelect && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect(instance.name);
+              }}
+              className={`mr-3 flex-shrink-0 w-5 h-5 rounded border-2 cursor-pointer transition-colors flex items-center justify-center ${
+                isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'
+              }`}
+            >
+              {isSelected && (
+                <svg className='w-3 h-3 text-primary-foreground' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={3} d='M5 13l4 4L19 7' />
+                </svg>
+              )}
+            </div>
+          )}
           <div className='flex-1'>
             <h3 className='text-xl font-semibold text-foreground flex items-center gap-2'>
               <Server className='w-5 h-5 text-primary' />

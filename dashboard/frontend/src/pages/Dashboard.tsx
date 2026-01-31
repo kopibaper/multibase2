@@ -3,7 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useInstances, useSystemMetrics } from '../hooks/useInstances';
 import { useAlertStats } from '../hooks/useAlerts';
 import { useAuth } from '../contexts/AuthContext';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import InstanceCard from '../components/InstanceCard';
+import BulkActionBar from '../components/BulkActionBar';
 import CreateInstanceModal from '../components/CreateInstanceModal';
 import GaugeChart from '../components/charts/GaugeChart';
 import PageHeader from '../components/PageHeader';
@@ -31,6 +33,7 @@ export default function Dashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const bulkSelection = useBulkSelection<string>();
 
   useEffect(() => {
     if (location.state?.openCreateModal && location.state?.template) {
@@ -345,10 +348,21 @@ export default function Dashboard() {
         ) : (
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
             {instances.map((instance) => (
-              <InstanceCard key={instance.id} instance={instance} />
+              <InstanceCard
+                key={instance.id}
+                instance={instance}
+                isSelected={bulkSelection.isSelected(instance.name)}
+                onToggleSelect={bulkSelection.toggle}
+              />
             ))}
           </div>
         )}
+
+        {/* Bulk Action Bar */}
+        <BulkActionBar
+          selectedInstances={bulkSelection.selectedArray}
+          onClearSelection={bulkSelection.clearSelection}
+        />
       </main>
 
       {/* Create Instance Modal */}
