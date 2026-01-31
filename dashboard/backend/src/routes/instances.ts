@@ -31,6 +31,68 @@ export function createInstanceRoutes(
   });
 
   /**
+   * POST /api/instances/bulk
+   * Execute bulk actions on multiple instances (sequential execution)
+   */
+  router.post(
+    '/bulk',
+    requireUser,
+    auditLog('INSTANCE_BULK_ACTION', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { action, instances: instanceNames } = req.body as {
+          action: 'start' | 'stop' | 'restart';
+          instances: string[];
+        };
+
+        if (!action || !['start', 'stop', 'restart'].includes(action)) {
+          return res
+            .status(400)
+            .json({ error: 'Invalid action. Must be start, stop, or restart.' });
+        }
+
+        if (!instanceNames || !Array.isArray(instanceNames) || instanceNames.length === 0) {
+          return res.status(400).json({ error: 'No instances provided.' });
+        }
+
+        const results: { name: string; success: boolean; message: string }[] = [];
+
+        // Execute sequentially
+        for (const name of instanceNames) {
+          try {
+            switch (action) {
+              case 'start':
+                await instanceManager.startInstance(name);
+                break;
+              case 'stop':
+                await instanceManager.stopInstance(name, true);
+                break;
+              case 'restart':
+                await instanceManager.restartInstance(name);
+                break;
+            }
+            results.push({ name, success: true, message: `${action} successful` });
+          } catch (error: any) {
+            logger.error(`Bulk ${action} failed for ${name}:`, error);
+            results.push({ name, success: false, message: error.message || `${action} failed` });
+          }
+        }
+
+        const successCount = results.filter((r) => r.success).length;
+        const failCount = results.filter((r) => !r.success).length;
+
+        return res.json({
+          message: `Bulk ${action}: ${successCount} succeeded, ${failCount} failed`,
+          results,
+        });
+      } catch (error: any) {
+        logger.error('Error executing bulk action:', error);
+        return res.status(500).json({ error: error.message || 'Failed to execute bulk action' });
+      }
+    }
+  );
+
+  /**
    * GET /api/instances/:name
    * Get a specific instance by name
    */
@@ -370,68 +432,6 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error updating env for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to update env' });
-      }
-    }
-  );
-
-  /**
-   * POST /api/instances/bulk
-   * Execute bulk actions on multiple instances (sequential execution)
-   */
-  router.post(
-    '/bulk',
-    requireUser,
-    auditLog('INSTANCE_BULK_ACTION', { includeBody: true }),
-    async (req: Request, res: Response) => {
-      try {
-        const { action, instances: instanceNames } = req.body as {
-          action: 'start' | 'stop' | 'restart';
-          instances: string[];
-        };
-
-        if (!action || !['start', 'stop', 'restart'].includes(action)) {
-          return res
-            .status(400)
-            .json({ error: 'Invalid action. Must be start, stop, or restart.' });
-        }
-
-        if (!instanceNames || !Array.isArray(instanceNames) || instanceNames.length === 0) {
-          return res.status(400).json({ error: 'No instances provided.' });
-        }
-
-        const results: { name: string; success: boolean; message: string }[] = [];
-
-        // Execute sequentially
-        for (const name of instanceNames) {
-          try {
-            switch (action) {
-              case 'start':
-                await instanceManager.startInstance(name);
-                break;
-              case 'stop':
-                await instanceManager.stopInstance(name, true);
-                break;
-              case 'restart':
-                await instanceManager.restartInstance(name);
-                break;
-            }
-            results.push({ name, success: true, message: `${action} successful` });
-          } catch (error: any) {
-            logger.error(`Bulk ${action} failed for ${name}:`, error);
-            results.push({ name, success: false, message: error.message || `${action} failed` });
-          }
-        }
-
-        const successCount = results.filter((r) => r.success).length;
-        const failCount = results.filter((r) => !r.success).length;
-
-        return res.json({
-          message: `Bulk ${action}: ${successCount} succeeded, ${failCount} failed`,
-          results,
-        });
-      } catch (error: any) {
-        logger.error('Error executing bulk action:', error);
-        return res.status(500).json({ error: error.message || 'Failed to execute bulk action' });
       }
     }
   );
