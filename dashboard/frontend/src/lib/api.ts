@@ -108,6 +108,19 @@ export const instancesApi = {
       body: JSON.stringify(data),
     });
   },
+
+  bulk: (
+    action: 'start' | 'stop' | 'restart',
+    instances: string[]
+  ): Promise<{
+    message: string;
+    results: { name: string; success: boolean; message: string }[];
+  }> => {
+    return fetchApi(`/api/instances/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ action, instances }),
+    });
+  },
 };
 
 // Health API
