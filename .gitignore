@@ -34,6 +34,10 @@ wheels/
 # Project-specific folders
 */volumes/db/data/
 */volumes/storage/
+/projects/*
+#Nginx
+/nginx/sites-enabled/*
+/nginx
 
 # Environment variables that may contain secrets
 */.env

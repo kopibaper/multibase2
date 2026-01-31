@@ -68,6 +68,13 @@ export const CreateInstanceSchema = z.object({
   corsOrigins: z.array(z.string()).optional(),
   templateId: z.number().int().positive().optional(),
   env: z.record(z.string()).optional(), // Environment variable overrides for cloud deployment
+  resourceLimits: z
+    .object({
+      cpus: z.number().min(0.1).max(64).optional(),
+      memory: z.number().int().min(128).max(65536).optional(),
+      preset: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const InstanceNameParamSchema = z.object({

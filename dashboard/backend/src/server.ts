@@ -51,7 +51,7 @@ const PORT = process.env.PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
   : ['http://localhost:5173'];
-const PROJECTS_PATH = process.env.PROJECTS_PATH || path.join(__dirname, '../../projects');
+const PROJECTS_PATH = process.env.PROJECTS_PATH || path.join(process.cwd(), '../../projects');
 const DOCKER_SOCKET_PATH = process.env.DOCKER_SOCKET_PATH;
 const METRICS_INTERVAL = parseInt(process.env.METRICS_INTERVAL || '15000', 10);
 const HEALTH_CHECK_INTERVAL = parseInt(process.env.HEALTH_CHECK_INTERVAL || '10000', 10);
@@ -340,9 +340,14 @@ async function start() {
     await startServices();
 
     httpServer.listen(PORT, () => {
-      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`);
-      logger.info(`📊 WebSocket server ready`);
-      logger.info(`🔗 CORS enabled for: ${CORS_ORIGIN}`);
+      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`, {
+        service: 'multibase-dashboard',
+      });
+      logger.info(`📂 Projects Path: ${PROJECTS_PATH} (resolved: ${path.resolve(PROJECTS_PATH)})`, {
+        service: 'multibase-dashboard',
+      });
+      logger.info(`📊 WebSocket server ready`, { service: 'multibase-dashboard' });
+      logger.info(`🔗 CORS enabled for: ${CORS_ORIGIN}`, { service: 'multibase-dashboard' });
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

@@ -10,6 +10,7 @@ import {
   SupabaseInstance,
   InstanceCredentials,
   PortMapping,
+  ResourceLimits,
 } from '../types';
 import { generateAllKeys } from '../utils/keyGenerator';
 import { calculatePorts, getRandomBasePort } from '../utils/portManager';
@@ -240,7 +241,7 @@ export class InstanceManager {
 
     logger.info(`Creating new instance: ${name}`);
     logger.info(
-      `Request details: deploymentType=${request.deploymentType}, env keys=${request.env ? Object.keys(request.env).join(',') : 'none'}`
+      `Request details: deploymentType=${request.deploymentType}, env keys=${request.env ? Object.keys(request.env).join(',') : 'none'}, resourceLimits=${JSON.stringify(request.resourceLimits)}`
     );
 
     // Validate name
@@ -335,6 +336,18 @@ export class InstanceManager {
           }
         } catch (envError) {
           logger.error(`Failed to update environment overrides for ${name}:`, envError);
+        }
+      }
+
+      // Apply Resource Limits if specified
+      if (request.resourceLimits) {
+        try {
+          await this.applyResourceLimits(projectPath, request.resourceLimits);
+          logger.info(
+            `Applied resource limits for ${name}: CPU=${request.resourceLimits.cpus}, Memory=${request.resourceLimits.memory}MB`
+          );
+        } catch (limitsError) {
+          logger.error(`Failed to apply resource limits for ${name}:`, limitsError);
         }
       }
 
@@ -575,6 +588,112 @@ server {
     } catch (error) {
       logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
     }
+  }
+
+  /**
+   * Apply resource limits to docker-compose.yml
+   * Adds deploy.resources.limits to all services
+   */
+  private async applyResourceLimits(projectPath: string, limits: ResourceLimits): Promise<void> {
+    const composePath = path.join(projectPath, 'docker-compose.yml');
+
+    if (!fs.existsSync(composePath)) {
+      throw new Error(`docker-compose.yml not found at ${composePath}`);
+    }
+
+    // Read and parse docker-compose.yml
+    const composeContent = fs.readFileSync(composePath, 'utf-8');
+    const compose = yaml.load(composeContent) as any;
+
+    if (!compose.services) {
+      throw new Error('No services found in docker-compose.yml');
+    }
+
+    // Prepare different resource configurations
+    const getLimitValue = (val: number, type: 'cpus' | 'memory') =>
+      type === 'memory' ? `${val}M` : val.toString();
+
+    const getReservationValue = (val: number, type: 'cpus' | 'memory') =>
+      type === 'memory' ? `${Math.round(val * 0.5)}M` : (val * 0.5).toString();
+
+    // Default Configuration (for DB and others if not specified)
+    const defaultConfig = {
+      limits: {
+        cpus: limits.cpus ? getLimitValue(limits.cpus, 'cpus') : undefined,
+        memory: limits.memory ? getLimitValue(limits.memory, 'memory') : undefined,
+      },
+      reservations: {
+        cpus: limits.cpus ? getReservationValue(limits.cpus, 'cpus') : undefined,
+        memory: limits.memory ? getReservationValue(limits.memory, 'memory') : undefined,
+      },
+    };
+
+    // Analytics Specific Configuration
+    // User requested: Small=512MB, Medium=1024MB, Large=1536MB
+    let analyticsMemory = 512; // Default baseline
+    if (limits.preset === 'medium') analyticsMemory = 1024;
+    else if (limits.preset === 'large') analyticsMemory = 1536;
+    else if (limits.preset === 'custom' && limits.memory) {
+      // For custom, cap analytics at 1.5GB or 50% of total memory, whichever is lower (but at least 256MB)
+      analyticsMemory = Math.max(256, Math.min(1536, Math.round(limits.memory * 0.5)));
+    }
+
+    const analyticsConfig = {
+      limits: {
+        cpus: limits.cpus ? getLimitValue(Math.min(limits.cpus, 1), 'cpus') : undefined, // Cap analytics CPU at 1 core
+        memory: `${analyticsMemory}M`,
+      },
+      reservations: {
+        cpus: limits.cpus ? getReservationValue(Math.min(limits.cpus, 1), 'cpus') : undefined,
+        memory: `${Math.round(analyticsMemory * 0.5)}M`,
+      },
+    };
+
+    // Apply to all services
+    for (const serviceName of Object.keys(compose.services)) {
+      const service = compose.services[serviceName];
+      let resources;
+
+      if (
+        serviceName.includes('analytics') ||
+        serviceName.includes('vector') ||
+        serviceName.includes('logflare')
+      ) {
+        resources = analyticsConfig;
+      } else {
+        // Use default (high) limits for DB and others
+        resources = defaultConfig;
+      }
+
+      // Remove undefined keys
+      const cleanResources = {
+        limits: Object.fromEntries(
+          Object.entries(resources.limits).filter(([_, v]) => v !== undefined)
+        ),
+        reservations: Object.fromEntries(
+          Object.entries(resources.reservations).filter(([_, v]) => v !== undefined)
+        ),
+      };
+
+      if (Object.keys(cleanResources.limits).length > 0) {
+        if (service.deploy) {
+          service.deploy.resources = cleanResources;
+        } else {
+          service.deploy = { resources: cleanResources };
+        }
+      }
+    }
+
+    // Write back to file
+    const newContent = yaml.dump(compose, {
+      lineWidth: -1, // Don't wrap lines
+      noRefs: true,
+      quotingType: '"',
+      forceQuotes: false,
+    });
+
+    fs.writeFileSync(composePath, newContent, 'utf-8');
+    logger.info(`Applied resource limits to ${composePath}`);
   }
 
   /**
