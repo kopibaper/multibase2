@@ -34,12 +34,14 @@ export class UptimeService {
     let responseTime = 0;
 
     try {
-      const port = instance.ports.kong_http;
+      // Check Studio port instead of Kong (Kong returns 404 on /health by default)
+      // Studio serves the UI on / and should return 200
+      const port = instance.ports.studio;
       // Using 5s timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`http://127.0.0.1:${port}/health`, {
+      const response = await fetch(`http://127.0.0.1:${port}/`, {
         signal: controller.signal,
       });
 
@@ -100,7 +102,7 @@ export class UptimeService {
         };
       }
 
-      const upCount = records.filter((r) => r.status === 'up').length;
+      const upCount = records.filter((r: unknown | any) => r.status === 'up').length;
       const totalCount = records.length;
       const uptimePercentage = totalCount > 0 ? (upCount / totalCount) * 100 : 0;
 
@@ -113,7 +115,7 @@ export class UptimeService {
 
       const dailyStats = new Map<string, { total: number; up: number }>();
 
-      records.forEach((r) => {
+      records.forEach((r: unknown | any) => {
         const day = r.timestamp.toISOString().split('T')[0];
         const current = dailyStats.get(day) || { total: 0, up: 0 };
         current.total++;
