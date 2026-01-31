@@ -89,6 +89,23 @@ export const UpdateCredentialsSchema = z.object({
   regenerateKeys: z.boolean().optional(),
 });
 
+// ===== Environment Update Schemas =====
+
+export const UpdateEnvSchema = z.object({
+  env: z.record(
+    z.string().regex(/^[A-Z_][A-Z0-9_]*$/, 'Variable name must be uppercase with underscores'),
+    z.string()
+  ),
+});
+
+export const UpdateResourceLimitsSchema = z.object({
+  resourceLimits: z.object({
+    cpus: z.number().min(0.1).max(64).optional(),
+    memory: z.number().int().min(128).max(65536).optional(),
+    preset: z.enum(['small', 'medium', 'large', 'custom']).optional(),
+  }),
+});
+
 // ===== Backup Schemas =====
 
 export const CreateBackupSchema = z.object({

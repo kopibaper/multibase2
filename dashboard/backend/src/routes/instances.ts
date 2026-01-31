@@ -5,7 +5,7 @@ import InstanceManager from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
-import { CreateInstanceSchema } from '../middleware/schemas';
+import { CreateInstanceSchema, UpdateResourceLimitsSchema } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser } from '../middleware/authMiddleware';
 
@@ -435,6 +435,33 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error updating env for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to update env' });
+      }
+    }
+  );
+
+  /**
+   * PUT /api/instances/:name/resources
+   * Update instance resource limits
+   */
+  router.put(
+    '/:name/resources',
+    requireUser,
+    validate(UpdateResourceLimitsSchema),
+    auditLog('INSTANCE_UPDATE_RESOURCES', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { resourceLimits } = req.body;
+
+        const result = await instanceManager.updateInstanceResources(name, resourceLimits);
+
+        res.json({
+          message: 'Resource limits updated. Restart the instance to apply changes.',
+          ...result,
+        });
+      } catch (error: any) {
+        logger.error(`Error updating resources for ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to update resources' });
       }
     }
   );

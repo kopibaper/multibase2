@@ -697,6 +697,71 @@ server {
   }
 
   /**
+   * Update environment variables for an existing instance
+   * @param name Instance name
+   * @param envVars Key-value pairs to update
+   */
+  async updateInstanceEnv(
+    name: string,
+    envVars: Record<string, string>
+  ): Promise<{ success: boolean; backupPath?: string }> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Environment file not found for instance ${name}`);
+    }
+
+    // Create backup before modifying
+    const backupPath = backupEnvFile(envPath);
+    logger.info(`Created backup of .env at ${backupPath}`);
+
+    // Parse current env file
+    const currentEnv = parseEnvFile(envPath);
+
+    // Merge with new values (new values override existing)
+    const mergedEnv = { ...currentEnv, ...envVars };
+
+    // Write back
+    writeEnvFile(envPath, mergedEnv);
+    logger.info(`Updated environment variables for ${name}`);
+
+    // Invalidate cache
+    if (this.redisCache) {
+      await this.redisCache.delete(`instance:${name}`);
+    }
+
+    return { success: true, backupPath };
+  }
+
+  /**
+   * Update resource limits for an existing instance
+   * @param name Instance name
+   * @param limits New resource limits
+   */
+  async updateInstanceResources(
+    name: string,
+    limits: ResourceLimits
+  ): Promise<{ success: boolean }> {
+    const projectPath = path.join(this.projectsPath, name);
+
+    if (!fs.existsSync(projectPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    // Use existing applyResourceLimits method
+    await this.applyResourceLimits(projectPath, limits);
+    logger.info(`Updated resource limits for ${name}`);
+
+    // Invalidate cache
+    if (this.redisCache) {
+      await this.redisCache.delete(`instance:${name}`);
+    }
+
+    return { success: true };
+  }
+
+  /**
    * Generate .env configuration
    */
   private generateEnvConfig(

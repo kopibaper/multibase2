@@ -116,6 +116,16 @@ export const instancesApi = {
     });
   },
 
+  updateResources: (
+    name: string,
+    data: { resourceLimits: { cpus?: number; memory?: number; preset?: string } }
+  ): Promise<{ success: boolean; message: string }> => {
+    return fetchApi(`/api/instances/${name}/resources`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
   bulk: (
     action: 'start' | 'stop' | 'restart',
     instances: string[]
