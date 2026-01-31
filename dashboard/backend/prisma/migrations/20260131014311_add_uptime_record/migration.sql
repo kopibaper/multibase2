@@ -1,5 +1,5 @@
--- AlterTable
-ALTER TABLE "GlobalSettings" ADD COLUMN "app_url" TEXT;
+-- AlterTable (commented out to fix duplicate column error)
+-- ALTER TABLE "GlobalSettings" ADD COLUMN "app_url" TEXT;
 
 -- CreateTable
 CREATE TABLE "UptimeRecord" (
