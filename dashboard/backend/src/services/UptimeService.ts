@@ -13,13 +13,27 @@ export class UptimeService {
    */
   async checkAllInstances(): Promise<void> {
     try {
-      // Use lightweight list to avoid Docker overhead
-      const instances = await this.instanceManager.listInstanceConfigs();
+      // Get all instances from DB to check status
+      const dbInstances = await this.prisma.instance.findMany();
 
-      logger.debug(`Running uptime checks for ${instances.length} instances`);
+      // Get configs for ports
+      const distinctConfigs = await this.instanceManager.listInstanceConfigs();
 
-      // Execute checks in parallel
-      await Promise.all(instances.map((instance) => this.checkInstance(instance)));
+      logger.debug(`Running uptime checks for ${distinctConfigs.length} instances`);
+
+      // Filter and map
+      const checks = distinctConfigs.map(async (config) => {
+        const dbInstance = dbInstances.find((i) => i.name === config.name);
+
+        // Skip if explicitly stopped
+        if (dbInstance && dbInstance.status === 'stopped') {
+          return;
+        }
+
+        await this.checkInstance(config);
+      });
+
+      await Promise.all(checks);
     } catch (error) {
       logger.error('Error in checkAllInstances:', error);
     }
