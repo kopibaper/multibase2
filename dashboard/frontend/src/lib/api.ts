@@ -365,3 +365,53 @@ export const settingsApi = {
     return fetchApi<{ cors: string; api_url: string }>('/api/settings/system');
   },
 };
+
+// Email Templates API
+export const emailTemplatesApi = {
+  getAll: (
+    instanceName: string
+  ): Promise<{
+    templates: Record<string, { html: string; isDefault: boolean }>;
+  }> => {
+    return fetchApi(`/api/instances/${instanceName}/email-templates`);
+  },
+
+  save: (
+    instanceName: string,
+    type: string,
+    html: string
+  ): Promise<{ message: string; type: string; isDefault: boolean }> => {
+    return fetchApi(`/api/instances/${instanceName}/email-templates/${type}`, {
+      method: 'PUT',
+      body: JSON.stringify({ html }),
+    });
+  },
+
+  reset: (
+    instanceName: string,
+    type: string
+  ): Promise<{ message: string; type: string; isDefault: boolean }> => {
+    return fetchApi(`/api/instances/${instanceName}/email-templates/${type}/reset`, {
+      method: 'POST',
+    });
+  },
+
+  sendTest: (
+    instanceName: string,
+    type: string,
+    email: string
+  ): Promise<{ message: string; type: string; usedGlobalSmtp: boolean }> => {
+    return fetchApi(`/api/instances/${instanceName}/email-templates/test`, {
+      method: 'POST',
+      body: JSON.stringify({ type, email }),
+    });
+  },
+
+  getVariables: (
+    instanceName: string
+  ): Promise<{
+    variables: Record<string, Array<{ name: string; description: string }>>;
+  }> => {
+    return fetchApi(`/api/instances/${instanceName}/email-templates/variables`);
+  },
+};

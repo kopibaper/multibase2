@@ -35,6 +35,7 @@ import { createNotificationRoutes } from './routes/notifications';
 import { createSettingsRoutes } from './routes/settings';
 import { createMigrationRoutes } from './routes/migrations';
 import { createDeploymentsRoutes } from './routes/deployments';
+import { createEmailTemplateRoutes } from './routes/emailTemplates';
 
 // Utils
 import { logger } from './utils/logger';
@@ -135,6 +136,7 @@ app.use('/api/notifications', createNotificationRoutes());
 app.use('/api/settings', createSettingsRoutes());
 app.use('/api/migrations', createMigrationRoutes());
 app.use('/api/deployments', createDeploymentsRoutes());
+app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {

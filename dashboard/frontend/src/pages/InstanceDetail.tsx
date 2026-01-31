@@ -23,12 +23,13 @@ import {
   Trash2,
   Lock,
   Database,
+  Mail,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
 import LogsTab from '../components/LogsTab';
 import CredentialsTab from '../components/CredentialsTab';
-import ConfigTab from '../components/ConfigTab';
+import SmtpTab from '../components/SmtpTab';
 import AuthTab from '../components/AuthTab';
 import DatabaseTab from '../components/DatabaseTab';
 import ApiTab from '../components/ApiTab';
@@ -37,7 +38,7 @@ import DeleteInstanceModal from '../components/DeleteInstanceModal';
 import PageHeader from '../components/PageHeader';
 import { toast } from 'sonner';
 
-type TabType = 'services' | 'metrics' | 'logs' | 'credentials' | 'database' | 'auth' | 'api' | 'storage' | 'config';
+type TabType = 'services' | 'metrics' | 'logs' | 'credentials' | 'database' | 'auth' | 'api' | 'storage' | 'smtp';
 
 export default function InstanceDetail() {
   const { name } = useParams<{ name: string }>();
@@ -110,7 +111,7 @@ export default function InstanceDetail() {
     { id: 'auth' as TabType, label: 'Authentication', icon: Lock },
     { id: 'api' as TabType, label: 'API & Realtime', icon: Server },
     { id: 'storage' as TabType, label: 'Storage', icon: Database },
-    { id: 'config' as TabType, label: 'Config', icon: Key },
+    { id: 'smtp' as TabType, label: 'SMTP', icon: Mail },
   ];
 
   return (
@@ -243,7 +244,7 @@ export default function InstanceDetail() {
         {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
         {activeTab === 'storage' && <StorageTab instance={instance} />}
-        {activeTab === 'config' && <ConfigTab instance={instance} />}
+        {activeTab === 'smtp' && <SmtpTab instance={instance} />}
 
         {/* Delete Instance Section */}
         <div className='mt-12 pt-8 border-t border-border'>
