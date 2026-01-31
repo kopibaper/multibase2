@@ -180,29 +180,15 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
               <p className='text-lg font-semibold'>{instance.metrics.cpu.toFixed(1)}%</p>
             </div>
             <div>
-              <p className='text-xs text-muted-foreground'>Uptime</p>
-              <p className='text-lg font-semibold'>
-                {(() => {
-                  // Find the primary service uptime (usually kong or longest running)
-                  const maxUptime = Math.max(...(instance.services?.map((s) => s.uptime) || [0]));
-                  if (maxUptime === 0) return '0m';
-
-                  const days = Math.floor(maxUptime / 86400);
-                  const hours = Math.floor((maxUptime % 86400) / 3600);
-                  const minutes = Math.floor((maxUptime % 3600) / 60);
-
-                  if (days > 0) return `${days}d ${hours}h`;
-                  if (hours > 0) return `${hours}h ${minutes}m`;
-                  return `${minutes}m`;
-                })()}
-              </p>
+              <p className='text-xs text-muted-foreground'>Memory</p>
+              <p className='text-lg font-semibold'>{(instance.metrics.memory / 1024).toFixed(1)} GB</p>
             </div>
           </div>
         )}
 
         {/* Uptime Chart */}
         <div className='mb-4'>
-          <UptimeChart instanceName={instance.name} days={30} />
+          <UptimeChart instanceName={instance.name} days={10} />
         </div>
 
         {/* Actions */}

@@ -137,9 +137,11 @@ export class UptimeService {
         dailyStats.set(day, current);
       });
 
+      // Calculate hours up per day (checks every minute = 60 checks/hour, 1440/day max)
+      // If we have N checks and X are up, hours up = (X / N) * 24
       const history = Array.from(dailyStats.entries()).map(([date, stats]) => ({
         date,
-        uptime: (stats.up / stats.total) * 100,
+        hours: Math.round((stats.up / stats.total) * 24 * 10) / 10, // 1 decimal precision
       }));
 
       return {
