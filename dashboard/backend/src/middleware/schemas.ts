@@ -106,6 +106,18 @@ export const UpdateResourceLimitsSchema = z.object({
   }),
 });
 
+export const CloneInstanceSchema = z.object({
+  newName: z
+    .string()
+    .min(1, 'Instance name is required')
+    .max(50, 'Instance name must be 50 characters or less')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Instance name can only contain lowercase letters, numbers, and hyphens'
+    ),
+  copyEnv: z.boolean().optional().default(true),
+});
+
 // ===== Backup Schemas =====
 
 export const CreateBackupSchema = z.object({

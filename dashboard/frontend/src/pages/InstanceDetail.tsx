@@ -25,6 +25,7 @@ import {
   Database,
   Mail,
   Settings,
+  Copy,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
@@ -37,6 +38,7 @@ import ApiTab from '../components/ApiTab';
 import StorageTab from '../components/StorageTab';
 import EnvironmentTab from '../components/EnvironmentTab';
 import DeleteInstanceModal from '../components/DeleteInstanceModal';
+import CloneInstanceModal from '../components/CloneInstanceModal';
 import PageHeader from '../components/PageHeader';
 import { toast } from 'sonner';
 
@@ -57,6 +59,7 @@ export default function InstanceDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('services');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCloneModal, setShowCloneModal] = useState(false);
 
   const { data: instance, isLoading, error } = useInstance(name!);
   const startMutation = useStartInstance();
@@ -149,6 +152,14 @@ export default function InstanceDetail() {
             <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
           </div>
           <div className='flex gap-2'>
+            <button
+              onClick={() => setShowCloneModal(true)}
+              className='flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors'
+              title='Clone this instance'
+            >
+              <Copy className='w-4 h-4' />
+              Clone
+            </button>
             <button
               onClick={() => restartMutation.mutate(instance.name)}
               disabled={restartMutation.isPending}
@@ -292,6 +303,9 @@ export default function InstanceDetail() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
       />
+
+      {/* Clone Modal */}
+      <CloneInstanceModal isOpen={showCloneModal} onClose={() => setShowCloneModal(false)} sourceName={instance.name} />
     </div>
   );
 }

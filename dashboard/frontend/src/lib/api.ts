@@ -142,6 +142,17 @@ export const instancesApi = {
   getUptimeStats: (name: string, days: number = 30): Promise<UptimeStats> => {
     return fetchApi(`/api/instances/${name}/uptime?days=${days}`);
   },
+
+  clone: (
+    sourceName: string,
+    newName: string,
+    options?: { copyEnv?: boolean }
+  ): Promise<{ message: string; instance: any }> => {
+    return fetchApi(`/api/instances/${sourceName}/clone`, {
+      method: 'POST',
+      body: JSON.stringify({ newName, copyEnv: options?.copyEnv ?? true }),
+    });
+  },
 };
 
 // Health API

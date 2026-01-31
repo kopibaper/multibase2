@@ -762,6 +762,149 @@ server {
   }
 
   /**
+   * Clone an existing instance with a new name
+   * @param sourceName Source instance name
+   * @param newName New instance name
+   * @param options Clone options
+   */
+  async cloneInstance(
+    sourceName: string,
+    newName: string,
+    _options: { copyEnv?: boolean } = { copyEnv: true }
+  ): Promise<SupabaseInstance> {
+    const sourcePath = path.join(this.projectsPath, sourceName);
+    const targetPath = path.join(this.projectsPath, newName);
+
+    // Verify source exists
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Source instance ${sourceName} not found`);
+    }
+
+    // Verify target doesn't exist
+    if (fs.existsSync(targetPath)) {
+      throw new Error(`Instance ${newName} already exists`);
+    }
+
+    logger.info(`Cloning instance ${sourceName} to ${newName}`);
+
+    try {
+      // Create target directory
+      fs.mkdirSync(targetPath, { recursive: true });
+
+      // Copy files (excluding volumes directory)
+      const filesToCopy = fs.readdirSync(sourcePath);
+      for (const file of filesToCopy) {
+        if (file === 'volumes') continue; // Skip volume data
+
+        const srcFile = path.join(sourcePath, file);
+        const destFile = path.join(targetPath, file);
+
+        if (fs.statSync(srcFile).isDirectory()) {
+          // Recursively copy directories
+          this.copyDirectorySync(srcFile, destFile);
+        } else {
+          fs.copyFileSync(srcFile, destFile);
+        }
+      }
+
+      // Create empty volumes directory
+      fs.mkdirSync(path.join(targetPath, 'volumes'), { recursive: true });
+
+      // Generate new ports
+      const newBasePort = getRandomBasePort();
+      const newPorts = await calculatePorts(newBasePort);
+
+      // Generate new keys
+      const newKeys = generateAllKeys();
+
+      // Update .env file with new values
+      const envPath = path.join(targetPath, '.env');
+      if (fs.existsSync(envPath)) {
+        const envContent = parseEnvFile(envPath);
+
+        // Update ports
+        envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
+        envContent['KONG_HTTPS_PORT'] = newPorts.kong_https.toString();
+        envContent['POSTGRES_PORT'] = newPorts.postgres.toString();
+        envContent['POOLER_PORT'] = newPorts.pooler.toString();
+        envContent['STUDIO_PORT'] = newPorts.studio.toString();
+        envContent['ANALYTICS_PORT'] = newPorts.analytics.toString();
+
+        // Update keys
+        envContent['JWT_SECRET'] = newKeys.jwt_secret;
+        envContent['ANON_KEY'] = newKeys.anon_key;
+        envContent['SERVICE_ROLE_KEY'] = newKeys.service_role_key;
+        envContent['DASHBOARD_PASSWORD'] = newKeys.dashboard_password;
+        envContent['POSTGRES_PASSWORD'] = newKeys.postgres_password;
+        envContent['SECRET_KEY_BASE'] = newKeys.secret_key_base;
+        envContent['VAULT_ENC_KEY'] = newKeys.vault_enc_key;
+
+        // Update URLs
+        const protocol = envContent['SITE_URL']?.startsWith('https') ? 'https' : 'http';
+        const domain = envContent['SITE_URL']?.includes('localhost')
+          ? 'localhost'
+          : envContent['SITE_URL']?.split('://')[1]?.split(':')[0] || 'localhost';
+
+        if (domain === 'localhost') {
+          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['STUDIO_DEFAULT_ORGANIZATION'] = newName;
+          envContent['STUDIO_DEFAULT_PROJECT'] = newName;
+        }
+
+        writeEnvFile(envPath, envContent);
+        logger.info(`Updated .env for cloned instance ${newName}`);
+      }
+
+      // Store in database
+      await this.prisma.instance.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: newName,
+          basePort: newBasePort,
+          status: 'created',
+          createdAt: new Date(),
+        },
+      });
+
+      logger.info(`Successfully cloned ${sourceName} to ${newName}`);
+
+      // Return the new instance
+      const clonedInstance = await this.getInstance(newName);
+      if (!clonedInstance) {
+        throw new Error('Failed to retrieve cloned instance');
+      }
+      return clonedInstance;
+    } catch (error) {
+      // Cleanup on failure
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to recursively copy a directory
+   */
+  private copyDirectorySync(src: string, dest: string): void {
+    fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+
+      if (entry.isDirectory()) {
+        this.copyDirectorySync(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+
+  /**
    * Generate .env configuration
    */
   private generateEnvConfig(

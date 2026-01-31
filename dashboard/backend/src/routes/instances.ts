@@ -5,7 +5,11 @@ import InstanceManager from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
-import { CreateInstanceSchema, UpdateResourceLimitsSchema } from '../middleware/schemas';
+import {
+  CreateInstanceSchema,
+  UpdateResourceLimitsSchema,
+  CloneInstanceSchema,
+} from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser } from '../middleware/authMiddleware';
 
@@ -462,6 +466,34 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error updating resources for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to update resources' });
+      }
+    }
+  );
+
+  /**
+   * POST /api/instances/:name/clone
+   * Clone an existing instance with a new name
+   */
+  router.post(
+    '/:name/clone',
+    requireUser,
+    validate(CloneInstanceSchema),
+    auditLog('INSTANCE_CLONE', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { newName, copyEnv } = req.body;
+
+        logger.info(`Cloning instance ${name} to ${newName}`);
+        const clonedInstance = await instanceManager.cloneInstance(name, newName, { copyEnv });
+
+        res.status(201).json({
+          message: `Instance ${name} successfully cloned to ${newName}`,
+          instance: clonedInstance,
+        });
+      } catch (error: any) {
+        logger.error(`Error cloning instance ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to clone instance' });
       }
     }
   );
