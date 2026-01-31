@@ -57,8 +57,8 @@ export function createInstanceRoutes(
 
         const results: { name: string; success: boolean; message: string }[] = [];
 
-        // Execute sequentially
-        for (const name of instanceNames) {
+        // Execute in parallel (limited by Promise.all, risky for huge batches but fine for typical usage)
+        const promises = instanceNames.map(async (name) => {
           try {
             switch (action) {
               case 'start':
@@ -71,12 +71,15 @@ export function createInstanceRoutes(
                 await instanceManager.restartInstance(name);
                 break;
             }
-            results.push({ name, success: true, message: `${action} successful` });
+            return { name, success: true, message: `${action} successful` };
           } catch (error: any) {
             logger.error(`Bulk ${action} failed for ${name}:`, error);
-            results.push({ name, success: false, message: error.message || `${action} failed` });
+            return { name, success: false, message: error.message || `${action} failed` };
           }
-        }
+        });
+
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
 
         const successCount = results.filter((r) => r.success).length;
         const failCount = results.filter((r) => !r.success).length;
