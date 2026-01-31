@@ -83,9 +83,45 @@ export class InstanceManager {
       );
 
       return instances;
+      return instances;
     } catch (error) {
       logger.error('Error listing instances:', error);
       throw error;
+    }
+  }
+
+  /**
+   * List all instance configurations (lightweight, no Docker status)
+   */
+  async listInstanceConfigs(): Promise<{ name: string; ports: PortMapping }[]> {
+    try {
+      if (!fs.existsSync(this.projectsPath)) {
+        return [];
+      }
+
+      const projectDirs = fs
+        .readdirSync(this.projectsPath, { withFileTypes: true })
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
+
+      const configs = projectDirs.map((name) => {
+        try {
+          const projectPath = path.join(this.projectsPath, name);
+          const envPath = path.join(projectPath, '.env');
+          if (!fs.existsSync(envPath)) return null;
+
+          const envConfig = parseEnvFile(envPath);
+          const ports = extractPorts(envConfig);
+          return { name, ports };
+        } catch (e) {
+          return null;
+        }
+      });
+
+      return configs.filter((c): c is { name: string; ports: PortMapping } => c !== null);
+    } catch (error) {
+      logger.error('Error listing instance configs:', error);
+      return [];
     }
   }
 

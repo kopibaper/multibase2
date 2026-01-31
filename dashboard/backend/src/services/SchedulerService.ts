@@ -4,11 +4,21 @@ import { logger } from '../utils/logger';
 import { calculateNextRun } from '../utils/cron';
 import { createAuditLogEntry } from '../middleware/auditLog';
 
+import { UptimeService } from './UptimeService';
+
 const prisma = new PrismaClient();
 
 export class SchedulerService {
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly CHECK_INTERVAL_MS = 60 * 1000; // Check every minute
+  private uptimeIntervalId: NodeJS.Timeout | null = null;
+  private readonly CHECK_INTERVAL_MS = 60 * 1000; // Check backups every minute
+  private readonly UPTIME_INTERVAL_MS = 60 * 1000; // Check uptime every minute
+
+  private uptimeService: UptimeService | null = null;
+
+  public registerUptimeService(service: UptimeService) {
+    this.uptimeService = service;
+  }
 
   /**
    * Start the scheduler
@@ -19,15 +29,25 @@ export class SchedulerService {
       return;
     }
 
-    logger.info('Starting Backup Scheduler Service...');
+    logger.info('Starting Scheduler Service...');
 
     // Run immediately on start
     this.checkSchedules();
+    if (this.uptimeService) {
+      this.uptimeService.checkAllInstances();
+    }
 
-    // Then run interval
+    // Backup Schedule Interval
     this.intervalId = setInterval(() => {
       this.checkSchedules();
     }, this.CHECK_INTERVAL_MS);
+
+    // Uptime Check Interval
+    this.uptimeIntervalId = setInterval(() => {
+      if (this.uptimeService) {
+        this.uptimeService.checkAllInstances();
+      }
+    }, this.UPTIME_INTERVAL_MS);
   }
 
   /**
@@ -37,8 +57,12 @@ export class SchedulerService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      logger.info('Backup Scheduler Service stopped');
     }
+    if (this.uptimeIntervalId) {
+      clearInterval(this.uptimeIntervalId);
+      this.uptimeIntervalId = null;
+    }
+    logger.info('Scheduler Service stopped');
   }
 
   /**

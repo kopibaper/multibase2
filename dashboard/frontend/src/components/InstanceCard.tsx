@@ -18,6 +18,7 @@ import { useStartInstance, useStopInstance } from '../hooks/useInstances';
 import { useAlerts } from '../hooks/useAlerts';
 import SaveTemplateModal from './SaveTemplateModal';
 import ConfirmDialog from './ConfirmDialog';
+import { UptimeChart } from './UptimeChart';
 
 interface InstanceCardProps {
   instance: SupabaseInstance;
@@ -184,6 +185,11 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
             </div>
           </div>
         )}
+
+        {/* Uptime Chart */}
+        <div className='mb-4'>
+          <UptimeChart instanceName={instance.name} days={30} />
+        </div>
 
         {/* Actions */}
         <div className='flex gap-2'>

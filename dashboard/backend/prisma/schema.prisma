@@ -18,9 +18,21 @@ model Instance {
   metrics     Metric[]
   alerts      Alert[]
   alertRules  AlertRule[]
+  uptime      UptimeRecord[]
 
   @@index([name])
   @@index([status])
+}
+
+model UptimeRecord {
+  id          Int      @id @default(autoincrement())
+  instanceId  String
+  status      String   // 'up', 'down', 'degraded'
+  responseTime Int?    // in ms
+  timestamp   DateTime @default(now())
+  instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId, timestamp])
 }
 
 model Metric {
