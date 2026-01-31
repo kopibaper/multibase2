@@ -38,6 +38,13 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 // Instances API
+export interface UptimeStats {
+  uptimeParams: { days: number };
+  uptimePercentage: number;
+  history: { date: string; uptime: number }[];
+  lastCheck?: { status: string; responseTime: number; timestamp: string };
+}
+
 export const instancesApi = {
   list: (): Promise<SupabaseInstance[]> => {
     return fetchApi<SupabaseInstance[]>('/api/instances');
@@ -120,6 +127,10 @@ export const instancesApi = {
       method: 'POST',
       body: JSON.stringify({ action, instances }),
     });
+  },
+
+  getUptimeStats: (name: string, days: number = 30): Promise<UptimeStats> => {
+    return fetchApi(`/api/instances/${name}/uptime?days=${days}`);
   },
 };
 

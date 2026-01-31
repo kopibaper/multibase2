@@ -14,7 +14,20 @@ export const instanceKeys = {
   detail: (name: string) => [...instanceKeys.details(), name] as const,
   health: (name: string) => [...instanceKeys.all, 'health', name] as const,
   metrics: (name: string) => [...instanceKeys.all, 'metrics', name] as const,
+  uptime: (name: string, days: number) => [...instanceKeys.all, 'uptime', name, days] as const,
   logs: (name: string, service?: string) => [...instanceKeys.all, 'logs', name, service] as const,
+};
+
+// ... existing hooks ...
+
+// Get instance uptime stats
+export const useInstanceUptime = (name: string, days: number = 30) => {
+  return useQuery({
+    queryKey: instanceKeys.uptime(name, days),
+    queryFn: () => instancesApi.getUptimeStats(name, days),
+    enabled: !!name,
+    refetchInterval: 60000, // Refetch every minute
+  });
 };
 
 // List all instances
