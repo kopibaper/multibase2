@@ -905,6 +905,104 @@ server {
   }
 
   /**
+   * Get database schema for an instance
+   * @param name Instance name
+   */
+  async getSchema(name: string): Promise<any[]> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    const env = parseEnvFile(envPath);
+    const port = env['POSTGRES_PORT'] || '5432';
+    const password = env['POSTGRES_PASSWORD'] || 'your-super-secret-password';
+
+    // Use Docker exec to query the database
+    const query = `
+      SELECT 
+        t.table_schema,
+        t.table_name,
+        t.table_type,
+        (
+          SELECT json_agg(json_build_object(
+            'column_name', c.column_name,
+            'data_type', c.data_type,
+            'is_nullable', c.is_nullable,
+            'column_default', c.column_default
+          ) ORDER BY c.ordinal_position)
+          FROM information_schema.columns c
+          WHERE c.table_schema = t.table_schema AND c.table_name = t.table_name
+        ) as columns
+      FROM information_schema.tables t
+      WHERE t.table_schema = 'public'
+      ORDER BY t.table_name;
+    `;
+
+    try {
+      const { execSync } = await import('child_process');
+      const result = execSync(
+        `docker exec supabase-db-${name} psql -U postgres -t -A -F '|' -c "${query.replace(/\n/g, ' ')}"`,
+        { encoding: 'utf8', timeout: 30000 }
+      );
+
+      // Parse the result
+      const lines = result.trim().split('\n').filter(Boolean);
+      return lines.map((line: string) => {
+        const parts = line.split('|');
+        return {
+          schema: parts[0],
+          name: parts[1],
+          type: parts[2],
+          columns: parts[3] ? JSON.parse(parts[3]) : [],
+        };
+      });
+    } catch (error: any) {
+      logger.error(`Failed to get schema for ${name}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Execute SQL query on an instance database
+   * @param name Instance name
+   * @param sql SQL query to execute
+   */
+  async executeSQL(name: string, sql: string): Promise<{ rows: any[]; error?: string }> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    // Sanitize the SQL to prevent command injection
+    const sanitizedSQL = sql.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+
+    try {
+      const { execSync } = await import('child_process');
+      const result = execSync(
+        `docker exec supabase-db-${name} psql -U postgres -c "${sanitizedSQL}" -t -A -F '|'`,
+        { encoding: 'utf8', timeout: 60000 }
+      );
+
+      // Parse simple results
+      const lines = result.trim().split('\n').filter(Boolean);
+      const rows = lines.map((line: string) => {
+        const values = line.split('|');
+        return values;
+      });
+
+      return { rows };
+    } catch (error: any) {
+      logger.error(`SQL execution failed for ${name}:`, error.message);
+      return { rows: [], error: error.message };
+    }
+  }
+
+  /**
    * Generate .env configuration
    */
   private generateEnvConfig(

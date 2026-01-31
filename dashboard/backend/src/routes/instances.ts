@@ -498,5 +498,55 @@ export function createInstanceRoutes(
     }
   );
 
+  /**
+   * GET /api/instances/:name/schema
+   * Get database schema for an instance
+   */
+  router.get('/:name/schema', requireViewer, async (req: Request, res: Response) => {
+    try {
+      const { name } = req.params;
+      logger.info(`Getting schema for instance ${name}`);
+      const schema = await instanceManager.getSchema(name);
+      res.json({ tables: schema });
+    } catch (error: any) {
+      logger.error(`Error getting schema for ${req.params.name}:`, error);
+      res.status(500).json({ error: error.message || 'Failed to get schema' });
+    }
+  });
+
+  /**
+   * POST /api/instances/:name/sql
+   * Execute SQL query on an instance
+   */
+  router.post(
+    '/:name/sql',
+    requireUser,
+    auditLog('SQL_EXECUTE', { includeBody: false }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { query } = req.body;
+
+        if (!query || typeof query !== 'string') {
+          res.status(400).json({ error: 'SQL query is required' });
+          return;
+        }
+
+        logger.info(`Executing SQL for instance ${name}`);
+        const result = await instanceManager.executeSQL(name, query);
+
+        if (result.error) {
+          res.status(400).json({ error: result.error, rows: [] });
+          return;
+        }
+
+        res.json(result);
+      } catch (error: any) {
+        logger.error(`Error executing SQL for ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to execute SQL' });
+      }
+    }
+  );
+
   return router;
 }

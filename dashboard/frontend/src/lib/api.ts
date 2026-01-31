@@ -153,6 +153,17 @@ export const instancesApi = {
       body: JSON.stringify({ newName, copyEnv: options?.copyEnv ?? true }),
     });
   },
+
+  getSchema: (name: string): Promise<{ tables: any[] }> => {
+    return fetchApi(`/api/instances/${name}/schema`);
+  },
+
+  executeSQL: (name: string, query: string): Promise<{ rows: any[]; error?: string }> => {
+    return fetchApi(`/api/instances/${name}/sql`, {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+  },
 };
 
 // Health API

@@ -26,6 +26,7 @@ import {
   Mail,
   Settings,
   Copy,
+  Code,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
@@ -152,6 +153,14 @@ export default function InstanceDetail() {
             <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
           </div>
           <div className='flex gap-2'>
+            <Link
+              to={`/instances/${instance.name}/supabase`}
+              className='flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors'
+              title='Manage Edge Functions & Database'
+            >
+              <Code className='w-4 h-4' />
+              Supabase
+            </Link>
             <button
               onClick={() => setShowCloneModal(true)}
               className='flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors'

@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
 import InstanceDetail from './pages/InstanceDetail';
+import SupabaseManager from './pages/SupabaseManager';
 import Alerts from './pages/Alerts';
 import AlertRules from './pages/AlertRules';
 import Login from './pages/Login';
@@ -70,6 +71,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <InstanceDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/instances/:name/supabase'
+          element={
+            <ProtectedRoute>
+              <SupabaseManager />
             </ProtectedRoute>
           }
         />
