@@ -41,7 +41,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 export interface UptimeStats {
   uptimeParams: { days: number };
   uptimePercentage: number;
-  history: { date: string; uptime: number }[];
+  history: { date: string; hours: number }[];
   lastCheck?: { status: string; responseTime: number; timestamp: string };
 }
 
