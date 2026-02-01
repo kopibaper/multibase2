@@ -276,7 +276,7 @@ export default function InstanceDetail() {
         {activeTab === 'database' && <DatabaseTab instance={instance} />}
         {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
-        {activeTab === 'storage' && <StorageTab instance={instance} />}
+        {activeTab === 'storage' && <StorageTab instanceName={instance.name} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}
         {activeTab === 'environment' && <EnvironmentTab instance={instance} />}
 

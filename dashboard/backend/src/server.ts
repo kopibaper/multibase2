@@ -37,7 +37,11 @@ import { createMigrationRoutes } from './routes/migrations';
 import { createDeploymentsRoutes } from './routes/deployments';
 import { createEmailTemplateRoutes } from './routes/emailTemplates';
 import { createUptimeRoutes } from './routes/uptime';
+import { createFunctionRoutes } from './routes/functions';
 import { UptimeService } from './services/UptimeService';
+import { FunctionService } from './services/FunctionService';
+import { StorageService } from './services/StorageService';
+import { createStorageRoutes } from './routes/storage';
 
 // Utils
 import { logger } from './utils/logger';
@@ -120,6 +124,8 @@ const metricsCollector = new MetricsCollector(
   METRICS_INTERVAL
 );
 const uptimeService = new UptimeService(prisma, instanceManager);
+const functionService = new FunctionService(dockerManager);
+const storageService = new StorageService(instanceManager);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -144,6 +150,8 @@ app.use('/api/migrations', createMigrationRoutes());
 app.use('/api/deployments', createDeploymentsRoutes());
 app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
+app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
+app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {

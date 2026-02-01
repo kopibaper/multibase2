@@ -23,14 +23,16 @@ export class UptimeService {
 
       // Filter and map
       const checks = distinctConfigs.map(async (config) => {
+        // Check if instance exists in DB (required for foreign key)
         const dbInstance = dbInstances.find((i) => i.name === config.name);
+        if (!dbInstance) return;
 
         // Skip if explicitly stopped
-        if (dbInstance && dbInstance.status === 'stopped') {
+        if (dbInstance.status === 'stopped') {
           return;
         }
 
-        await this.checkInstance(config);
+        await this.checkInstance(config, dbInstance.id);
       });
 
       await Promise.all(checks);
@@ -42,7 +44,7 @@ export class UptimeService {
   /**
    * Check a single instance
    */
-  private async checkInstance(instance: { name: string; ports: any }): Promise<void> {
+  private async checkInstance(instance: { name: string; ports: any }, dbId: string): Promise<void> {
     const start = Date.now();
     let status = 'down';
     let responseTime = 0;
@@ -75,7 +77,7 @@ export class UptimeService {
     try {
       await this.prisma.uptimeRecord.create({
         data: {
-          instanceId: instance.name, // instanceId references instance.id which is the name
+          instanceId: dbId,
           status,
           responseTime,
         },

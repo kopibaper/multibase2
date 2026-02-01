@@ -4,6 +4,7 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { PrismaClient } from '@prisma/client';
 import yaml from 'js-yaml';
+import { Client } from 'pg';
 
 import {
   CreateInstanceRequest,
@@ -918,50 +919,67 @@ server {
 
     const env = parseEnvFile(envPath);
     const port = env['POSTGRES_PORT'] || '5432';
-    const password = env['POSTGRES_PASSWORD'] || 'your-super-secret-password';
+    const password = env['POSTGRES_PASSWORD'];
 
-    // Use Docker exec to query the database
-    const query = `
-      SELECT 
-        t.table_schema,
-        t.table_name,
-        t.table_type,
-        (
-          SELECT json_agg(json_build_object(
-            'column_name', c.column_name,
-            'data_type', c.data_type,
-            'is_nullable', c.is_nullable,
-            'column_default', c.column_default
-          ) ORDER BY c.ordinal_position)
-          FROM information_schema.columns c
-          WHERE c.table_schema = t.table_schema AND c.table_name = t.table_name
-        ) as columns
-      FROM information_schema.tables t
-      WHERE t.table_schema = 'public'
-      ORDER BY t.table_name;
-    `;
+    if (!password) {
+      throw new Error('Database password not found');
+    }
+
+    const client = new Client({
+      user: 'postgres',
+      host: 'localhost',
+      database: 'postgres',
+      password: password,
+      port: parseInt(port, 10),
+    });
 
     try {
-      const { execSync } = await import('child_process');
-      const result = execSync(
-        `docker exec supabase-db-${name} psql -U postgres -t -A -F '|' -c "${query.replace(/\n/g, ' ')}"`,
-        { encoding: 'utf8', timeout: 30000 }
-      );
+      await client.connect();
 
-      // Parse the result
-      const lines = result.trim().split('\n').filter(Boolean);
-      return lines.map((line: string) => {
-        const parts = line.split('|');
-        return {
-          schema: parts[0],
-          name: parts[1],
-          type: parts[2],
-          columns: parts[3] ? JSON.parse(parts[3]) : [],
-        };
-      });
+      const query = `
+        SELECT 
+          t.table_schema,
+          t.table_name,
+          t.table_type,
+          (
+            SELECT json_agg(json_build_object(
+              'column_name', c.column_name,
+              'data_type', c.data_type,
+              'is_nullable', c.is_nullable,
+              'column_default', c.column_default,
+              'is_primary_key', (
+                SELECT EXISTS (
+                  SELECT 1 
+                  FROM information_schema.key_column_usage kcu
+                  JOIN information_schema.table_constraints tc ON kcu.constraint_name = tc.constraint_name
+                  WHERE kcu.table_schema = c.table_schema 
+                    AND kcu.table_name = c.table_name 
+                    AND kcu.column_name = c.column_name
+                    AND tc.constraint_type = 'PRIMARY KEY'
+                )
+              )
+            ) ORDER BY c.ordinal_position)
+            FROM information_schema.columns c
+            WHERE c.table_schema = t.table_schema AND c.table_name = t.table_name
+          ) as columns
+        FROM information_schema.tables t
+        WHERE t.table_schema = 'public'
+        ORDER BY t.table_name;
+      `;
+
+      const result = await client.query(query);
+
+      return result.rows.map((row: any) => ({
+        schema: row.table_schema,
+        name: row.table_name,
+        type: row.table_type,
+        columns: row.columns || [],
+      }));
     } catch (error: any) {
       logger.error(`Failed to get schema for ${name}:`, error.message);
       return [];
+    } finally {
+      await client.end().catch(() => {});
     }
   }
 
@@ -978,27 +996,31 @@ server {
       throw new Error(`Instance ${name} not found`);
     }
 
-    // Sanitize the SQL to prevent command injection
-    const sanitizedSQL = sql.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+    const env = parseEnvFile(envPath);
+    const port = env['POSTGRES_PORT'] || '5432';
+    const password = env['POSTGRES_PASSWORD'];
+
+    if (!password) {
+      throw new Error('Database password not found');
+    }
+
+    const client = new Client({
+      user: 'postgres',
+      host: 'localhost',
+      database: 'postgres',
+      password: password,
+      port: parseInt(port, 10),
+    });
 
     try {
-      const { execSync } = await import('child_process');
-      const result = execSync(
-        `docker exec supabase-db-${name} psql -U postgres -c "${sanitizedSQL}" -t -A -F '|'`,
-        { encoding: 'utf8', timeout: 60000 }
-      );
-
-      // Parse simple results
-      const lines = result.trim().split('\n').filter(Boolean);
-      const rows = lines.map((line: string) => {
-        const values = line.split('|');
-        return values;
-      });
-
-      return { rows };
+      await client.connect();
+      const result = await client.query(sql);
+      return { rows: result.rows };
     } catch (error: any) {
       logger.error(`SQL execution failed for ${name}:`, error.message);
       return { rows: [], error: error.message };
+    } finally {
+      await client.end().catch(() => {});
     }
   }
 
