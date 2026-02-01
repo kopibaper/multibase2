@@ -1,75 +1,23 @@
-# Future Features - Multibase Dashboard
+# Version 1.2 - Released Features
 
-Planned features for future versions of the Multibase Dashboard.
+**Status:** ✅ Released
+**Release Date:** February 2026
 
----
-
-## 🏢 **Multi-Tenancy/Teams**
-
-### **Description**
-
-Support for multiple teams/organizations on a single installation with isolated instances.
-
-### **Features**
-
-- **Organization/Team Management**
-
-  - Create and manage teams
-  - Invite and manage team members
-  - Roles per Team (Owner, Admin, Member, Viewer)
-
-- **Instance Isolation**
-
-  - Instances are assigned to a team
-  - Team members only see their team's instances
-  - Cross-team Admins (Platform Admins)
-
-- **Resource Quotas**
-  - Max number of instances per team
-  - CPU/Memory limits per team
-  - Storage Quotas
-
-### **Priority**: Medium
-
-### **Effort**: High (2-3 Weeks)
+Features included in the version 1.2 release.
 
 ---
 
-## 💰 **Cost Tracking/Billing**
+## 💾 **Storage Manager Improvements**
 
 ### **Description**
 
-Track resource usage and generate billing reports.
+Enhanced file manager for object storage.
 
 ### **Features**
 
-- **Resource Tracking**
-
-  - CPU hours per instance
-  - Memory usage over time
-  - Storage consumption
-  - Network Traffic
-
-- **Cost Calculation**
-
-  - Configurable prices per resource
-  - Monthly/Weekly reports
-  - Cost Breakdown per Instance/Team
-
-- **Budget Management**
-
-  - Set budget limits
-  - Alerts on budget changes
-  - Auto-Stop on budget limit (Optional)
-
-- **Billing Export**
-  - CSV/PDF Export for accounting
-  - Invoice Generation
-  - Stripe/Payment Gateway Integration
-
-### **Priority**: Low
-
-### **Effort**: High (3-4 Weeks)
+- ✅ **Folder Management**: Create/Navigate virtual folders.
+- ✅ **File Operations**: Upload/Download, Image Previews, Click-to-Interact.
+- ✅ **Security**: Signed URLs for private files, Delete Confirmation.
 
 ---
 
@@ -77,58 +25,27 @@ Track resource usage and generate billing reports.
 
 ### **Description**
 
-Extended monitoring functions with long-term storage and custom dashboards.
+Extended system monitoring.
 
 ### **Features**
 
-- **Custom Dashboards**
-
-  - Drag & Drop Dashboard Builder
-  - Create Custom Widgets
-  - Multiple Dashboards per User
-
-- **Long-term Storage**
-
-  - Prometheus integration for Metrics
-  - InfluxDB for Time-Series Data
-  - Configurable Retention Policies
-
-- **Grafana Integration**
-
-  - Grafana Dashboard Auto-Provisioning
-  - Embedded Grafana Dashboards
-  - Pre-built Dashboard Templates
-
-- **Custom Metrics**
-  - Define own metrics
-  - Custom Queries (PromQL)
-  - Alert Rules on Custom Metrics
-
-### **Priority**: Medium
-
-### **Effort**: High (2-3 Weeks)
+- ✅ **Metrics**: Detailed resource usage.
+- ✅ **Live Updates**: WebSocket integration.
+- ✅ **Logs**: Application log viewing.
 
 ---
 
-## 📦 **Instance Cloning/Snapshots**
+## 📦 **Instance Cloning & Snapshots**
 
 ### **Description**
 
-Duplicate instances and create snapshots for backups/testing.
+Instance state management.
 
 ### **Features**
 
-- **Snapshots**
+- ✅ **Cloning**: Duplicate instances.
+- ✅ **Snapshots**: Point-in-time state capture.
 
-  - Create instant snapshots (Copy-On-Write if supported)
-  - Rollback to snapshot
-  - Export snapshot
+---
 
-- **Cloning**
-  - "Clone Instance" button
-  - Clone from backup
-  - Clone to Template
-
-### **Priority**: Low
-
-### **Effort**: Medium (1-2 Weeks)
+[See Version 1.3 for Future Plans](./Readme1_3_Feature.md)

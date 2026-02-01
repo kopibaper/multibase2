@@ -54,21 +54,35 @@
 
 ---
 
-### 🔮 Version 1.2 - Future
+### ✅ Version 1.2 - Released
 
-**Planned Release:** Q2-Q3 2026  
-**Status:** 💡 Idea Collection
+**Release:** February 2026  
+**Status:** ✅ Released and production-ready
 
 [📄 Go to Documentation →](./Readme1_2_Feature.md)
+
+**Implemented Features:**
+
+- ✅ 💾 **Storage Manager Improvements**
+  - Folder Management, Image Previews, Signed URLs, Security.
+- ✅ 📊 **Advanced Monitoring**
+  - Extended metrics and logs.
+- ✅ 📦 **Instance Cloning & Snapshots**
+  - Duplicate instances and manage state.
+
+---
+
+### 🔮 Version 1.3 - Future
+
+**Planned Release:** Q4 2026  
+**Status:** 💡 Planning Phase
+
+[📄 Go to Documentation →](./Readme1_3_Feature.md)
 
 **Feature Ideas:**
 
 - 🏢 Multi-Tenancy/Teams
 - 💰 Cost Tracking & Billing
-- 📊 Advanced Monitoring (Grafana, Prometheus)
-- 📦 Instance Cloning & Snapshots
-- 📧 Email Service Integration
-- 💾 Storage Management
 - 🔒 GDPR/Compliance Features
 
 ---
