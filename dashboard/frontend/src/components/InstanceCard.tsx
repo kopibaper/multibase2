@@ -13,6 +13,7 @@ import {
   Square,
   ExternalLink,
   Save,
+  Database,
 } from 'lucide-react';
 import { useStartInstance, useStopInstance } from '../hooks/useInstances';
 import { useAlerts } from '../hooks/useAlerts';
@@ -217,6 +218,17 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                 <ExternalLink className='w-4 h-4' />
                 Studio
               </a>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/instances/${instance.name}/supabase`);
+                }}
+                className='flex items-center justify-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors text-sm font-medium border border-border'
+                title='Open Database Manager'
+              >
+                <Database className='w-4 h-4' />
+                Manager
+              </button>
             </>
           ) : (
             canTakeActions && (

@@ -24,6 +24,9 @@ import {
   Lock,
   Database,
   Mail,
+  Settings,
+  Copy,
+  Code,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
@@ -34,17 +37,30 @@ import AuthTab from '../components/AuthTab';
 import DatabaseTab from '../components/DatabaseTab';
 import ApiTab from '../components/ApiTab';
 import StorageTab from '../components/StorageTab';
+import EnvironmentTab from '../components/EnvironmentTab';
 import DeleteInstanceModal from '../components/DeleteInstanceModal';
+import CloneInstanceModal from '../components/CloneInstanceModal';
 import PageHeader from '../components/PageHeader';
 import { toast } from 'sonner';
 
-type TabType = 'services' | 'metrics' | 'logs' | 'credentials' | 'database' | 'auth' | 'api' | 'storage' | 'smtp';
+type TabType =
+  | 'services'
+  | 'metrics'
+  | 'logs'
+  | 'credentials'
+  | 'database'
+  | 'auth'
+  | 'api'
+  | 'storage'
+  | 'smtp'
+  | 'environment';
 
 export default function InstanceDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('services');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCloneModal, setShowCloneModal] = useState(false);
 
   const { data: instance, isLoading, error } = useInstance(name!);
   const startMutation = useStartInstance();
@@ -112,6 +128,7 @@ export default function InstanceDetail() {
     { id: 'api' as TabType, label: 'API & Realtime', icon: Server },
     { id: 'storage' as TabType, label: 'Storage', icon: Database },
     { id: 'smtp' as TabType, label: 'SMTP', icon: Mail },
+    { id: 'environment' as TabType, label: 'Environment', icon: Settings },
   ];
 
   return (
@@ -136,6 +153,22 @@ export default function InstanceDetail() {
             <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
           </div>
           <div className='flex gap-2'>
+            <Link
+              to={`/instances/${instance.name}/supabase`}
+              className='flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors'
+              title='Manage Edge Functions & Database'
+            >
+              <Code className='w-4 h-4' />
+              Supabase
+            </Link>
+            <button
+              onClick={() => setShowCloneModal(true)}
+              className='flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors'
+              title='Clone this instance'
+            >
+              <Copy className='w-4 h-4' />
+              Clone
+            </button>
             <button
               onClick={() => restartMutation.mutate(instance.name)}
               disabled={restartMutation.isPending}
@@ -243,8 +276,9 @@ export default function InstanceDetail() {
         {activeTab === 'database' && <DatabaseTab instance={instance} />}
         {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
-        {activeTab === 'storage' && <StorageTab instance={instance} />}
+        {activeTab === 'storage' && <StorageTab instanceName={instance.name} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}
+        {activeTab === 'environment' && <EnvironmentTab instance={instance} />}
 
         {/* Delete Instance Section */}
         <div className='mt-12 pt-8 border-t border-border'>
@@ -278,6 +312,9 @@ export default function InstanceDetail() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
       />
+
+      {/* Clone Modal */}
+      <CloneInstanceModal isOpen={showCloneModal} onClose={() => setShowCloneModal(false)} sourceName={instance.name} />
     </div>
   );
 }

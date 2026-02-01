@@ -95,6 +95,23 @@ export interface ContainerStats {
   };
 }
 
+// Resource Limits for Docker containers
+export interface ResourceLimits {
+  // CPU limit in cores (e.g., 0.5 = half a CPU, 2 = 2 CPUs)
+  cpus?: number;
+  // Memory limit in MB (e.g., 512, 1024, 2048)
+  memory?: number;
+  // Preset name for UI display
+  preset?: 'small' | 'medium' | 'large' | 'custom';
+}
+
+// Preset definitions
+export const RESOURCE_PRESETS: Record<string, ResourceLimits> = {
+  small: { cpus: 0.5, memory: 512, preset: 'small' },
+  medium: { cpus: 1, memory: 1024, preset: 'medium' },
+  large: { cpus: 2, memory: 2048, preset: 'large' },
+};
+
 export interface CreateInstanceRequest {
   name: string;
   basePort?: number;
@@ -104,6 +121,7 @@ export interface CreateInstanceRequest {
   corsOrigins?: string[];
   templateId?: number;
   env?: Record<string, string>;
+  resourceLimits?: ResourceLimits;
 }
 
 export interface UpdateInstanceRequest {

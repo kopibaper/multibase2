@@ -5,7 +5,11 @@ import InstanceManager from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
-import { CreateInstanceSchema } from '../middleware/schemas';
+import {
+  CreateInstanceSchema,
+  UpdateResourceLimitsSchema,
+  CloneInstanceSchema,
+} from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser } from '../middleware/authMiddleware';
 
@@ -435,6 +439,111 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error updating env for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to update env' });
+      }
+    }
+  );
+
+  /**
+   * PUT /api/instances/:name/resources
+   * Update instance resource limits
+   */
+  router.put(
+    '/:name/resources',
+    requireUser,
+    validate(UpdateResourceLimitsSchema),
+    auditLog('INSTANCE_UPDATE_RESOURCES', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { resourceLimits } = req.body;
+
+        const result = await instanceManager.updateInstanceResources(name, resourceLimits);
+
+        res.json({
+          message: 'Resource limits updated. Restart the instance to apply changes.',
+          ...result,
+        });
+      } catch (error: any) {
+        logger.error(`Error updating resources for ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to update resources' });
+      }
+    }
+  );
+
+  /**
+   * POST /api/instances/:name/clone
+   * Clone an existing instance with a new name
+   */
+  router.post(
+    '/:name/clone',
+    requireUser,
+    validate(CloneInstanceSchema),
+    auditLog('INSTANCE_CLONE', { includeBody: true }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { newName, copyEnv } = req.body;
+
+        logger.info(`Cloning instance ${name} to ${newName}`);
+        const clonedInstance = await instanceManager.cloneInstance(name, newName, { copyEnv });
+
+        res.status(201).json({
+          message: `Instance ${name} successfully cloned to ${newName}`,
+          instance: clonedInstance,
+        });
+      } catch (error: any) {
+        logger.error(`Error cloning instance ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to clone instance' });
+      }
+    }
+  );
+
+  /**
+   * GET /api/instances/:name/schema
+   * Get database schema for an instance
+   */
+  router.get('/:name/schema', requireViewer, async (req: Request, res: Response) => {
+    try {
+      const { name } = req.params;
+      logger.info(`Getting schema for instance ${name}`);
+      const schema = await instanceManager.getSchema(name);
+      res.json({ tables: schema });
+    } catch (error: any) {
+      logger.error(`Error getting schema for ${req.params.name}:`, error);
+      res.status(500).json({ error: error.message || 'Failed to get schema' });
+    }
+  });
+
+  /**
+   * POST /api/instances/:name/sql
+   * Execute SQL query on an instance
+   */
+  router.post(
+    '/:name/sql',
+    requireUser,
+    auditLog('SQL_EXECUTE', { includeBody: false }),
+    async (req: Request, res: Response) => {
+      try {
+        const { name } = req.params;
+        const { query } = req.body;
+
+        if (!query || typeof query !== 'string') {
+          res.status(400).json({ error: 'SQL query is required' });
+          return;
+        }
+
+        logger.info(`Executing SQL for instance ${name}`);
+        const result = await instanceManager.executeSQL(name, query);
+
+        if (result.error) {
+          res.status(400).json({ error: result.error, rows: [] });
+          return;
+        }
+
+        res.json(result);
+      } catch (error: any) {
+        logger.error(`Error executing SQL for ${req.params.name}:`, error);
+        res.status(500).json({ error: error.message || 'Failed to execute SQL' });
       }
     }
   );

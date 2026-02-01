@@ -52,21 +52,35 @@
 
 ---
 
-## Version 1.2 - Planned
+## Version 1.2 - Released
 
-**Planned Release:** Q2-Q3 2026  
+**Release:** February 2026  
+**Status:** ✅ Released
+
+[📄 See Feature Overview →](/setup/features/roadmap-1.2)
+
+### Implemented Features
+
+**High Priority:**
+
+- [x] 💾 **Storage Manager Improvements** - Folders, Validation, Signed URLs
+- [x] 📊 **Advanced Monitoring** - Extended Metrics, Logs
+- [x] 📦 **Instance Cloning & Snapshots** - State management
+
+---
+
+## Version 1.3 - Planned
+
+**Planned Release:** Q4 2026  
 **Status:** 💡 Planning Phase
 
-[📄 See Ideas →](/setup/features/roadmap-1.2)
+[📄 See Full Roadmap →](/setup/features/roadmap-1.3)
 
 ### Planned Features
 
 - [ ] 🏢 Multi-Tenancy/Teams - Organization support
 - [ ] 💰 Cost Tracking & Billing - Usage-based billing
-- [ ] 📊 Advanced Monitoring - Grafana/Prometheus integration
-- [ ] 📦 Instance Cloning & Snapshots - Quick duplication
-- [ ] 💾 S3 Storage Management - External storage
-- [ ] 🔒 GDPR/Compliance Features - Data privacy tools
+- [ ] GDPR/Compliance Features - Data privacy tools
 
 ---
 
@@ -75,12 +89,19 @@
 ```
 v1.0 (Dec 2025)  ████████████████████████ 100% Released
 v1.1 (Jan 2026)  ████████████████████████ 100% Released
-v1.2 (Q2-Q3 26)  ░░░░░░░░░░░░░░░░░░░░░░░░   0% Planning
+v1.2 (Feb 2026)  ████████████████████████ 100% Released
+v1.3 (Q4 2026)   ░░░░░░░░░░░░░░░░░░░░░░░░   0% Planning
 ```
 
 ---
 
 ## Version History
+
+### v1.2.0 (February 2026)
+
+- [x] Storage Manager (Folders, Images, Security)
+- [x] Advanced Monitoring & Logs
+- [x] Instance Cloning & Snapshots
 
 ### v1.1.0 (January 2026)
 
@@ -120,8 +141,9 @@ v1.2 (Q2-Q3 26)  ░░░░░░░░░░░░░░░░░░░░░
 
 ### Reference
 
-- [v1.1 Feature Details](/setup/features/roadmap-1.1) - Detailed v1.1 specifications
-- [v1.2 Feature Ideas](/setup/features/roadmap-1.2) - Future planning
+- [v1.1 Feature Details](/setup/features/roadmap-1.1) - v1.1 Specifications
+- [v1.2 Released Features](/setup/features/roadmap-1.2) - v1.2 Overview
+- [v1.3 Feature Roadmap](/setup/features/roadmap-1.3) - Future Planning
 
 ---
 
@@ -134,5 +156,5 @@ Suggestions for new features or improvements can be submitted as an Issue or Pul
 1. Create Issue with label `feature-request`
 2. Discussion & Feedback
 3. Prioritization by Maintainer
-4. Assignment to Version (1.2, 1.3, etc.)
+4. Assignment to Version (1.3, 1.4, etc.)
 5. Implementation & Review

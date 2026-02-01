@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Plus, Globe, Laptop } from 'lucide-react';
 import { useCreateInstance } from '../hooks/useInstances';
-import { CreateInstanceRequest, InstanceTemplate } from '../types';
+import { CreateInstanceRequest, InstanceTemplate, ResourceLimits, RESOURCE_PRESETS } from '../types';
 import { toast } from 'sonner';
 import { templatesApi, settingsApi } from '../lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '../lib/utils';
+import ResourceLimitsForm from './ResourceLimitsForm';
 
 interface CreateInstanceModalProps {
   open: boolean;
@@ -15,10 +16,11 @@ interface CreateInstanceModalProps {
   initialTemplate?: InstanceTemplate | null;
 }
 
-interface FormData extends Omit<CreateInstanceRequest, 'basePort'> {
+interface FormData extends Omit<CreateInstanceRequest, 'basePort' | 'resourceLimits'> {
   basePort: string | number | undefined;
   corsOriginsList: string; // Comma-separated list for UI
   templateId?: number;
+  resourceLimits: ResourceLimits;
 }
 
 const initialFormData: FormData = {
@@ -29,6 +31,7 @@ const initialFormData: FormData = {
   protocol: 'https', // Default HTTPS for cloud
   corsOriginsList: '',
   templateId: undefined,
+  resourceLimits: RESOURCE_PRESETS.medium, // Default to medium preset
 };
 
 export default function CreateInstanceModal({ open, onOpenChange, initialTemplate }: CreateInstanceModalProps) {
@@ -141,6 +144,11 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
         SUPABASE_PUBLIC_URL: `https://${sanitizedName}.${formData.domain}`,
         API_EXTERNAL_URL: `https://${sanitizedName}-api.${formData.domain}`,
       };
+    }
+
+    // Add resource limits
+    if (formData.resourceLimits && (formData.resourceLimits.cpus || formData.resourceLimits.memory)) {
+      requestData.resourceLimits = formData.resourceLimits;
     }
 
     try {
@@ -344,6 +352,14 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                     className='w-full px-3 py-2 border border-border rounded-md bg-input'
                   />
                   <p className='text-xs text-muted-foreground mt-1'>Comma-separated allowed origins.</p>
+                </div>
+
+                {/* Resource Limits */}
+                <div className='pt-4 mt-4 border-t border-border'>
+                  <ResourceLimitsForm
+                    value={formData.resourceLimits}
+                    onChange={(limits) => setFormData((prev) => ({ ...prev, resourceLimits: limits }))}
+                  />
                 </div>
               </div>
 

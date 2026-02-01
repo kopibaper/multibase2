@@ -4,12 +4,14 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { PrismaClient } from '@prisma/client';
 import yaml from 'js-yaml';
+import { Client } from 'pg';
 
 import {
   CreateInstanceRequest,
   SupabaseInstance,
   InstanceCredentials,
   PortMapping,
+  ResourceLimits,
 } from '../types';
 import { generateAllKeys } from '../utils/keyGenerator';
 import { calculatePorts, getRandomBasePort } from '../utils/portManager';
@@ -240,7 +242,7 @@ export class InstanceManager {
 
     logger.info(`Creating new instance: ${name}`);
     logger.info(
-      `Request details: deploymentType=${request.deploymentType}, env keys=${request.env ? Object.keys(request.env).join(',') : 'none'}`
+      `Request details: deploymentType=${request.deploymentType}, env keys=${request.env ? Object.keys(request.env).join(',') : 'none'}, resourceLimits=${JSON.stringify(request.resourceLimits)}`
     );
 
     // Validate name
@@ -335,6 +337,18 @@ export class InstanceManager {
           }
         } catch (envError) {
           logger.error(`Failed to update environment overrides for ${name}:`, envError);
+        }
+      }
+
+      // Apply Resource Limits if specified
+      if (request.resourceLimits) {
+        try {
+          await this.applyResourceLimits(projectPath, request.resourceLimits);
+          logger.info(
+            `Applied resource limits for ${name}: CPU=${request.resourceLimits.cpus}, Memory=${request.resourceLimits.memory}MB`
+          );
+        } catch (limitsError) {
+          logger.error(`Failed to apply resource limits for ${name}:`, limitsError);
         }
       }
 
@@ -574,6 +588,439 @@ server {
       }
     } catch (error) {
       logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
+    }
+  }
+
+  /**
+   * Apply resource limits to docker-compose.yml
+   * Adds deploy.resources.limits to all services
+   */
+  private async applyResourceLimits(projectPath: string, limits: ResourceLimits): Promise<void> {
+    const composePath = path.join(projectPath, 'docker-compose.yml');
+
+    if (!fs.existsSync(composePath)) {
+      throw new Error(`docker-compose.yml not found at ${composePath}`);
+    }
+
+    // Read and parse docker-compose.yml
+    const composeContent = fs.readFileSync(composePath, 'utf-8');
+    const compose = yaml.load(composeContent) as any;
+
+    if (!compose.services) {
+      throw new Error('No services found in docker-compose.yml');
+    }
+
+    // Prepare different resource configurations
+    const getLimitValue = (val: number, type: 'cpus' | 'memory') =>
+      type === 'memory' ? `${val}M` : val.toString();
+
+    const getReservationValue = (val: number, type: 'cpus' | 'memory') =>
+      type === 'memory' ? `${Math.round(val * 0.5)}M` : (val * 0.5).toString();
+
+    // Default Configuration (for DB and others if not specified)
+    const defaultConfig = {
+      limits: {
+        cpus: limits.cpus ? getLimitValue(limits.cpus, 'cpus') : undefined,
+        memory: limits.memory ? getLimitValue(limits.memory, 'memory') : undefined,
+      },
+      reservations: {
+        cpus: limits.cpus ? getReservationValue(limits.cpus, 'cpus') : undefined,
+        memory: limits.memory ? getReservationValue(limits.memory, 'memory') : undefined,
+      },
+    };
+
+    // Analytics Specific Configuration
+    // User requested: Small=512MB, Medium=1024MB, Large=1536MB
+    let analyticsMemory = 512; // Default baseline
+    if (limits.preset === 'medium') analyticsMemory = 1024;
+    else if (limits.preset === 'large') analyticsMemory = 1536;
+    else if (limits.preset === 'custom' && limits.memory) {
+      // For custom, cap analytics at 1.5GB or 50% of total memory, whichever is lower (but at least 256MB)
+      analyticsMemory = Math.max(256, Math.min(1536, Math.round(limits.memory * 0.5)));
+    }
+
+    const analyticsConfig = {
+      limits: {
+        cpus: limits.cpus ? getLimitValue(Math.min(limits.cpus, 1), 'cpus') : undefined, // Cap analytics CPU at 1 core
+        memory: `${analyticsMemory}M`,
+      },
+      reservations: {
+        cpus: limits.cpus ? getReservationValue(Math.min(limits.cpus, 1), 'cpus') : undefined,
+        memory: `${Math.round(analyticsMemory * 0.5)}M`,
+      },
+    };
+
+    // Apply to all services
+    for (const serviceName of Object.keys(compose.services)) {
+      const service = compose.services[serviceName];
+      let resources;
+
+      if (
+        serviceName.includes('analytics') ||
+        serviceName.includes('vector') ||
+        serviceName.includes('logflare')
+      ) {
+        resources = analyticsConfig;
+      } else {
+        // Use default (high) limits for DB and others
+        resources = defaultConfig;
+      }
+
+      // Remove undefined keys
+      const cleanResources = {
+        limits: Object.fromEntries(
+          Object.entries(resources.limits).filter(([_, v]) => v !== undefined)
+        ),
+        reservations: Object.fromEntries(
+          Object.entries(resources.reservations).filter(([_, v]) => v !== undefined)
+        ),
+      };
+
+      if (Object.keys(cleanResources.limits).length > 0) {
+        if (service.deploy) {
+          service.deploy.resources = cleanResources;
+        } else {
+          service.deploy = { resources: cleanResources };
+        }
+      }
+    }
+
+    // Write back to file
+    const newContent = yaml.dump(compose, {
+      lineWidth: -1, // Don't wrap lines
+      noRefs: true,
+      quotingType: '"',
+      forceQuotes: false,
+    });
+
+    fs.writeFileSync(composePath, newContent, 'utf-8');
+    logger.info(`Applied resource limits to ${composePath}`);
+  }
+
+  /**
+   * Update environment variables for an existing instance
+   * @param name Instance name
+   * @param envVars Key-value pairs to update
+   */
+  async updateInstanceEnv(
+    name: string,
+    envVars: Record<string, string>
+  ): Promise<{ success: boolean; backupPath?: string }> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Environment file not found for instance ${name}`);
+    }
+
+    // Create backup before modifying
+    const backupPath = backupEnvFile(envPath);
+    logger.info(`Created backup of .env at ${backupPath}`);
+
+    // Parse current env file
+    const currentEnv = parseEnvFile(envPath);
+
+    // Merge with new values (new values override existing)
+    const mergedEnv = { ...currentEnv, ...envVars };
+
+    // Write back
+    writeEnvFile(envPath, mergedEnv);
+    logger.info(`Updated environment variables for ${name}`);
+
+    // Invalidate cache
+    if (this.redisCache) {
+      await this.redisCache.delete(`instance:${name}`);
+    }
+
+    return { success: true, backupPath };
+  }
+
+  /**
+   * Update resource limits for an existing instance
+   * @param name Instance name
+   * @param limits New resource limits
+   */
+  async updateInstanceResources(
+    name: string,
+    limits: ResourceLimits
+  ): Promise<{ success: boolean }> {
+    const projectPath = path.join(this.projectsPath, name);
+
+    if (!fs.existsSync(projectPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    // Use existing applyResourceLimits method
+    await this.applyResourceLimits(projectPath, limits);
+    logger.info(`Updated resource limits for ${name}`);
+
+    // Invalidate cache
+    if (this.redisCache) {
+      await this.redisCache.delete(`instance:${name}`);
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Clone an existing instance with a new name
+   * @param sourceName Source instance name
+   * @param newName New instance name
+   * @param options Clone options
+   */
+  async cloneInstance(
+    sourceName: string,
+    newName: string,
+    _options: { copyEnv?: boolean } = { copyEnv: true }
+  ): Promise<SupabaseInstance> {
+    const sourcePath = path.join(this.projectsPath, sourceName);
+    const targetPath = path.join(this.projectsPath, newName);
+
+    // Verify source exists
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Source instance ${sourceName} not found`);
+    }
+
+    // Verify target doesn't exist
+    if (fs.existsSync(targetPath)) {
+      throw new Error(`Instance ${newName} already exists`);
+    }
+
+    logger.info(`Cloning instance ${sourceName} to ${newName}`);
+
+    try {
+      // Create target directory
+      fs.mkdirSync(targetPath, { recursive: true });
+
+      // Copy files (excluding volumes directory)
+      const filesToCopy = fs.readdirSync(sourcePath);
+      for (const file of filesToCopy) {
+        if (file === 'volumes') continue; // Skip volume data
+
+        const srcFile = path.join(sourcePath, file);
+        const destFile = path.join(targetPath, file);
+
+        if (fs.statSync(srcFile).isDirectory()) {
+          // Recursively copy directories
+          this.copyDirectorySync(srcFile, destFile);
+        } else {
+          fs.copyFileSync(srcFile, destFile);
+        }
+      }
+
+      // Create empty volumes directory
+      fs.mkdirSync(path.join(targetPath, 'volumes'), { recursive: true });
+
+      // Generate new ports
+      const newBasePort = getRandomBasePort();
+      const newPorts = await calculatePorts(newBasePort);
+
+      // Generate new keys
+      const newKeys = generateAllKeys();
+
+      // Update .env file with new values
+      const envPath = path.join(targetPath, '.env');
+      if (fs.existsSync(envPath)) {
+        const envContent = parseEnvFile(envPath);
+
+        // Update ports
+        envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
+        envContent['KONG_HTTPS_PORT'] = newPorts.kong_https.toString();
+        envContent['POSTGRES_PORT'] = newPorts.postgres.toString();
+        envContent['POOLER_PORT'] = newPorts.pooler.toString();
+        envContent['STUDIO_PORT'] = newPorts.studio.toString();
+        envContent['ANALYTICS_PORT'] = newPorts.analytics.toString();
+
+        // Update keys
+        envContent['JWT_SECRET'] = newKeys.jwt_secret;
+        envContent['ANON_KEY'] = newKeys.anon_key;
+        envContent['SERVICE_ROLE_KEY'] = newKeys.service_role_key;
+        envContent['DASHBOARD_PASSWORD'] = newKeys.dashboard_password;
+        envContent['POSTGRES_PASSWORD'] = newKeys.postgres_password;
+        envContent['SECRET_KEY_BASE'] = newKeys.secret_key_base;
+        envContent['VAULT_ENC_KEY'] = newKeys.vault_enc_key;
+
+        // Update URLs
+        const protocol = envContent['SITE_URL']?.startsWith('https') ? 'https' : 'http';
+        const domain = envContent['SITE_URL']?.includes('localhost')
+          ? 'localhost'
+          : envContent['SITE_URL']?.split('://')[1]?.split(':')[0] || 'localhost';
+
+        if (domain === 'localhost') {
+          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['STUDIO_DEFAULT_ORGANIZATION'] = newName;
+          envContent['STUDIO_DEFAULT_PROJECT'] = newName;
+        }
+
+        writeEnvFile(envPath, envContent);
+        logger.info(`Updated .env for cloned instance ${newName}`);
+      }
+
+      // Store in database
+      await this.prisma.instance.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: newName,
+          basePort: newBasePort,
+          status: 'created',
+          createdAt: new Date(),
+        },
+      });
+
+      logger.info(`Successfully cloned ${sourceName} to ${newName}`);
+
+      // Return the new instance
+      const clonedInstance = await this.getInstance(newName);
+      if (!clonedInstance) {
+        throw new Error('Failed to retrieve cloned instance');
+      }
+      return clonedInstance;
+    } catch (error) {
+      // Cleanup on failure
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to recursively copy a directory
+   */
+  private copyDirectorySync(src: string, dest: string): void {
+    fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+
+      if (entry.isDirectory()) {
+        this.copyDirectorySync(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+
+  /**
+   * Get database schema for an instance
+   * @param name Instance name
+   */
+  async getSchema(name: string): Promise<any[]> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    const env = parseEnvFile(envPath);
+    const port = env['POSTGRES_PORT'] || '5432';
+    const password = env['POSTGRES_PASSWORD'];
+
+    if (!password) {
+      throw new Error('Database password not found');
+    }
+
+    const client = new Client({
+      user: 'postgres',
+      host: 'localhost',
+      database: 'postgres',
+      password: password,
+      port: parseInt(port, 10),
+    });
+
+    try {
+      await client.connect();
+
+      const query = `
+        SELECT 
+          t.table_schema,
+          t.table_name,
+          t.table_type,
+          (
+            SELECT json_agg(json_build_object(
+              'column_name', c.column_name,
+              'data_type', c.data_type,
+              'is_nullable', c.is_nullable,
+              'column_default', c.column_default,
+              'is_primary_key', (
+                SELECT EXISTS (
+                  SELECT 1 
+                  FROM information_schema.key_column_usage kcu
+                  JOIN information_schema.table_constraints tc ON kcu.constraint_name = tc.constraint_name
+                  WHERE kcu.table_schema = c.table_schema 
+                    AND kcu.table_name = c.table_name 
+                    AND kcu.column_name = c.column_name
+                    AND tc.constraint_type = 'PRIMARY KEY'
+                )
+              )
+            ) ORDER BY c.ordinal_position)
+            FROM information_schema.columns c
+            WHERE c.table_schema = t.table_schema AND c.table_name = t.table_name
+          ) as columns
+        FROM information_schema.tables t
+        WHERE t.table_schema = 'public'
+        ORDER BY t.table_name;
+      `;
+
+      const result = await client.query(query);
+
+      return result.rows.map((row: any) => ({
+        schema: row.table_schema,
+        name: row.table_name,
+        type: row.table_type,
+        columns: row.columns || [],
+      }));
+    } catch (error: any) {
+      logger.error(`Failed to get schema for ${name}:`, error.message);
+      return [];
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+
+  /**
+   * Execute SQL query on an instance database
+   * @param name Instance name
+   * @param sql SQL query to execute
+   */
+  async executeSQL(name: string, sql: string): Promise<{ rows: any[]; error?: string }> {
+    const projectPath = path.join(this.projectsPath, name);
+    const envPath = path.join(projectPath, '.env');
+
+    if (!fs.existsSync(envPath)) {
+      throw new Error(`Instance ${name} not found`);
+    }
+
+    const env = parseEnvFile(envPath);
+    const port = env['POSTGRES_PORT'] || '5432';
+    const password = env['POSTGRES_PASSWORD'];
+
+    if (!password) {
+      throw new Error('Database password not found');
+    }
+
+    const client = new Client({
+      user: 'postgres',
+      host: 'localhost',
+      database: 'postgres',
+      password: password,
+      port: parseInt(port, 10),
+    });
+
+    try {
+      await client.connect();
+      const result = await client.query(sql);
+      return { rows: result.rows };
+    } catch (error: any) {
+      logger.error(`SQL execution failed for ${name}:`, error.message);
+      return { rows: [], error: error.message };
+    } finally {
+      await client.end().catch(() => {});
     }
   }
 

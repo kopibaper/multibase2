@@ -61,6 +61,19 @@ export interface ResourceMetrics {
   timestamp: string;
 }
 
+// Resource Limits for Docker containers
+export interface ResourceLimits {
+  cpus?: number;
+  memory?: number;
+  preset?: 'small' | 'medium' | 'large' | 'custom';
+}
+
+export const RESOURCE_PRESETS: Record<string, ResourceLimits> = {
+  small: { cpus: 0.5, memory: 512, preset: 'small' },
+  medium: { cpus: 1, memory: 1024, preset: 'medium' },
+  large: { cpus: 2, memory: 2048, preset: 'large' },
+};
+
 export interface CreateInstanceRequest {
   name: string;
   basePort?: number;
@@ -71,6 +84,7 @@ export interface CreateInstanceRequest {
   templateId?: number;
   services?: string[];
   env?: Record<string, string>;
+  resourceLimits?: ResourceLimits;
 }
 
 export interface SystemTemplate {

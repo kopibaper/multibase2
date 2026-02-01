@@ -99,10 +99,13 @@ export default function SetupLayout({}: SetupLayoutProps) {
               Version History
             </SidebarLink>
             <SidebarLink to='/setup/features/roadmap-1.1' icon={FileText}>
-              v1.1 Roadmap
+              v1.1 Released
             </SidebarLink>
             <SidebarLink to='/setup/features/roadmap-1.2' icon={FileText}>
-              v1.2 Future
+              v1.2 Released
+            </SidebarLink>
+            <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText}>
+              v1.3 Roadmap
             </SidebarLink>
             <SidebarLink to='/setup/reference/scripts' icon={Code}>
               Scripts Guide

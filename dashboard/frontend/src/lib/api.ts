@@ -116,6 +116,16 @@ export const instancesApi = {
     });
   },
 
+  updateResources: (
+    name: string,
+    data: { resourceLimits: { cpus?: number; memory?: number; preset?: string } }
+  ): Promise<{ success: boolean; message: string }> => {
+    return fetchApi(`/api/instances/${name}/resources`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
   bulk: (
     action: 'start' | 'stop' | 'restart',
     instances: string[]
@@ -131,6 +141,28 @@ export const instancesApi = {
 
   getUptimeStats: (name: string, days: number = 30): Promise<UptimeStats> => {
     return fetchApi(`/api/instances/${name}/uptime?days=${days}`);
+  },
+
+  clone: (
+    sourceName: string,
+    newName: string,
+    options?: { copyEnv?: boolean }
+  ): Promise<{ message: string; instance: any }> => {
+    return fetchApi(`/api/instances/${sourceName}/clone`, {
+      method: 'POST',
+      body: JSON.stringify({ newName, copyEnv: options?.copyEnv ?? true }),
+    });
+  },
+
+  getSchema: (name: string): Promise<{ tables: any[] }> => {
+    return fetchApi(`/api/instances/${name}/schema`);
+  },
+
+  executeSQL: (name: string, query: string): Promise<{ rows: any[]; error?: string }> => {
+    return fetchApi(`/api/instances/${name}/sql`, {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
   },
 };
 
@@ -437,5 +469,138 @@ export const emailTemplatesApi = {
     variables: Record<string, Array<{ name: string; description: string }>>;
   }> => {
     return fetchApi(`/api/instances/${instanceName}/email-templates/variables`);
+  },
+};
+
+// Functions API
+export const functionsApi = {
+  list: (instanceName: string): Promise<{ functions: string[] }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions`);
+  },
+
+  get: (instanceName: string, functionName: string): Promise<{ code: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}`);
+  },
+
+  save: (
+    instanceName: string,
+    functionName: string,
+    code: string
+  ): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}`, {
+      method: 'PUT',
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  delete: (instanceName: string, functionName: string): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}`, {
+      method: 'DELETE',
+    });
+  },
+
+  deploy: (instanceName: string, functionName: string): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/deploy`, {
+      method: 'POST',
+    });
+  },
+
+  getLogs: (instanceName: string, functionName: string): Promise<{ logs: string[] }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/logs`);
+  },
+};
+
+// Storage API
+export const storageApi = {
+  listBuckets: (instanceName: string): Promise<{ buckets: any[] }> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/buckets`);
+  },
+
+  createBucket: (instanceName: string, bucketName: string, isPublic: boolean): Promise<any> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/buckets`, {
+      method: 'POST',
+      body: JSON.stringify({ bucketName, isPublic }),
+    });
+  },
+
+  deleteBucket: (instanceName: string, bucketId: string): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/buckets/${bucketId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  listFiles: (
+    instanceName: string,
+    bucketId: string,
+    path: string = ''
+  ): Promise<{ files: any[] }> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/files/${bucketId}/${path}`);
+  },
+
+  uploadFile: (instanceName: string, bucketId: string, path: string, file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('path', path);
+
+    // Initial implementation of fetchApi uses JSON content-type by default
+    // We need to override it or use raw fetch for FormData
+    // The current fetchApi helper might force Content-Type: application/json
+    // Let's modify fetchApi or use a custom one here if needed.
+    // Looking at api.ts:
+    /*
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+    };
+    */
+    // If we pass body as FormData, fetch sets Content-Type boundary automatically.
+    // We should allow overriding/removing 'Content-Type'.
+
+    const token = localStorage.getItem('auth_token');
+    return fetch(`${API_BASE_URL}/api/instances/${instanceName}/storage/files/${bucketId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || res.statusText);
+      }
+      return res.json();
+    });
+  },
+
+  deleteFile: (
+    instanceName: string,
+    bucketId: string,
+    path: string
+  ): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/files/${bucketId}/${path}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getPublicUrl: (
+    instanceName: string,
+    bucketId: string,
+    path: string
+  ): Promise<{ publicUrl: string }> => {
+    // The backend route is /url/:bucketId/:path(*)
+    return fetchApi(`/api/instances/${instanceName}/storage/url/${bucketId}/${path}`);
+  },
+
+  createSignedUrl: (
+    instanceName: string,
+    bucketId: string,
+    path: string,
+    expiresIn: number = 60
+  ): Promise<{ signedUrl: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/storage/signed-url/${bucketId}`, {
+      method: 'POST',
+      body: JSON.stringify({ path, expiresIn }),
+    });
   },
 };

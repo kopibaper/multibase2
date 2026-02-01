@@ -68,6 +68,13 @@ export const CreateInstanceSchema = z.object({
   corsOrigins: z.array(z.string()).optional(),
   templateId: z.number().int().positive().optional(),
   env: z.record(z.string()).optional(), // Environment variable overrides for cloud deployment
+  resourceLimits: z
+    .object({
+      cpus: z.number().min(0.1).max(64).optional(),
+      memory: z.number().int().min(128).max(65536).optional(),
+      preset: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const InstanceNameParamSchema = z.object({
@@ -80,6 +87,35 @@ export const InstanceNameParamSchema = z.object({
 
 export const UpdateCredentialsSchema = z.object({
   regenerateKeys: z.boolean().optional(),
+});
+
+// ===== Environment Update Schemas =====
+
+export const UpdateEnvSchema = z.object({
+  env: z.record(
+    z.string().regex(/^[A-Z_][A-Z0-9_]*$/, 'Variable name must be uppercase with underscores'),
+    z.string()
+  ),
+});
+
+export const UpdateResourceLimitsSchema = z.object({
+  resourceLimits: z.object({
+    cpus: z.number().min(0.1).max(64).optional(),
+    memory: z.number().int().min(128).max(65536).optional(),
+    preset: z.enum(['small', 'medium', 'large', 'custom']).optional(),
+  }),
+});
+
+export const CloneInstanceSchema = z.object({
+  newName: z
+    .string()
+    .min(1, 'Instance name is required')
+    .max(50, 'Instance name must be 50 characters or less')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Instance name can only contain lowercase letters, numbers, and hyphens'
+    ),
+  copyEnv: z.boolean().optional().default(true),
 });
 
 // ===== Backup Schemas =====

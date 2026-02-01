@@ -1,0 +1,27 @@
+export const POSTGRES_TYPES = [
+  { value: 'int2', label: 'int2', description: 'Signed two-byte integer' },
+  { value: 'int4', label: 'int4', description: 'Signed four-byte integer' },
+  { value: 'int8', label: 'int8', description: 'Signed eight-byte integer' },
+  {
+    value: 'float4',
+    label: 'float4',
+    description: 'Single precision floating-point number (4 bytes)',
+  },
+  {
+    value: 'float8',
+    label: 'float8',
+    description: 'Double precision floating-point number (8 bytes)',
+  },
+  { value: 'numeric', label: 'numeric', description: 'Exact numeric of selectable precision' },
+  { value: 'json', label: 'json', description: 'Textual JSON data' },
+  { value: 'jsonb', label: 'jsonb', description: 'Binary JSON data, decomposed' },
+  { value: 'text', label: 'text', description: 'Variable-length character string' },
+  { value: 'varchar', label: 'varchar', description: 'Variable-length character string' },
+  { value: 'uuid', label: 'uuid', description: 'Universally unique identifier' },
+  { value: 'date', label: 'date', description: 'Calendar date (year, month, day)' },
+  { value: 'time', label: 'time', description: 'Time of day (no time zone)' },
+  { value: 'timetz', label: 'timetz', description: 'Time of day, including time zone' },
+  { value: 'timestamp', label: 'timestamp', description: 'Date and time (no time zone)' },
+  { value: 'timestamptz', label: 'timestamptz', description: 'Date and time, including time zone' },
+  { value: 'boolean', label: 'bool', description: 'Logical boolean (true/false)' },
+];

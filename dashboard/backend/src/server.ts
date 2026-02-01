@@ -37,7 +37,11 @@ import { createMigrationRoutes } from './routes/migrations';
 import { createDeploymentsRoutes } from './routes/deployments';
 import { createEmailTemplateRoutes } from './routes/emailTemplates';
 import { createUptimeRoutes } from './routes/uptime';
+import { createFunctionRoutes } from './routes/functions';
 import { UptimeService } from './services/UptimeService';
+import { FunctionService } from './services/FunctionService';
+import { StorageService } from './services/StorageService';
+import { createStorageRoutes } from './routes/storage';
 
 // Utils
 import { logger } from './utils/logger';
@@ -51,7 +55,7 @@ const PORT = process.env.PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
   : ['http://localhost:5173'];
-const PROJECTS_PATH = process.env.PROJECTS_PATH || path.join(__dirname, '../../projects');
+const PROJECTS_PATH = process.env.PROJECTS_PATH || path.join(process.cwd(), '../../projects');
 const DOCKER_SOCKET_PATH = process.env.DOCKER_SOCKET_PATH;
 const METRICS_INTERVAL = parseInt(process.env.METRICS_INTERVAL || '15000', 10);
 const HEALTH_CHECK_INTERVAL = parseInt(process.env.HEALTH_CHECK_INTERVAL || '10000', 10);
@@ -120,6 +124,8 @@ const metricsCollector = new MetricsCollector(
   METRICS_INTERVAL
 );
 const uptimeService = new UptimeService(prisma, instanceManager);
+const functionService = new FunctionService(dockerManager);
+const storageService = new StorageService(instanceManager);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -144,6 +150,8 @@ app.use('/api/migrations', createMigrationRoutes());
 app.use('/api/deployments', createDeploymentsRoutes());
 app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
+app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
+app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {
@@ -340,9 +348,14 @@ async function start() {
     await startServices();
 
     httpServer.listen(PORT, () => {
-      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`);
-      logger.info(`📊 WebSocket server ready`);
-      logger.info(`🔗 CORS enabled for: ${CORS_ORIGIN}`);
+      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`, {
+        service: 'multibase-dashboard',
+      });
+      logger.info(`📂 Projects Path: ${PROJECTS_PATH} (resolved: ${path.resolve(PROJECTS_PATH)})`, {
+        service: 'multibase-dashboard',
+      });
+      logger.info(`📊 WebSocket server ready`, { service: 'multibase-dashboard' });
+      logger.info(`🔗 CORS enabled for: ${CORS_ORIGIN}`, { service: 'multibase-dashboard' });
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

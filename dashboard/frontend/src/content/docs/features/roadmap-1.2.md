@@ -1,190 +1,178 @@
-# Version 1.2 - Future Features
+---
+title: Version 1.2 - Implemented Features
+description: Overview of features released in Version 1.2
+---
 
-**Planned Release:** Q2-Q3 2026  
-**Status:** 💡 Planning Phase
+# Version 1.2 - Feature Overview
 
-> These features are ideas for future development. None are currently implemented.
+**Release:** February 2026  
+**Status:** ✅ Released
+
+> All features in this version have been implemented and are available for use.
 
 ---
 
-## Planned Features
+## 💾 Storage Manager Improvements
 
-- [ ] 🏢 Multi-Tenancy/Teams
-- [ ] 💰 Cost Tracking & Billing
-- [ ] 📊 Advanced Monitoring
-- [ ] 📦 Instance Cloning/Snapshots
-- [ ] 💾 S3 Storage Integration
-- [ ] 🔒 GDPR/Compliance Tools
-
----
-
-## 🏢 Multi-Tenancy/Teams
-
-**Status:** ❌ Not Started  
-**Priority:** Medium  
-**Effort:** High (2-3 Weeks)
+**Status:** ✅ Implemented  
+**Priority:** High
 
 ### Description
 
-Support for multiple teams/organizations on a single installation with isolated instances.
+Enhanced file manager for object storage with folder support, security features, and improved UX.
 
-### Planned Features
+### Features
 
-- Organization/Team Management
-  - Create and manage teams
-  - Invite and manage team members
-  - Roles per Team (Owner, Admin, Member, Viewer)
-- Instance Isolation
-  - Instances assigned to a team
-  - Team members only see their team's instances
-  - Cross-team Admins (Platform Admins)
-- Resource Quotas
-  - Max instances per team
-  - CPU/Memory limits per team
-  - Storage quotas
-
----
-
-## 💰 Cost Tracking & Billing
-
-**Status:** ❌ Not Started  
-**Priority:** Low  
-**Effort:** High (3-4 Weeks)
-
-### Description
-
-Track resource usage and generate billing reports.
-
-### Planned Features
-
-- Resource Tracking
-  - CPU hours per instance
-  - Memory usage over time
-  - Storage consumption
-  - Network traffic
-- Cost Calculation
-  - Configurable prices per resource
-  - Monthly/weekly reports
-  - Cost breakdown per instance/team
-- Budget Management
-  - Set budget limits
-  - Alerts on budget threshold
-  - Auto-stop on budget limit (optional)
-- Billing Export
-  - CSV/PDF export
-  - Invoice generation
-  - Stripe/Payment gateway integration
+- **Folder Management**
+  - Create virtual folders to organize files.
+  - Breadcrumb navigation for deep structures.
+- **File Operations**
+  - **Upload/Download**: Seamless file handling.
+  - **Image Previews**: Automatic thumbnails and modal usage for images.
+  - **Interaction**: Click-to-preview for images, click-to-download for files.
+- **Security**
+  - **Signed URLs**: Private files are accessed via secure, temporary signed URLs.
+  - **S3 Compatibility**: Integrated support for S3-compatible storage.
+  - **Access Control**: Respects bucket privacy settings.
+  - **Custom Confirmation**: Accidental deletion protection with custom modals.
 
 ---
 
 ## 📊 Advanced Monitoring
 
-**Status:** ❌ Not Started  
-**Priority:** Medium  
-**Effort:** High (2-3 Weeks)
+**Status:** ✅ Implemented  
+**Priority:** Medium
 
 ### Description
 
-Extended monitoring with long-term storage and custom dashboards.
+Extended monitoring capabilities.
 
-### Planned Features
+### Features
 
-- Custom Dashboards
-  - Drag & drop dashboard builder
-  - Custom widgets
-  - Multiple dashboards per user
-- Long-term Storage
-  - Prometheus integration
-  - InfluxDB for time-series data
-  - Configurable retention
-- Grafana Integration
-  - Auto-provisioning
-  - Embedded dashboards
-  - Pre-built templates
-- Custom Metrics
-  - Define own metrics
-  - PromQL queries
-  - Alert rules on custom metrics
+- **Expanded Metrics**
+  - Detailed resource usage views.
+- **Live Updates**
+  - Real-time status reflection via WebSockets.
+- **Log Management**
+  - View and search application logs.
 
 ---
 
-## 📦 Instance Cloning/Snapshots
+## 🔐 RLS Policies & Security
 
-**Status:** ❌ Not Started  
-**Priority:** Low  
-**Effort:** Medium (1-2 Weeks)
+**Status:** ✅ Implemented
+**Priority:** High
 
 ### Description
 
-Duplicate instances and create snapshots for backups/testing.
+Advanced database security and policy management.
 
-### Planned Features
+### Features
 
-- Snapshots
-  - Create instant snapshots
-  - Rollback to snapshot
-  - Export snapshot
-- Cloning
-  - "Clone Instance" button
-  - Clone from backup
-  - Clone to template
+- **Policy Manager**
+  - View, Enable, Disable RLS policies per table.
+  - **Policy Editor**: Create and edit SQL policies directly.
+  - **Templates**: Common policy templates (e.g., "Public Read", "Authenticated Insert").
 
 ---
 
-## 💾 S3 Storage Integration
+## 🔄 Bulk Actions
 
-**Status:** ❌ Not Started  
-**Priority:** Medium  
-**Effort:** Medium (1 Week)
+**Status:** ✅ Implemented
+**Priority:** Medium
 
 ### Description
 
-Store backups and large files in S3-compatible storage.
+Perform operations on multiple instances simultaneously.
 
-### Planned Features
+### Features
 
-- S3 Configuration
-  - AWS S3 support
-  - MinIO support
-  - Backblaze B2 support
-- Automatic Offload
-  - Backup offload to S3
-  - Configurable policies
-- Storage Browser
-  - View stored files
-  - Download/delete from dashboard
+- **Batch Operations**
+  - **Start/Stop**: Control multiple instances at once.
+  - **Delete**: Bulk deletion with confirmation.
+- **UI Improvements**
+  - Selection checkboxes on instance cards.
+  - Floating action bar for quick access.
 
 ---
 
-## 🔒 GDPR/Compliance Tools
+## 🎛️ Resource Limits
 
-**Status:** ❌ Not Started  
-**Priority:** Low  
-**Effort:** Medium (1-2 Weeks)
+**Status:** ✅ Implemented
+**Priority:** High
 
 ### Description
 
-Tools to help with data privacy and compliance requirements.
+Control system resource usage per instance.
 
-### Planned Features
+### Features
 
-- Data Export
-  - User data export
-  - Machine-readable format
-- Data Deletion
-  - Deletion workflows
-  - Confirmation and audit trail
-- Audit Log Retention
-  - Configurable retention policies
-  - Automatic cleanup
-- Cookie Consent
-  - Consent management
-  - Banner configuration
+- **Docker Constraints**
+  - **CPU Limits**: Restrict CPU usage (e.g., 0.5 vCPU).
+  - **Memory Limits**: Set RAM quotas (e.g., 512MB).
+- **Configuration**
+  - Configurable during creation and editing.
 
 ---
 
-## How to Contribute Ideas
+## ☁️ Edge Functions Manager
 
-Have a feature idea? Open an issue on GitHub with the `feature-request` label!
+**Status:** ✅ Implemented
+**Priority:** Medium
+
+### Description
+
+Manage Supabase Edge Functions.
+
+### Features
+
+- **Function Ops**
+  - Create, Deploy, and Delete functions.
+  - **Code Editor**: Simple in-browser editor for function code.
+- **Observability**
+  - **Execution Logs**: View real-time function logs.
+
+---
+
+## 🔧 Environment & SMTP Templates
+
+**Status:** ✅ Implemented
+**Priority:** Medium
+
+### Description
+
+Configuration and communication tools.
+
+### Features
+
+- **Environment Manager**
+  - Manage `.env` file content safely from the dashboard.
+- **SMTP Templates**
+  - **Template Editor**: Customize email templates (Verification, Password Reset).
+  - **Variables**: Support for dynamic placeholders (`{{ .ConfirmationURL }}`, etc.).
+
+---
+
+## 📦 Instance Cloning & Snapshots
+
+**Status:** ✅ Implemented  
+**Priority:** Low
+
+### Description
+
+Tools for managing instance state and replication.
+
+### Features
+
+- **Cloning**
+  - Duplicate existing instances to create identical copies.
+- **Snapshots**
+  - Create point-in-time snapshots of instance state (if supported by backend).
+
+---
+
+## Next Version
+
+See [Version 1.3 Roadmap](/setup/features/roadmap-1.3) for planned future features including Multi-Tenancy and S3 Integration.
 
 [← Back to Version Overview](/setup/general/versions)

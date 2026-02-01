@@ -1,0 +1,223 @@
+import React, { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { instancesApi } from '../lib/api';
+import { X, Loader2, Save, Shield } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface CreatePolicyModalProps {
+  instanceName: string;
+  tableName: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const COMMANDS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL'];
+const ROLES = ['anon', 'authenticated', 'service_role'];
+
+export default function CreatePolicyModal({ instanceName, tableName, onClose, onSuccess }: CreatePolicyModalProps) {
+  const [policyName, setPolicyName] = useState('');
+  const [command, setCommand] = useState('SELECT');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [usingExpression, setUsingExpression] = useState('');
+  const [withCheckExpression, setWithCheckExpression] = useState('');
+
+  const createPolicyMutation = useMutation({
+    mutationFn: async () => {
+      // Construct SQL
+      // CREATE POLICY "name" ON "table"
+      // AS PERMISSIVE -- default
+      // FOR COMMAND
+      // TO roles
+      // USING (expression)
+      // WITH CHECK (expression)
+
+      let sql = `CREATE POLICY "${policyName}" ON public."${tableName}" FOR ${command}`;
+
+      if (selectedRoles.length > 0) {
+        sql += ` TO ${selectedRoles.join(', ')}`;
+      }
+
+      if (usingExpression.trim()) {
+        sql += ` USING (${usingExpression})`;
+      }
+
+      if (withCheckExpression.trim()) {
+        sql += ` WITH CHECK (${withCheckExpression})`;
+      } else if (command === 'INSERT' || command === 'UPDATE') {
+        // Should we enforce check? Usually users might want matching using expression if not specified,
+        // but Postgres doesn't default WITH CHECK to USING automatically unless simplistic.
+        // Actually, for INSERT, only WITH CHECK is relevant. For UPDATE, both.
+        // Let's just leave it optional.
+      }
+
+      return instancesApi.executeSQL(instanceName, sql);
+    },
+    onSuccess: (data) => {
+      if (data.error) {
+        toast.error('Failed to create policy', { description: data.error });
+      } else {
+        toast.success(`Policy "${policyName}" created`);
+        onSuccess();
+        onClose();
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create policy');
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!policyName.trim()) {
+      toast.error('Policy name is required');
+      return;
+    }
+    if (!usingExpression.trim() && !withCheckExpression.trim()) {
+      if (command !== 'ALL') {
+        // It's valid to have neither? permissive policy with no expressions creates a "default deny" essentially or "allow all"?
+        // Actually "If no USING clause is specified, the default is to assume true (allow all) for permissive policies"?
+        // Wait, Postgres docs: "If no USING clause is specified... the policy allows all access".
+        // So empty is "public".
+      }
+    }
+    createPolicyMutation.mutate();
+  };
+
+  const toggleRole = (role: string) => {
+    if (selectedRoles.includes(role)) {
+      setSelectedRoles(selectedRoles.filter((r) => r !== role));
+    } else {
+      setSelectedRoles([...selectedRoles, role]);
+    }
+  };
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
+      <div className='bg-card w-full max-w-2xl rounded-lg border border-border shadow-xl max-h-[90vh] flex flex-col'>
+        <div className='flex items-center justify-between p-6 border-b border-border'>
+          <div>
+            <h2 className='text-xl font-semibold flex items-center gap-2'>
+              <Shield className='w-5 h-5 text-primary' />
+              Create RLS Policy
+            </h2>
+            <p className='text-sm text-muted-foreground'>
+              Targeting table: <span className='font-mono text-foreground'>{tableName}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className='text-muted-foreground hover:text-foreground'>
+            <X className='w-5 h-5' />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className='flex-1 overflow-y-auto p-6 space-y-6'>
+          {/* Name & Command */}
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-sm font-medium mb-2'>Policy Name</label>
+              <input
+                type='text'
+                value={policyName}
+                onChange={(e) => setPolicyName(e.target.value)}
+                className='w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50'
+                placeholder='e.g. "Public Read Access"'
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className='block text-sm font-medium mb-2'>Command</label>
+              <select
+                value={command}
+                onChange={(e) => setCommand(e.target.value)}
+                className='w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50'
+              >
+                {COMMANDS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Roles */}
+          <div>
+            <label className='block text-sm font-medium mb-2'>Allowed Roles (Empty = All roles)</label>
+            <div className='flex gap-4'>
+              {ROLES.map((role) => (
+                <label
+                  key={role}
+                  className='flex items-center gap-2 cursor-pointer bg-secondary/30 px-3 py-2 rounded-md hover:bg-secondary/50 transition-colors'
+                >
+                  <input
+                    type='checkbox'
+                    checked={selectedRoles.includes(role)}
+                    onChange={() => toggleRole(role)}
+                    className='rounded border-muted'
+                  />
+                  <span className='text-sm font-mono'>{role}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Expressions */}
+          <div className='space-y-4'>
+            <div>
+              <div className='flex justify-between items-center mb-2'>
+                <label className='block text-sm font-medium'>USING Expression</label>
+                <span className='text-xs text-muted-foreground'>Determines which rows are visible/modifiable</span>
+              </div>
+              <textarea
+                value={usingExpression}
+                onChange={(e) => setUsingExpression(e.target.value)}
+                className='w-full px-4 py-3 bg-secondary/20 border border-border rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]'
+                placeholder='e.g. true (for public) OR auth.uid() = user_id'
+              />
+            </div>
+
+            <div>
+              <div className='flex justify-between items-center mb-2'>
+                <label className='block text-sm font-medium'>WITH CHECK Expression (Optional)</label>
+                <span className='text-xs text-muted-foreground'>For INSERT/UPDATE checks</span>
+              </div>
+              <textarea
+                value={withCheckExpression}
+                onChange={(e) => setWithCheckExpression(e.target.value)}
+                className='w-full px-4 py-3 bg-secondary/20 border border-border rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]'
+                placeholder='e.g. auth.uid() = user_id'
+              />
+            </div>
+          </div>
+
+          <div className='bg-blue-500/10 border border-blue-500/20 rounded-md p-4 text-sm text-blue-400'>
+            <p>
+              Policies are <strong>PERMISSIVE</strong> by default, meaning they are combined with OR. If you want to
+              restrict based on multiple conditions, ensure your logic accounts for other policies.
+            </p>
+          </div>
+        </form>
+
+        <div className='p-6 border-t border-border flex justify-end gap-3'>
+          <button
+            onClick={onClose}
+            className='px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors'
+          >
+            Cancel
+          </button>
+          <button
+            onClick={(e) => handleSubmit(e)}
+            disabled={createPolicyMutation.isPending || !policyName}
+            className='flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50'
+          >
+            {createPolicyMutation.isPending ? (
+              <Loader2 className='w-4 h-4 animate-spin' />
+            ) : (
+              <Save className='w-4 h-4' />
+            )}
+            Create Policy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
