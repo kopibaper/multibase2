@@ -439,15 +439,8 @@ server {
         add_header Content-Type text/plain;
     }
 
-    # Storage endpoint with authentication
+    # Storage endpoint - NO auth_request, Supabase validates SERVICE_ROLE_KEY itself
     location /storage/ {
-        # Require authentication
-        auth_request /auth-check;
-        
-        # On auth failure, redirect to login
-        error_page 401 = @error401;
-        error_page 403 = @error403;
-
         proxy_pass http://127.0.0.1:${instance.ports.kong_http}/storage/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -456,6 +449,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
     }
     
     # Main location with authentication
