@@ -8,31 +8,16 @@ import InstanceCard from '../components/InstanceCard';
 import BulkActionBar from '../components/BulkActionBar';
 import CreateInstanceModal from '../components/CreateInstanceModal';
 import GaugeChart from '../components/charts/GaugeChart';
-import PageHeader from '../components/PageHeader';
-import {
-  Loader2,
-  Plus,
-  AlertCircle,
-  Bell,
-  Activity,
-  TrendingUp,
-  LogOut,
-  Users,
-  User,
-  Database,
-  Key,
-  Mail,
-} from 'lucide-react';
+import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: instances, isLoading, error, refetch } = useInstances();
   const { data: alertStats } = useAlertStats();
   const { data: systemMetrics } = useSystemMetrics();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const bulkSelection = useBulkSelection<string>();
 
   useEffect(() => {
@@ -71,186 +56,73 @@ export default function Dashboard() {
   }
 
   return (
-    <div className='min-h-screen bg-background'>
-      <PageHeader>
-        <div className='flex items-center justify-between'>
-          <div>
-            <p className='text-muted-foreground mt-1'>Manage your Supabase instances</p>
-          </div>
-          <div className='flex items-center gap-3'>
-            {/* Alert Badge */}
-            <Link
-              to='/alerts'
-              className='relative flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-md hover:bg-muted transition-colors'
-            >
-              <Bell className='w-4 h-4' />
-              Alerts
-              {alertStats && alertStats.active > 0 && (
-                <span className='absolute -top-2 -right-2 bg-destructive text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center'>
-                  {alertStats.active}
-                </span>
-              )}
-            </Link>
+    <div className='min-h-screen'>
+      {/* Page Header */}
+      <header className='border-b border-white/5 bg-card/30 backdrop-blur-sm sticky top-0 z-20'>
+        <div className='px-8 py-6'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h1 className='text-2xl font-bold text-foreground'>Dashboard</h1>
+              <p className='text-muted-foreground mt-1'>Manage your Supabase instances</p>
+            </div>
+            <div className='flex items-center gap-3'>
+              {/* Alert Badge */}
+              <Link to='/alerts' className='relative flex items-center gap-2 px-4 py-2 btn-secondary'>
+                <Bell className='w-4 h-4' />
+                Alerts
+                {alertStats && alertStats.active > 0 && (
+                  <span className='absolute -top-2 -right-2 bg-destructive text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center'>
+                    {alertStats.active}
+                  </span>
+                )}
+              </Link>
 
-            <Link
-              to='/templates'
-              className='flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-md hover:bg-muted transition-colors'
-            >
-              <Database className='w-4 h-4' />
-              Templates
-            </Link>
-
-            {user?.role !== 'viewer' && (
-              <button
-                className='flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors'
-                onClick={() => setIsCreateModalOpen(true)}
-              >
-                <Plus className='w-4 h-4' />
-                Create Instance
-              </button>
-            )}
-
-            {/* User Menu */}
-            <div className='relative'>
-              <button
-                className='flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-md hover:bg-muted transition-colors'
-                onClick={() => setShowUserMenu(!showUserMenu)}
-              >
-                <div className='w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-semibold'>
-                  {user?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <span className='text-sm text-foreground'>{user?.username}</span>
-              </button>
-
-              {showUserMenu && (
-                <div className='absolute right-0 mt-2 w-56 bg-card border border-border rounded-md shadow-lg z-50'>
-                  <div className='p-3 border-b border-border'>
-                    <p className='text-sm font-medium text-foreground'>{user?.username}</p>
-                    <p className='text-xs text-muted-foreground'>{user?.email}</p>
-                    <p className='text-xs text-primary mt-1 capitalize'>{user?.role}</p>
-                  </div>
-                  <div className='py-1 border-b border-border'>
-                    <Link
-                      to='/profile'
-                      className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <User className='w-4 h-4' />
-                      My Profile
-                    </Link>
-                  </div>
-                  <div className='py-1'>
-                    <Link
-                      to='/backups'
-                      className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <Database className='w-4 h-4' />
-                      Backup & Restore
-                    </Link>
-                    <Link
-                      to='/api-keys'
-                      className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors'
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <Key className='w-4 h-4' />
-                      API Keys
-                    </Link>
-                    {user?.role === 'admin' && (
-                      <Link
-                        to='/activity'
-                        className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Activity className='w-4 h-4' />
-                        Activity Log
-                      </Link>
-                    )}
-                    {user?.role === 'admin' && (
-                      <Link
-                        to='/users'
-                        className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Users className='w-4 h-4' />
-                        User Management
-                      </Link>
-                    )}
-                    {user?.role === 'admin' && (
-                      <Link
-                        to='/settings/smtp'
-                        className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Mail className='w-4 h-4' />
-                        SMTP Settings
-                      </Link>
-                    )}
-                    {user?.role === 'admin' && (
-                      <Link
-                        to='/migrations'
-                        className='flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted'
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Database className='w-4 h-4' />
-                        Database Migrations
-                      </Link>
-                    )}
-                  </div>
-                  <div className='border-t border-border py-1'>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setShowUserMenu(false);
-                      }}
-                      className='flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-muted w-full text-left'
-                    >
-                      <LogOut className='w-4 h-4' />
-                      Logout
-                    </button>
-                  </div>
-                </div>
+              {user?.role !== 'viewer' && (
+                <button className='flex items-center gap-2 btn-primary' onClick={() => setIsCreateModalOpen(true)}>
+                  <Plus className='w-4 h-4' />
+                  Create Instance
+                </button>
               )}
             </div>
           </div>
         </div>
-      </PageHeader>
+      </header>
 
       {/* Main Content */}
       <main className='container mx-auto px-6 py-8'>
         {/* Stats Overview */}
         <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='glass-card p-6'>
             <div className='flex items-center justify-between'>
               <div>
                 <p className='text-sm text-muted-foreground'>Total Instances</p>
                 <p className='text-3xl font-bold mt-1 text-foreground'>{instances?.length || 0}</p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-brand-500/20 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-brand-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 12h14M12 5l7 7-7 7' />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='glass-card p-6'>
             <div className='flex items-center justify-between'>
               <div>
                 <p className='text-sm text-muted-foreground'>Healthy</p>
-                <p className='text-3xl font-bold mt-1 text-primary'>
+                <p className='text-3xl font-bold mt-1 text-brand-400'>
                   {instances?.filter((i) => i.health.overall === 'healthy').length || 0}
                 </p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-brand-500/20 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-brand-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className='bg-card border border-border rounded-lg p-6'>
+          <div className='glass-card p-6'>
             <div className='flex items-center justify-between'>
               <div>
                 <p className='text-sm text-muted-foreground'>Total Services</p>
@@ -258,8 +130,8 @@ export default function Dashboard() {
                   {instances?.reduce((sum, i) => sum + i.services.length, 0) || 0}
                 </p>
               </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <div className='w-12 h-12 bg-brand-500/20 rounded-xl flex items-center justify-center'>
+                <svg className='w-6 h-6 text-brand-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path
                     strokeLinecap='round'
                     strokeLinejoin='round'

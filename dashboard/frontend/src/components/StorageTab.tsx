@@ -150,9 +150,9 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
   const files = filesData?.files || [];
 
   return (
-    <div className='flex gap-6 h-[800px]'>
+    <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[800px]'>
       {/* Sidebar: Buckets */}
-      <div className='w-1/4 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='w-full lg:w-1/4 glass-card flex flex-col max-h-60 lg:max-h-none'>
         <div className='p-4 border-b border-border flex items-center justify-between'>
           <h3 className='font-semibold flex items-center gap-2'>
             <Database className='w-4 h-4 text-primary' />
@@ -214,21 +214,27 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
       </div>
 
       {/* Main: File Browser */}
-      <div className='flex-1 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='flex-1 glass-card flex flex-col'>
         {selectedBucket ? (
           <>
             {/* Toolbar */}
-            <div className='p-4 border-b border-border flex items-center justify-between'>
+            <div className='p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between'>
               {/* Breadcrumbs */}
-              <div className='flex items-center gap-1 text-sm text-muted-foreground overflow-hidden'>
-                <button onClick={() => handleBreadcrumbClick(-1)} className='hover:text-foreground flex items-center'>
+              <div className='flex items-center gap-1 text-sm text-muted-foreground overflow-x-auto scrollbar-hide'>
+                <button
+                  onClick={() => handleBreadcrumbClick(-1)}
+                  className='hover:text-foreground flex items-center flex-shrink-0'
+                >
                   <Home className='w-4 h-4' />
                 </button>
                 {currentPath &&
                   currentPath.split('/').map((part, i) => (
-                    <div key={i} className='flex items-center gap-1'>
+                    <div key={i} className='flex items-center gap-1 flex-shrink-0'>
                       <ChevronRight className='w-4 h-4 opacity-50' />
-                      <button onClick={() => handleBreadcrumbClick(i)} className='hover:text-foreground font-medium'>
+                      <button
+                        onClick={() => handleBreadcrumbClick(i)}
+                        className='hover:text-foreground font-medium truncate max-w-24 sm:max-w-none'
+                      >
                         {part}
                       </button>
                     </div>
@@ -238,16 +244,17 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
               <div className='flex items-center gap-2'>
                 <button
                   onClick={() => setShowCreateFolderModal(true)}
-                  className='flex items-center gap-2 px-3 py-1.5 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 transition-colors'
+                  className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 transition-colors'
                 >
                   <Plus className='w-4 h-4' />
-                  New Folder
+                  <span className='hidden sm:inline'>New Folder</span>
+                  <span className='sm:hidden'>Folder</span>
                 </button>
                 <input type='file' ref={fileInputRef} onChange={handleFileUpload} className='hidden' />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadMutation.isPending}
-                  className='flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50'
+                  className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50'
                 >
                   {uploadMutation.isPending ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
@@ -260,7 +267,7 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
             </div>
 
             {/* File List */}
-            <div className='flex-1 overflow-y-auto p-4'>
+            <div className='flex-1 overflow-y-auto p-3 sm:p-4'>
               {isLoadingFiles ? (
                 <div className='flex justify-center p-8'>
                   <Loader2 className='w-8 h-8 animate-spin text-muted-foreground' />
@@ -272,7 +279,7 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
                   <p className='text-xs'>Upload a file to get started</p>
                 </div>
               ) : (
-                <div className='grid grid-cols-2md:grid-cols-4 lg:grid-cols-6 gap-4'>
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4'>
                   {files.map((file: any) => {
                     const isFolder = !file.id; // Supabase list returns folders as placeholder objects often without ID or explicit type
                     // Actually supabase-js v2 returns placeholders for folders if using `fs` backend?

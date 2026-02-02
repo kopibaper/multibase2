@@ -75,7 +75,7 @@ export default function ApiTab({ instance }: ApiTabProps) {
       </div>
 
       {/* PostgREST */}
-      <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+      <div className='glass-card p-4'>
         <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
           <Server className='w-5 h-5 text-primary' />
           <h3 className='font-semibold'>API (PostgREST)</h3>
@@ -109,7 +109,7 @@ export default function ApiTab({ instance }: ApiTabProps) {
       </div>
 
       {/* Realtime */}
-      <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+      <div className='glass-card p-4'>
         <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
           <Zap className='w-5 h-5 text-primary' />
           <h3 className='font-semibold'>Realtime</h3>
@@ -129,7 +129,7 @@ export default function ApiTab({ instance }: ApiTabProps) {
       </div>
 
       {/* Connectivity */}
-      <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+      <div className='glass-card p-4'>
         <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
           <Globe className='w-5 h-5 text-primary' />
           <h3 className='font-semibold'>Connectivity & Public Access</h3>

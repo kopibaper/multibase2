@@ -176,7 +176,7 @@ export default function AuthTab({ instance }: AuthTabProps) {
 
         <div className='grid gap-6 md:grid-cols-2'>
           {/* General Email Toggles */}
-          <div className='space-y-3 p-4 bg-card rounded-lg border border-border h-fit'>
+          <div className='space-y-3 p-4 glass-card h-fit'>
             <h4 className='font-medium text-sm mb-2 text-muted-foreground'>General Settings</h4>
             <div className='flex items-center justify-between'>
               <div className='space-y-0.5'>
@@ -201,7 +201,7 @@ export default function AuthTab({ instance }: AuthTabProps) {
           </div>
 
           {/* SMTP Config */}
-          <div className='border rounded-lg bg-card overflow-hidden'>
+          <div className='glass-card overflow-hidden'>
             <div className='flex items-center justify-between p-4 bg-secondary/10 border-b border-border'>
               <div className='flex items-center gap-2'>
                 <Mail className='w-4 h-4' />
@@ -289,7 +289,7 @@ export default function AuthTab({ instance }: AuthTabProps) {
           <h3 className='font-semibold text-lg'>Email Templates & URLs</h3>
         </div>
 
-        <div className='bg-card rounded-lg border border-border p-4 space-y-4'>
+        <div className='glass-card p-4 space-y-4'>
           <div className='grid gap-1.5'>
             <label className='text-sm font-medium'>Site URL</label>
             <input
@@ -357,7 +357,7 @@ export default function AuthTab({ instance }: AuthTabProps) {
           <Shield className='w-5 h-5 text-primary' />
           <h3 className='font-semibold text-lg'>Security</h3>
         </div>
-        <div className='space-y-3 p-4 bg-card rounded-lg border border-border'>
+        <div className='space-y-3 p-4 glass-card'>
           <div className='flex items-center justify-between'>
             <div className='space-y-0.5'>
               <label className='text-sm font-medium'>Enable Anonymous Signins</label>

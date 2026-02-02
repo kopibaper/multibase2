@@ -92,8 +92,8 @@ export default function CreatePolicyModal({ instanceName, tableName, onClose, on
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-      <div className='bg-card w-full max-w-2xl rounded-lg border border-border shadow-xl max-h-[90vh] flex flex-col'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
+      <div className='glass-modal w-full max-w-2xl max-h-[90vh] flex flex-col'>
         <div className='flex items-center justify-between p-6 border-b border-border'>
           <div>
             <h2 className='text-xl font-semibold flex items-center gap-2'>

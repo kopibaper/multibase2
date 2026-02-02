@@ -92,8 +92,8 @@ export default function CreateTableModal({ instanceName, onClose, onSuccess }: C
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-      <div className='bg-card w-full max-w-3xl rounded-lg border border-border shadow-xl max-h-[90vh] flex flex-col'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
+      <div className='glass-modal w-full max-w-3xl max-h-[90vh] flex flex-col'>
         <div className='flex items-center justify-between p-6 border-b border-border'>
           <h2 className='text-xl font-semibold'>Create New Table</h2>
           <button onClick={onClose} className='text-muted-foreground hover:text-foreground'>

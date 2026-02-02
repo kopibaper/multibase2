@@ -171,7 +171,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50' />
-        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto z-50 p-0'>
+        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-modal w-full max-w-3xl max-h-[90vh] overflow-y-auto z-50 p-0'>
           {/* Header */}
           <div className='flex items-center justify-between p-6 border-b border-border'>
             <div>

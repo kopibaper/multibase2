@@ -67,7 +67,7 @@ export default function LogsTab({ instance }: LogsTabProps) {
   return (
     <div className='space-y-4'>
       {/* Controls */}
-      <div className='bg-card border rounded-lg p-4'>
+      <div className='glass-card p-4'>
         <div className='flex items-center justify-between gap-4'>
           <div className='flex items-center gap-4 flex-1'>
             <select
@@ -120,7 +120,7 @@ export default function LogsTab({ instance }: LogsTabProps) {
       </div>
 
       {/* Logs Display */}
-      <div className='bg-card border rounded-lg overflow-hidden'>
+      <div className='glass-card overflow-hidden'>
         <div className='px-4 py-3 border-b bg-muted/30 flex items-center gap-2'>
           <FileText className='w-4 h-4' />
           <span className='font-medium'>{selectedService || 'All Services'} Logs</span>

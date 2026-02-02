@@ -228,9 +228,9 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   ] as const;
 
   return (
-    <div className='fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
+    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
       {/* Increased max-width to 4xl */}
-      <div className='bg-card border border-border rounded-lg shadow-lg w-full max-w-4xl flex flex-col max-h-[90vh]'>
+      <div className='glass-modal w-full max-w-4xl flex flex-col max-h-[90vh]'>
         {/* Header */}
         <div className='flex items-center justify-between p-6 border-b border-border'>
           <div>

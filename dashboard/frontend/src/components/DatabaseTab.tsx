@@ -74,7 +74,7 @@ export default function DatabaseTab({ instance }: DatabaseTabProps) {
         </button>
       </div>
 
-      <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
+      <div className='glass-card p-4'>
         <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
           <Database className='w-5 h-5 text-primary' />
           <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>

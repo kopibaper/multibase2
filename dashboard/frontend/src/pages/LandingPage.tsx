@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Database, Shield, Activity, Zap, Layers, Github } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import AuthModal from '../components/AuthModal';
 
 // Generic Button component to avoid dependency issues if shadcn isn't fully set up or we want custom Supabase style
 const SupabaseButton = ({ className, variant = 'primary', children, ...props }: any) => {
@@ -37,6 +39,13 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: any; title: str
 const LandingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
+
+  const openAuth = (view: 'login' | 'register' | 'forgot') => {
+    setAuthView(view);
+    setAuthModalOpen(true);
+  };
 
   return (
     <div className='min-h-screen bg-background text-foreground flex flex-col overflow-hidden relative selection:bg-brand-500/30'>
@@ -72,10 +81,10 @@ const LandingPage = () => {
               <SupabaseButton onClick={() => navigate('/dashboard')}>Dashboard</SupabaseButton>
             ) : (
               <>
-                <SupabaseButton variant='ghost' onClick={() => navigate('/login')} className='hidden sm:inline-flex'>
+                <SupabaseButton variant='ghost' onClick={() => openAuth('login')} className='hidden sm:inline-flex'>
                   Sign In
                 </SupabaseButton>
-                <SupabaseButton onClick={() => navigate('/login')}>Get Started</SupabaseButton>
+                <SupabaseButton onClick={() => openAuth('login')}>Get Started</SupabaseButton>
               </>
             )}
           </div>
@@ -114,7 +123,7 @@ const LandingPage = () => {
             ) : (
               <SupabaseButton
                 className='h-12 px-8 text-base bg-brand-500 hover:bg-brand-600 text-white'
-                onClick={() => navigate('/login')}
+                onClick={() => openAuth('login')}
               >
                 Start your project
               </SupabaseButton>
@@ -250,6 +259,9 @@ const LandingPage = () => {
           &copy; 2026 Multibase Inc. All rights reserved.
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} initialView={authView} />
     </div>
   );
 };
