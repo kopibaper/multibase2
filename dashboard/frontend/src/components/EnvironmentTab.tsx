@@ -100,34 +100,36 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
   return (
     <div className='space-y-6'>
       {/* Section Tabs */}
-      <div className='flex gap-2 border-b border-border'>
+      <div className='flex gap-2 border-b border-border overflow-x-auto scrollbar-hide -mx-4 sm:-mx-0 px-4 sm:px-0'>
         <button
           onClick={() => setActiveSection('env')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
             activeSection === 'env'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Settings className='w-4 h-4 inline-block mr-2' />
-          Environment Variables
+          <span className='hidden sm:inline'>Environment Variables</span>
+          <span className='sm:hidden'>Env Vars</span>
         </button>
         <button
           onClick={() => setActiveSection('resources')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+          className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
             activeSection === 'resources'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Cpu className='w-4 h-4 inline-block mr-2' />
-          Resource Limits
+          <span className='hidden sm:inline'>Resource Limits</span>
+          <span className='sm:hidden'>Resources</span>
         </button>
       </div>
 
       {/* Environment Variables Section */}
       {activeSection === 'env' && (
-        <div className='bg-card p-6 rounded-lg border border-border shadow-sm'>
+        <div className='glass-card p-6'>
           <h3 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
             <Settings className='w-5 h-5 text-primary' />
             Environment Variables
@@ -152,28 +154,29 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
           ) : (
             <>
               {/* Add New Variable */}
-              <div className='mb-6 p-4 bg-secondary/30 rounded-lg border border-border'>
+              <div className='mb-6 p-3 sm:p-4 bg-secondary/30 rounded-lg border border-border'>
                 <h4 className='text-sm font-medium mb-3'>Add New Variable</h4>
-                <div className='flex gap-2'>
+                <div className='flex flex-col sm:flex-row gap-2'>
                   <input
                     type='text'
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value.toUpperCase())}
                     placeholder='VARIABLE_NAME'
-                    className='flex-1 px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 font-mono text-sm'
+                    className='w-full sm:flex-1 px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 font-mono text-sm'
                   />
                   <input
                     type='text'
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
                     placeholder='value'
-                    className='flex-1 px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 font-mono text-sm'
+                    className='w-full sm:flex-1 px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 font-mono text-sm'
                   />
                   <button
                     onClick={handleAddEnvVar}
-                    className='px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors'
+                    className='w-full sm:w-auto px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center gap-2'
                   >
                     <Plus className='w-4 h-4' />
+                    <span className='sm:hidden'>Add Variable</span>
                   </button>
                 </div>
               </div>
@@ -185,22 +188,26 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
                   .map(([key, value]) => (
                     <div
                       key={key}
-                      className='flex items-center gap-2 p-2 bg-secondary/20 rounded-lg border border-border/50 hover:border-border transition-colors'
+                      className='flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-2 bg-secondary/20 rounded-lg border border-border/50 hover:border-border transition-colors'
                     >
-                      <span className='font-mono text-sm text-muted-foreground w-48 shrink-0 truncate'>{key}</span>
-                      <input
-                        type={sensitiveKeys.includes(key) ? 'password' : 'text'}
-                        value={value}
-                        onChange={(e) => handleEnvChange(key, e.target.value)}
-                        className='flex-1 px-2 py-1 border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono text-sm'
-                      />
-                      <button
-                        onClick={() => handleRemoveEnvVar(key)}
-                        className='p-1 text-destructive/70 hover:text-destructive transition-colors'
-                        title='Remove variable'
-                      >
-                        <Trash2 className='w-4 h-4' />
-                      </button>
+                      <span className='font-mono text-sm text-muted-foreground sm:w-48 sm:shrink-0 truncate'>
+                        {key}
+                      </span>
+                      <div className='flex gap-2 flex-1'>
+                        <input
+                          type={sensitiveKeys.includes(key) ? 'password' : 'text'}
+                          value={value}
+                          onChange={(e) => handleEnvChange(key, e.target.value)}
+                          className='flex-1 min-w-0 px-2 py-1 border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono text-sm'
+                        />
+                        <button
+                          onClick={() => handleRemoveEnvVar(key)}
+                          className='p-1 text-destructive/70 hover:text-destructive transition-colors flex-shrink-0'
+                          title='Remove variable'
+                        >
+                          <Trash2 className='w-4 h-4' />
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -226,7 +233,7 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
 
       {/* Resource Limits Section */}
       {activeSection === 'resources' && (
-        <div className='bg-card p-6 rounded-lg border border-border shadow-sm'>
+        <div className='glass-card p-6'>
           <h3 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
             <HardDrive className='w-5 h-5 text-primary' />
             Resource Limits

@@ -57,8 +57,13 @@ export default function ResetPassword() {
 
   if (isSuccess) {
     return (
-      <div className='min-h-screen bg-background flex items-center justify-center p-4'>
-        <div className='max-w-md w-full bg-card border border-border rounded-lg p-8 text-center'>
+      <div className='min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden'>
+        {/* Animated Background */}
+        <div className='absolute inset-0 -z-10 overflow-hidden'>
+          <div className='absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-3xl animate-pulse' />
+          <div className='absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-tl from-accent/20 to-transparent rounded-full blur-3xl animate-pulse delay-1000' />
+        </div>
+        <div className='max-w-md w-full glass-card p-8 text-center'>
           <div className='w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6'>
             <CheckCircle className='w-8 h-8 text-green-500' />
           </div>
@@ -79,14 +84,19 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className='min-h-screen bg-background flex items-center justify-center p-4'>
+    <div className='min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden'>
+      {/* Animated Background */}
+      <div className='absolute inset-0 -z-10 overflow-hidden'>
+        <div className='absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-3xl animate-pulse' />
+        <div className='absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-tl from-accent/20 to-transparent rounded-full blur-3xl animate-pulse delay-1000' />
+      </div>
       <div className='max-w-md w-full'>
         <div className='text-center mb-8'>
           <h1 className='text-3xl font-bold text-foreground'>Set New Password</h1>
           <p className='text-muted-foreground mt-2'>Enter your new password below</p>
         </div>
 
-        <div className='bg-card border border-border rounded-lg p-8'>
+        <div className='glass-card p-8'>
           <form onSubmit={handleSubmit} className='space-y-6'>
             {error && (
               <div className='bg-destructive/10 border border-destructive/20 rounded-md p-4 flex items-start gap-3'>
@@ -130,7 +140,7 @@ export default function ResetPassword() {
             <button
               type='submit'
               disabled={isLoading || !token}
-              className='w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+              className='w-full btn-primary flex items-center justify-center gap-2 px-4 py-3 font-medium'
             >
               {isLoading ? (
                 <>

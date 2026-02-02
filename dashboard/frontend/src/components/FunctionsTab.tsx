@@ -100,9 +100,9 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
   };
 
   return (
-    <div className='flex gap-6 h-[800px]'>
+    <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[800px]'>
       {/* Sidebar: Function List */}
-      <div className='w-1/4 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='w-full lg:w-1/4 glass-card flex flex-col max-h-60 lg:max-h-none'>
         <div className='p-4 border-b border-border flex items-center justify-between'>
           <h3 className='font-semibold flex items-center gap-2'>
             <Cloud className='w-4 h-4 text-primary' />
@@ -158,47 +158,51 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
       </div>
 
       {/* Main Content: Editor */}
-      <div className='flex-1 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='flex-1 glass-card flex flex-col'>
         {selectedFunction ? (
           <div className='flex flex-col h-full'>
-            <div className='p-4 border-b border-border flex items-center justify-between bg-card text-card-foreground'>
-              <div>
-                <h3 className='font-mono font-semibold flex items-center gap-2'>{selectedFunction}</h3>
+            <div className='p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between bg-card text-card-foreground'>
+              <div className='min-w-0'>
+                <h3 className='font-mono font-semibold flex items-center gap-2 truncate text-sm sm:text-base'>
+                  {selectedFunction}
+                </h3>
                 <span className='text-xs text-muted-foreground flex items-center gap-1'>
                   {isDirty && <span className='w-2 h-2 rounded-full bg-yellow-500 block'></span>}
-                  {isDirty ? 'Unsaved changes' : 'Saved'}
+                  {isDirty ? 'Unsaved' : 'Saved'}
                 </span>
               </div>
 
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1 sm:gap-2'>
                 <button
                   onClick={() => deleteMutation.mutate(selectedFunction)}
-                  className='flex items-center gap-2 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors text-sm'
+                  className='p-1.5 sm:px-3 sm:py-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors text-sm'
+                  title='Delete'
                 >
                   <Trash2 className='w-4 h-4' />
                 </button>
-                <div className='h-6 w-px bg-border mx-2'></div>
+                <div className='h-6 w-px bg-border hidden sm:block'></div>
                 <button
                   onClick={() => deployMutation.mutate()}
                   disabled={deployMutation.isPending || isDirty}
-                  className='flex items-center gap-2 px-3 py-1.5 text-green-600 hover:bg-green-500/10 rounded-md transition-colors text-sm disabled:opacity-50'
-                  title='Simulate Deploy'
+                  className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-green-600 hover:bg-green-500/10 rounded-md transition-colors text-sm disabled:opacity-50'
+                  title='Deploy'
                 >
                   <Play className='w-4 h-4' />
-                  Deploy
+                  <span className='hidden sm:inline'>Deploy</span>
                 </button>
                 <button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending || !isDirty}
-                  className='flex items-center gap-2 px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm disabled:opacity-50'
+                  className='flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm disabled:opacity-50'
+                  title='Save'
                 >
                   {saveMutation.isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
-                  Save
+                  <span className='hidden sm:inline'>Save</span>
                 </button>
               </div>
             </div>
 
-            <div className='flex-1 relative'>
+            <div className='flex-1 relative min-h-[480px]'>
               {isLoadingCode ? (
                 <div className='absolute inset-0 flex items-center justify-center'>
                   <Loader2 className='w-8 h-8 animate-spin text-primary' />
@@ -211,12 +215,12 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
                       setCode(e.target.value);
                       setIsDirty(true);
                     }}
-                    className='w-full flex-1 p-4 font-mono text-sm bg-secondary/10 resize-none focus:outline-none'
+                    className='w-full flex-1 p-3 sm:p-4 font-mono text-xs sm:text-sm bg-secondary/10 resize-none focus:outline-none min-h-[480px]'
                     spellCheck={false}
                   />
 
                   {/* Logs Panel */}
-                  <div className='h-1/3 border-t border-border bg-black text-white p-2 flex flex-col'>
+                  <div className='min-h-[480px] border-t border-border bg-black text-white p-2 flex flex-col'>
                     <div className='flex items-center justify-between mb-2 px-2'>
                       <h4 className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Logs</h4>
                       <button

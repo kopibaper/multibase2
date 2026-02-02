@@ -60,7 +60,7 @@ export default function ConfigTab({ instance }: ConfigTabProps) {
 
   return (
     <div className='space-y-6'>
-      <div className='bg-card p-6 rounded-lg border border-border shadow-sm'>
+      <div className='glass-card p-6'>
         <h3 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
           <Mail className='w-5 h-5 text-primary' />
           SMTP Overrides

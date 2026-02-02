@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-      <div className='bg-card w-full max-w-md rounded-lg border border-border shadow-xl'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
+      <div className='glass-modal w-full max-w-md'>
         <div className='flex items-center justify-between p-6 border-b border-border'>
           <h2 className='text-xl font-semibold flex items-center gap-2'>
             <Cloud className='w-5 h-5 text-primary' />

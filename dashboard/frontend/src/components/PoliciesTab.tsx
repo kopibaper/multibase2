@@ -110,9 +110,9 @@ export default function PoliciesTab({ instanceName }: PoliciesTabProps) {
   const selectedPolicies = selectedTable ? policies?.filter((p) => p.tablename === selectedTable) : [];
 
   return (
-    <div className='flex gap-6 h-[800px]'>
+    <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[800px]'>
       {/* Sidebar: Table List with RLS Status */}
-      <div className='w-1/3 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='w-full lg:w-1/3 glass-card flex flex-col max-h-60 lg:max-h-none'>
         <div className='p-4 border-b border-border flex items-center justify-between'>
           <h3 className='font-semibold flex items-center gap-2'>
             <Shield className='w-4 h-4 text-primary' />
@@ -158,49 +158,54 @@ export default function PoliciesTab({ instanceName }: PoliciesTabProps) {
       </div>
 
       {/* Main Content: Policies for selected table */}
-      <div className='flex-1 bg-card rounded-lg border border-border flex flex-col'>
+      <div className='flex-1 glass-card flex flex-col'>
         {selectedTable ? (
           <div className='flex flex-col h-full'>
-            <div className='p-6 border-b border-border flex items-center justify-between'>
-              <div>
-                <h3 className='text-xl font-bold flex items-center gap-2'>{selectedTable}</h3>
+            <div className='p-4 sm:p-6 border-b border-border flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between'>
+              <div className='min-w-0'>
+                <h3 className='text-lg sm:text-xl font-bold flex items-center gap-2 truncate'>{selectedTable}</h3>
                 <p className='text-sm text-muted-foreground'>Manage Row Level Security policies</p>
               </div>
 
-              <div className='flex items-center gap-3'>
+              <div className='flex items-center gap-2 sm:gap-3 flex-wrap'>
                 {/* RLS Toggle */}
-                <div className='flex items-center gap-2 text-sm mr-4'>
-                  <span className='text-muted-foreground'>RLS is:</span>
+                <div className='flex items-center gap-2 text-sm'>
+                  <span className='text-muted-foreground hidden sm:inline'>RLS is:</span>
                   {rlsStatus?.find((t) => t.relname === selectedTable)?.relrowsecurity ? (
                     <button
                       onClick={() => toggleRlsMutation.mutate({ tableName: selectedTable, enable: false })}
                       disabled={toggleRlsMutation.isPending}
-                      className='flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-md hover:opacity-80 transition-opacity'
+                      className='flex items-center gap-1 px-2 sm:px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-md hover:opacity-80 transition-opacity text-xs sm:text-sm'
                     >
-                      <CheckCircle className='w-3 h-3' /> Enabled
+                      <CheckCircle className='w-3 h-3' />
+                      <span className='hidden sm:inline'>Enabled</span>
+                      <span className='sm:hidden'>On</span>
                     </button>
                   ) : (
                     <button
                       onClick={() => toggleRlsMutation.mutate({ tableName: selectedTable, enable: true })}
                       disabled={toggleRlsMutation.isPending}
-                      className='flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-md hover:opacity-80 transition-opacity'
+                      className='flex items-center gap-1 px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-md hover:opacity-80 transition-opacity text-xs sm:text-sm'
                     >
-                      <XCircle className='w-3 h-3' /> Disabled
+                      <XCircle className='w-3 h-3' />
+                      <span className='hidden sm:inline'>Disabled</span>
+                      <span className='sm:hidden'>Off</span>
                     </button>
                   )}
                 </div>
 
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className='flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors'
+                  className='flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm'
                 >
                   <Plus className='w-4 h-4' />
-                  New Policy
+                  <span className='hidden sm:inline'>New Policy</span>
+                  <span className='sm:hidden'>Add</span>
                 </button>
               </div>
             </div>
 
-            <div className='flex-1 overflow-y-auto p-6'>
+            <div className='flex-1 overflow-y-auto p-4 sm:p-6'>
               <h4 className='text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider'>
                 Defined Policies
               </h4>

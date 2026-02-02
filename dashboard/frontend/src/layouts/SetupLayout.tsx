@@ -34,11 +34,19 @@ const SidebarGroup = ({ title, children }: { title: string; children: React.Reac
 
 export default function SetupLayout({}: SetupLayoutProps) {
   return (
-    <div className='min-h-screen flex flex-col'>
+    <div className='min-h-screen flex flex-col relative'>
+      {/* Background gradients for consistency */}
+      <div className='fixed inset-0 -z-10'>
+        <div className='absolute top-1/4 -left-1/4 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl animate-pulse' />
+        <div
+          className='absolute bottom-1/4 -right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse'
+          style={{ animationDelay: '1s' }}
+        />
+      </div>
       <Navbar />
       <div className='flex flex-1 pt-16 container mx-auto'>
-        {/* Sidebar */}
-        <aside className='w-64 border-r border-border h-full overflow-y-auto py-6 pr-6 hidden md:block'>
+        {/* Sidebar with glass-panel */}
+        <aside className='w-64 glass-panel h-full overflow-y-auto py-6 pr-6 hidden md:block'>
           <SetupSearch />
           <SidebarGroup title='Getting Started'>
             <SidebarLink to='/setup/getting-started/requirements' icon={Book}>

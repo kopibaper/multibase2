@@ -2,14 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
+import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import InstanceDetail from './pages/InstanceDetail';
 import SupabaseManager from './pages/SupabaseManager';
 import Alerts from './pages/Alerts';
 import AlertRules from './pages/AlertRules';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import UserManagement from './pages/UserManagement';
 import BackupManagement from './pages/BackupManagement';
@@ -48,136 +46,47 @@ function AppContent() {
       <Routes>
         {/* Public Routes */}
         <Route path='/' element={<LandingPage />} />
-        <Route path='/login' element={<Login />} />
-        <Route path='/register' element={<Register />} />
-        <Route path='/forgot-password' element={<ForgotPassword />} />
         <Route path='/reset-password' element={<ResetPassword />} />
-        <Route path='/verify-email' element={<Login />} />{' '}
-        {/* Verify email links handle token in useEffect or redirect? Actually Register handles success message. Verify email requires backend verification. We might need a VerifyEmail page or handle it on Load. Let's create a route for it if needed or just use Login which might handle it? Wait, implementation plan said "VerifyEmail(token)" logic. Usually a dedicated page. Let's redirect verify-email to Login for now or create a simple Verifier page. */}
-        {/* Actually, the link in email is /verify-email?token=... so we need a route. */}
-        {/* Let's use a VerifyEmail component or just Login for now, but better to have a dedicated page. I'll create a simple inline component or use Login to handle it? */}
-        {/* Plan didn't explicitly ask for VerifyEmail page but said "Test Registration & Email Verification". I should handle the route. I will add a simple VerifyEmail handling later or now. Let's point to Login for now, or maybe create one. I'll stick to plan tasks. Existing Login can handle it if I modify it? No, explicit page is better. I'll add the route and pointing to 'Login' for now to avoid error, or better, quickly create VerifyEmail.tsx? No, let's just add the routes we created. */}
-        {/* Protected Dashboard Routes */}
+        {/* Redirect old auth routes to landing page */}
+        <Route path='/login' element={<Navigate to='/' replace />} />
+        <Route path='/register' element={<Navigate to='/' replace />} />
+        <Route path='/forgot-password' element={<Navigate to='/' replace />} />
+        <Route path='/verify-email' element={<Navigate to='/' replace />} />
+
+        {/* Protected Routes with Dashboard Layout */}
         <Route
-          path='/dashboard'
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path='/dashboard' element={<Dashboard />} />
+          <Route path='/instances/:name' element={<InstanceDetail />} />
+          <Route path='/instances/:name/supabase' element={<SupabaseManager />} />
+          <Route path='/alerts' element={<Alerts />} />
+          <Route path='/alert-rules' element={<AlertRules />} />
+          <Route path='/backups' element={<BackupManagement />} />
+          <Route path='/profile' element={<UserProfile />} />
+          <Route path='/notifications' element={<NotificationSettings />} />
+          <Route path='/api-keys' element={<ApiKeys />} />
+          <Route path='/api-docs' element={<ApiDocs />} />
+          <Route path='/templates' element={<Templates />} />
+        </Route>
+
+        {/* Admin Routes with Dashboard Layout */}
         <Route
-          path='/instances/:name'
-          element={
-            <ProtectedRoute>
-              <InstanceDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/instances/:name/supabase'
-          element={
-            <ProtectedRoute>
-              <SupabaseManager />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/alerts'
-          element={
-            <ProtectedRoute>
-              <Alerts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/alert-rules'
-          element={
-            <ProtectedRoute>
-              <AlertRules />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/users'
           element={
             <ProtectedRoute requireAdmin>
-              <UserManagement />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
-        <Route
-          path='/backups'
-          element={
-            <ProtectedRoute>
-              <BackupManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/profile'
-          element={
-            <ProtectedRoute>
-              <UserProfile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/notifications'
-          element={
-            <ProtectedRoute>
-              <NotificationSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/api-keys'
-          element={
-            <ProtectedRoute>
-              <ApiKeys />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/api-docs'
-          element={
-            <ProtectedRoute>
-              <ApiDocs />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/templates'
-          element={
-            <ProtectedRoute>
-              <Templates />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/migrations'
-          element={
-            <ProtectedRoute requireAdmin>
-              <Migrations />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/activity'
-          element={
-            <ProtectedRoute requireAdmin>
-              <ActivityLog />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path='/settings/smtp'
-          element={
-            <ProtectedRoute requireAdmin>
-              <GlobalSmtpSettings />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path='/users' element={<UserManagement />} />
+          <Route path='/migrations' element={<Migrations />} />
+          <Route path='/activity' element={<ActivityLog />} />
+          <Route path='/settings/smtp' element={<GlobalSmtpSettings />} />
+        </Route>
         {/* Setup Routes */}
         <Route path='/setup' element={<SetupLayout />}>
           <Route index element={<Navigate to='/setup/getting-started/requirements' replace />} />

@@ -36,7 +36,7 @@ import SmtpTab from '../components/SmtpTab';
 import AuthTab from '../components/AuthTab';
 import DatabaseTab from '../components/DatabaseTab';
 import ApiTab from '../components/ApiTab';
-import StorageTab from '../components/StorageTab';
+import StorageSettingsTab from '../components/StorageSettingsTab';
 import EnvironmentTab from '../components/EnvironmentTab';
 import DeleteInstanceModal from '../components/DeleteInstanceModal';
 import CloneInstanceModal from '../components/CloneInstanceModal';
@@ -95,7 +95,7 @@ export default function InstanceDetail() {
           <h2 className='text-xl font-semibold mb-2'>Instance not found</h2>
           <p className='text-muted-foreground mb-4'>The instance "{name}" could not be found</p>
           <Link
-            to='/'
+            to='/dashboard'
             className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 inline-block'
           >
             Back to Dashboard
@@ -134,48 +134,51 @@ export default function InstanceDetail() {
   return (
     <div className='min-h-screen bg-background'>
       <PageHeader>
-        <div className='flex items-center gap-4 mb-4'>
-          <button onClick={() => navigate('/')} className='p-2 hover:bg-muted rounded-md transition-colors'>
+        <div className='flex flex-col lg:flex-row lg:items-center gap-4 mb-4'>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className='p-2 hover:bg-muted rounded-md transition-colors self-start'
+          >
             <ChevronLeft className='w-5 h-5' />
           </button>
-          <div className='flex-1'>
-            <div className='flex items-center gap-3'>
-              <Server className='w-6 h-6 text-primary' />
-              <h2 className='text-2xl font-bold'>{instance.name}</h2>
+          <div className='flex-1 min-w-0'>
+            <div className='flex items-center gap-3 flex-wrap'>
+              <Server className='w-6 h-6 text-primary flex-shrink-0' />
+              <h2 className='text-xl sm:text-2xl font-bold truncate'>{instance.name}</h2>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium border ${getHealthColor(
+                className={`px-3 py-1 rounded-full text-sm font-medium border whitespace-nowrap ${getHealthColor(
                   instance.health.overall
                 )}`}
               >
                 {instance.health.overall}
               </span>
             </div>
-            <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
+            <p className='text-sm text-muted-foreground mt-1 truncate'>{instance.credentials.project_url}</p>
           </div>
-          <div className='flex gap-2'>
+          <div className='flex flex-wrap gap-2 mt-4 lg:mt-0'>
             <Link
               to={`/instances/${instance.name}/supabase`}
-              className='flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors'
+              className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors text-sm'
               title='Manage Edge Functions & Database'
             >
               <Code className='w-4 h-4' />
-              Supabase
+              <span className='hidden sm:inline'>Supabase</span>
             </Link>
             <button
               onClick={() => setShowCloneModal(true)}
-              className='flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors'
+              className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-muted hover:bg-muted/80 rounded-md transition-colors text-sm'
               title='Clone this instance'
             >
               <Copy className='w-4 h-4' />
-              Clone
+              <span className='hidden sm:inline'>Clone</span>
             </button>
             <button
               onClick={() => restartMutation.mutate(instance.name)}
               disabled={restartMutation.isPending}
-              className='flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50'
+              className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-muted hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50 text-sm'
             >
               <RotateCw className={`w-4 h-4 ${restartMutation.isPending ? 'animate-spin' : ''}`} />
-              {restartMutation.isPending ? 'Restarting...' : 'Restart'}
+              <span className='hidden sm:inline'>{restartMutation.isPending ? 'Restarting...' : 'Restart'}</span>
             </button>
             <button
               onClick={() => {
@@ -184,36 +187,36 @@ export default function InstanceDetail() {
                 }
               }}
               disabled={recreateMutation.isPending}
-              className='flex items-center gap-2 px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-md transition-colors disabled:opacity-50'
+              className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-amber-600 text-white hover:bg-amber-700 rounded-md transition-colors disabled:opacity-50 text-sm'
               title='Recreate instance with latest docker-compose config'
             >
               <RefreshCcw className={`w-4 h-4 ${recreateMutation.isPending ? 'animate-spin' : ''}`} />
-              {recreateMutation.isPending ? 'Recreating...' : 'Recreate'}
+              <span className='hidden sm:inline'>{recreateMutation.isPending ? 'Recreating...' : 'Recreate'}</span>
             </button>
             {instance.status === 'running' || instance.health.overall === 'healthy' ? (
               <button
                 onClick={() => stopMutation.mutate(instance.name)}
                 disabled={stopMutation.isPending}
-                className='flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md transition-colors disabled:opacity-50'
+                className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md transition-colors disabled:opacity-50 text-sm'
               >
                 <Square className='w-4 h-4' />
-                {stopMutation.isPending ? 'Stopping...' : 'Stop'}
+                <span className='hidden sm:inline'>{stopMutation.isPending ? 'Stopping...' : 'Stop'}</span>
               </button>
             ) : (
               <button
                 onClick={() => startMutation.mutate(instance.name)}
                 disabled={startMutation.isPending}
-                className='flex items-center gap-2 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md transition-colors disabled:opacity-50'
+                className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-green-600 text-white hover:bg-green-700 rounded-md transition-colors disabled:opacity-50 text-sm'
               >
                 <Play className='w-4 h-4' />
-                {startMutation.isPending ? 'Starting...' : 'Start'}
+                <span className='hidden sm:inline'>{startMutation.isPending ? 'Starting...' : 'Start'}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Stats */}
-        <div className='grid grid-cols-4 gap-4'>
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
           <div className='bg-background rounded-lg p-4 border'>
             <p className='text-xs text-muted-foreground mb-1'>Services</p>
             <p className='text-2xl font-bold'>
@@ -244,22 +247,22 @@ export default function InstanceDetail() {
 
       {/* Tabs */}
       <div className='border-b bg-card'>
-        <div className='container mx-auto px-6'>
-          <div className='flex gap-1'>
+        <div className='container mx-auto px-4 sm:px-6'>
+          <div className='flex gap-1 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 px-4 sm:px-6'>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 text-sm ${
                     activeTab === tab.id
                       ? 'border-primary text-primary font-medium'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
                   }`}
                 >
                   <Icon className='w-4 h-4' />
-                  {tab.label}
+                  <span className='hidden sm:inline'>{tab.label}</span>
                 </button>
               );
             })}
@@ -268,7 +271,7 @@ export default function InstanceDetail() {
       </div>
 
       {/* Tab Content */}
-      <main className='container mx-auto px-6 py-6'>
+      <main className='container mx-auto px-4 sm:px-6 py-4 sm:py-6'>
         {activeTab === 'services' && <ServicesTab instance={instance} />}
         {activeTab === 'metrics' && <MetricsTab instance={instance} />}
         {activeTab === 'logs' && <LogsTab instance={instance} />}
@@ -276,7 +279,7 @@ export default function InstanceDetail() {
         {activeTab === 'database' && <DatabaseTab instance={instance} />}
         {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
-        {activeTab === 'storage' && <StorageTab instanceName={instance.name} />}
+        {activeTab === 'storage' && <StorageSettingsTab instance={instance} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}
         {activeTab === 'environment' && <EnvironmentTab instance={instance} />}
 

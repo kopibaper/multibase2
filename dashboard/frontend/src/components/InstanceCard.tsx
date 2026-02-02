@@ -89,7 +89,7 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
     <>
       <div
         onClick={handleCardClick}
-        className='bg-card border rounded-lg p-6 hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer'
+        className='glass-card p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02]'
       >
         {/* Header */}
         <div className='flex items-start justify-between mb-4'>
@@ -212,7 +212,7 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                 target='_blank'
                 rel='noopener noreferrer'
                 onClick={(e) => e.stopPropagation()}
-                className='flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium'
+                className='flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-md hover:bg-violet-500/20 transition-colors text-sm font-medium'
                 title={instance.credentials.studio_url ? 'Open Studio' : `Open Studio (Port ${instance.ports.studio})`}
               >
                 <ExternalLink className='w-4 h-4' />
@@ -223,7 +223,7 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                   e.stopPropagation();
                   navigate(`/instances/${instance.name}/supabase`);
                 }}
-                className='flex items-center justify-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors text-sm font-medium border border-border'
+                className='flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors text-sm font-medium'
                 title='Open Database Manager'
               >
                 <Database className='w-4 h-4' />

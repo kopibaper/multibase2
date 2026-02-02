@@ -68,38 +68,40 @@ export default function SupabaseManager() {
   return (
     <div className='min-h-screen bg-background'>
       <PageHeader>
-        <div className='flex items-center gap-4 mb-4'>
+        <div className='flex items-center gap-3 sm:gap-4 mb-4'>
           <Link to={`/instances/${name}`} className='p-2 hover:bg-secondary rounded-lg transition-colors'>
             <ChevronLeft className='w-5 h-5' />
           </Link>
-          <div>
-            <h1 className='text-2xl font-bold flex items-center gap-2'>
-              <Code className='w-6 h-6 text-primary' />
-              Supabase Manager
+          <div className='min-w-0'>
+            <h1 className='text-xl sm:text-2xl font-bold flex items-center gap-2'>
+              <Code className='w-5 sm:w-6 h-5 sm:h-6 text-primary flex-shrink-0' />
+              <span className='hidden sm:inline'>Supabase Manager</span>
+              <span className='sm:hidden'>Manager</span>
             </h1>
-            <p className='text-muted-foreground'>{instance.name}</p>
+            <p className='text-muted-foreground truncate'>{instance.name}</p>
           </div>
         </div>
       </PageHeader>
 
       {/* Tabs */}
       <div className='border-b bg-card'>
-        <div className='container mx-auto px-6'>
-          <div className='flex gap-1'>
+        <div className='container mx-auto px-4 sm:px-6'>
+          <div className='flex gap-1 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-0 px-4 sm:px-0'>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-primary text-primary font-medium'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
                   }`}
                 >
                   <Icon className='w-4 h-4' />
-                  {tab.label}
+                  <span className='hidden sm:inline'>{tab.label}</span>
+                  <span className='sm:hidden'>{tab.label.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -108,7 +110,7 @@ export default function SupabaseManager() {
       </div>
 
       {/* Tab Content */}
-      <main className='container mx-auto px-6 py-6'>
+      <main className='container mx-auto px-4 sm:px-6 py-4 sm:py-6'>
         {activeTab === 'functions' && <FunctionsTab instanceName={name!} />}
         {activeTab === 'database' && <DatabaseTab instanceName={name!} />}
         {activeTab === 'policies' && <PoliciesTab instanceName={name!} />}
@@ -177,10 +179,10 @@ function DatabaseTab({ instanceName }: { instanceName: string }) {
   const tableList = schemaData?.tables || [];
 
   return (
-    <div className='space-y-6'>
-      <div className='flex gap-6 h-[800px]'>
+    <div className='space-y-4 sm:space-y-6'>
+      <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[800px]'>
         {/* Sidebar: Table List */}
-        <div className='w-1/4 bg-card rounded-lg border border-border flex flex-col'>
+        <div className='w-full lg:w-1/4 bg-card rounded-lg border border-border flex flex-col max-h-60 lg:max-h-none'>
           <div className='p-4 border-b border-border flex items-center justify-between'>
             <h3 className='font-semibold flex items-center gap-2'>
               <Table className='w-4 h-4 text-primary' />

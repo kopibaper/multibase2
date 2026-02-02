@@ -14,7 +14,7 @@ export default function Login() {
   const { login, loginWith2FA, requires2FA } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Get redirect URL and reason from query params
   const redirectUrl = searchParams.get('redirect');
   const reason = searchParams.get('reason');
@@ -28,7 +28,7 @@ export default function Login() {
       if (requires2FA) {
         await loginWith2FA(email, password, twoFactorCode);
         toast.success('Login successful!');
-        
+
         // Redirect to the original URL if provided
         if (redirectUrl) {
           window.location.href = redirectUrl;
@@ -63,7 +63,12 @@ export default function Login() {
   // NOTE: AuthContext handles user state. We just react to requires2FA.
 
   return (
-    <div className='min-h-screen bg-background flex items-center justify-center p-4'>
+    <div className='min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden'>
+      {/* Animated Background */}
+      <div className='absolute inset-0 -z-10 overflow-hidden'>
+        <div className='absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-3xl animate-pulse' />
+        <div className='absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-gradient-to-tl from-accent/20 to-transparent rounded-full blur-3xl animate-pulse delay-1000' />
+      </div>
       <div className='max-w-md w-full'>
         {/* Logo/Header */}
         <div className='text-center mb-8'>
@@ -77,7 +82,7 @@ export default function Login() {
         </div>
 
         {/* Login Form */}
-        <div className='bg-card border border-border rounded-lg p-8'>
+        <div className='glass-card p-8'>
           <form onSubmit={handleSubmit} className='space-y-6'>
             {error && (
               <div className='bg-destructive/10 border border-destructive/20 rounded-md p-4 flex items-start gap-3'>
@@ -88,17 +93,13 @@ export default function Login() {
 
             {reason === 'auth_required' && (
               <div className='mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md'>
-                <p className='text-sm text-yellow-800'>
-                  Please log in to access this Supabase instance.
-                </p>
+                <p className='text-sm text-yellow-800'>Please log in to access this Supabase instance.</p>
               </div>
             )}
 
             {reason === 'access_denied' && (
               <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-md'>
-                <p className='text-sm text-red-800'>
-                  Access denied. Please log in with appropriate permissions.
-                </p>
+                <p className='text-sm text-red-800'>Access denied. Please log in with appropriate permissions.</p>
               </div>
             )}
 
@@ -168,7 +169,7 @@ export default function Login() {
             <button
               type='submit'
               disabled={isLoading}
-              className='w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+              className='w-full btn-primary flex items-center justify-center gap-2 px-4 py-3 font-medium'
             >
               {isLoading ? (
                 <>

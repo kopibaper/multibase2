@@ -44,7 +44,7 @@ export default function ResourceLimitsForm({ value, onChange, className }: Resou
       </div>
 
       {/* Preset Buttons */}
-      <div className='grid grid-cols-4 gap-2'>
+      <div className='grid grid-cols-2 sm:grid-cols-4 gap-2'>
         {Object.entries(PRESET_LABELS).map(([key, { label, description }]) => (
           <button
             key={key}

@@ -86,8 +86,8 @@ export default function AddRowModal({ instanceName, tableName, onClose, onSucces
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-      <div className='bg-card w-full max-w-lg rounded-lg border border-border shadow-xl max-h-[90vh] flex flex-col'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
+      <div className='glass-modal w-full max-w-lg max-h-[90vh] flex flex-col'>
         <div className='flex items-center justify-between p-6 border-b border-border'>
           <h2 className='text-xl font-semibold'>
             Add Row to <span className='font-mono text-primary'>{tableName}</span>

@@ -38,8 +38,8 @@ export default function CreateBucketModal({ instanceName, onClose, onSuccess }: 
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-      <div className='bg-card w-full max-w-md rounded-lg border border-border shadow-lg flex flex-col'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
+      <div className='glass-modal w-full max-w-md flex flex-col'>
         <div className='flex items-center justify-between p-4 border-b border-border'>
           <h2 className='text-lg font-semibold flex items-center gap-2'>
             <Database className='w-5 h-5 text-primary' />

@@ -102,4 +102,56 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted;
   }
+
+  /* Glass Card - for tiles and cards */
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-md border border-white/10 rounded-xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-card:hover {
+    @apply border-brand-500/40;
+    box-shadow:
+      0 8px 32px rgba(62, 207, 142, 0.15),
+      0 0 0 1px rgba(62, 207, 142, 0.1);
+  }
+
+  /* Glass Panel - for sidebars and headers */
+  .glass-panel {
+    @apply bg-card/80 backdrop-blur-xl border-r border-white/5;
+  }
+
+  /* Glass Modal - for modals and dialogs */
+  .glass-modal {
+    @apply bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl;
+  }
+
+  /* Modern Button base */
+  .btn-primary {
+    @apply bg-brand-500 text-white font-medium rounded-lg px-4 py-2 transition-all;
+    box-shadow: 0 0 20px rgba(62, 207, 142, 0.3);
+  }
+
+  .btn-primary:hover {
+    @apply bg-brand-600;
+    box-shadow: 0 0 30px rgba(62, 207, 142, 0.5);
+  }
+
+  .btn-secondary {
+    @apply bg-secondary border border-border text-foreground font-medium rounded-lg px-4 py-2 transition-all;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-muted border-white/20;
+  }
+
+  /* Hide scrollbar for horizontal scroll areas */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
