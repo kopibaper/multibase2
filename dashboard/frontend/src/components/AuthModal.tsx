@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, UserPlus, Key, AlertCircle, X, Loader2, Mail, ArrowLeft } from 'lucide-react';
@@ -29,8 +29,17 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login' }: Au
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(false);
 
-  const { login, loginWith2FA, requires2FA, register, forgotPassword } = useAuth();
+  const { login, loginWith2FA, requires2FA, pending2FAEmail, register, forgotPassword, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Handle successful login navigation (when user becomes authenticated without 2FA pending)
+  useEffect(() => {
+    if (isAuthenticated && isOpen && !requires2FA) {
+      toast.success('Login successful!');
+      handleClose();
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, isOpen, requires2FA]);
 
   const resetForm = () => {
     setEmail('');
@@ -61,13 +70,19 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login' }: Au
 
     try {
       if (requires2FA) {
-        await loginWith2FA(email, password, twoFactorCode);
+        // Use pending2FAEmail from context if available, otherwise use local state
+        const loginEmail = pending2FAEmail || email;
+        await loginWith2FA(loginEmail, password, twoFactorCode);
+        toast.success('Login successful!');
+        handleClose();
+        navigate('/dashboard');
       } else {
         await login(email, password);
+        // After login() call, check if 2FA is now required
+        // If requires2FA became true, we don't navigate - the component will re-render showing 2FA input
+        // Note: requires2FA state is updated by AuthContext, not returned from login()
+        // We need to check the current state after login() completes
       }
-      toast.success('Login successful!');
-      handleClose();
-      navigate('/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
