@@ -6,7 +6,16 @@ This document details the internal technical operations of the platform.
 
 Youtube Preview
 
-https://www.youtube.com/watch?v=hOz1U8KKDyc
+## https://www.youtube.com/watch?v=hOz1U8KKDyc
+
+## 🚀 Quick Install
+
+```bash
+curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/main/deployment/install.sh | sudo bash
+```
+
+The interactive wizard handles everything: dependencies, domains, SSL, admin account, and more. See [INSTALL.md](INSTALL.md) for the full guide.
+
 ---
 
 ## 🏗️ Core Architecture & Tech Stack
@@ -148,13 +157,11 @@ sudo ./install.sh
 ## What the Installer Does
 
 1. **Pre-Flight Checks**
-
    - Verifies OS compatibility (Ubuntu/Debian)
    - Checks available memory and disk space
    - Prompts for domain name
 
 2. **Installs Dependencies**
-
    - Node.js 20
    - Docker + Docker Compose
    - PostgreSQL
@@ -163,24 +170,20 @@ sudo ./install.sh
    - Certbot (Let's Encrypt)
 
 3. **Creates User & Directories**
-
    - Creates `multibase` system user
    - Sets up `/opt/multibase` directory structure
 
 4. **Database Setup**
-
    - Creates PostgreSQL database and user
    - Generates secure credentials
 
 5. **Builds Application**
-
    - Installs npm dependencies
    - Compiles TypeScript backend
    - Builds React frontend
    - Runs database migrations
 
 6. **Configures Services**
-
    - Sets up Nginx reverse proxy with WebSocket support
    - Creates systemd service for backend
    - Obtains SSL certificate from Let's Encrypt
