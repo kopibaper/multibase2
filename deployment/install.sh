@@ -1,652 +1,1411 @@
 #!/bin/bash
-#
-# Multibase Dashboard - Automated Installation Script
-# =====================================================
-# This script automates the complete installation of the Multibase Dashboard
-# on a fresh Ubuntu/Debian server.
-#
+# =============================================================================
+# Multibase Dashboard - Automated Installer v2.0
+# =============================================================================
 # Usage:
-#   curl -sSL https://your-repo.com/install.sh | sudo bash
-#   OR
-#   sudo ./install.sh
-#
-# Supported OS: Ubuntu 20.04+, Debian 11+
-#
-
-set -e
-
-# =============================================================================
-# CONFIGURATION - Modify these variables as needed
+#   curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/main/deployment/install.sh | sudo bash
+#   sudo bash install.sh              # Fresh install
+#   sudo bash install.sh --update     # Update existing installation
+#   sudo bash install.sh --uninstall  # Remove installation
+#   sudo bash install.sh --uninstall --keep-data  # Remove but keep data
 # =============================================================================
 
+set -euo pipefail
+
+# --- Configuration ---
 INSTALL_DIR="/opt/multibase"
-MULTIBASE_USER="multibase"
-DOMAIN=""  # Will be prompted if empty
-DB_PASSWORD=""  # Will be auto-generated if empty
-JWT_SECRET=""  # Will be auto-generated if empty
-REPO_URL="https://github.com/your-org/multibase.git"  # Change to your repo
-BRANCH="main"
+INSTALL_USER="multibase"
+REPO_URL="https://github.com/skipper159/multibase2.git"
+LOG_FILE="/var/log/multibase-install.log"
+NODE_MAJOR=20
+REDIS_CONTAINER="multibase-redis"
+PM2_APP_NAME="multibase-backend"
+SCRIPT_VERSION="2.0.0"
 
-# =============================================================================
-# COLORS AND HELPERS
-# =============================================================================
-
+# --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
 
-print_header() {
-    echo -e "\n${BLUE}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  $1${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
+# --- State Variables (populated by wizard) ---
+DEPLOY_MODE=""          # single, split-frontend, split-backend
+FRONTEND_DOMAIN=""
+BACKEND_DOMAIN=""
+BACKEND_URL=""          # Full URL for split-frontend mode
+FRONTEND_URL=""         # Full URL for split-backend mode
+ADMIN_USER="admin"
+ADMIN_EMAIL=""
+ADMIN_PASS=""
+SSL_ENABLED="y"
+SSL_EMAIL=""
+UFW_ENABLED="y"
+SWAP_ENABLED="y"
+TOTAL_STEPS=14
+CURRENT_STEP=0
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+log() {
+    echo -e "${DIM}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
 }
 
-print_step() {
-    echo -e "${GREEN}[✓]${NC} $1"
+step() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    echo ""
+    echo -e "${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}]${NC} ${BOLD}$1${NC}"
+    log "STEP ${CURRENT_STEP}/${TOTAL_STEPS}: $1"
 }
 
-print_warning() {
-    echo -e "${YELLOW}[!]${NC} $1"
+step_ok() {
+    echo -e "        ${GREEN}[OK]${NC} $1"
+    log "  OK: $1"
 }
 
-print_error() {
-    echo -e "${RED}[✗]${NC} $1"
+step_new() {
+    echo -e "        ${YELLOW}[NEW]${NC} $1"
+    log "  NEW: $1"
 }
 
-print_info() {
-    echo -e "${BLUE}[i]${NC} $1"
+step_skip() {
+    echo -e "        ${DIM}[SKIP]${NC} $1"
+    log "  SKIP: $1"
 }
 
-generate_password() {
-    openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32
+step_fail() {
+    echo -e "        ${RED}[FAIL]${NC} $1"
+    log "  FAIL: $1"
+}
+
+error_exit() {
+    echo ""
+    echo -e "${RED}ERROR: $1${NC}" >&2
+    log "ERROR: $1"
+    exit 1
+}
+
+prompt() {
+    local var_name="$1"
+    local prompt_text="$2"
+    local default="${3:-}"
+    local value=""
+
+    if [ -n "$default" ]; then
+        echo -ne "  ${prompt_text} ${DIM}[${default}]${NC}: "
+    else
+        echo -ne "  ${prompt_text}: "
+    fi
+
+    read -r value
+    value="${value:-$default}"
+    eval "$var_name='$value'"
+}
+
+prompt_password() {
+    local var_name="$1"
+    local prompt_text="$2"
+    local value=""
+
+    echo -ne "  ${prompt_text} ${DIM}(Enter for auto-generated)${NC}: "
+    read -rs value
+    echo ""
+
+    if [ -z "$value" ]; then
+        value=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
+        echo -e "  ${DIM}Auto-generated password${NC}"
+    fi
+    eval "$var_name='$value'"
+}
+
+prompt_yn() {
+    local var_name="$1"
+    local prompt_text="$2"
+    local default="${3:-y}"
+    local value=""
+
+    echo -ne "  ${prompt_text} (y/n) ${DIM}[${default}]${NC}: "
+    read -r value
+    value="${value:-$default}"
+    value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
+    eval "$var_name='$value'"
+}
+
+separator() {
+    echo -e "${DIM}------------------------------------------------------${NC}"
+}
+
+generate_secret() {
+    openssl rand -base64 48 | tr -d '/+=' | head -c 64
 }
 
 # =============================================================================
-# PRE-FLIGHT CHECKS
+# Pre-Flight Checks
 # =============================================================================
 
 preflight_checks() {
-    print_header "Pre-Flight Checks"
-    
-    # Check if running as root
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This script must be run as root (use sudo)"
-        exit 1
+    # Must be root
+    if [ "$(id -u)" -ne 0 ]; then
+        error_exit "This script must be run as root (use sudo)"
     fi
-    print_step "Running as root"
-    
+
     # Check OS
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS=$NAME
-        VERSION=$VERSION_ID
-    else
-        print_error "Cannot detect OS. This script requires Ubuntu/Debian."
-        exit 1
+    if [ ! -f /etc/os-release ]; then
+        error_exit "Cannot determine OS. This script supports Ubuntu/Debian."
     fi
-    
-    if [[ ! "$ID" =~ ^(ubuntu|debian)$ ]]; then
-        print_error "Unsupported OS: $OS. This script requires Ubuntu or Debian."
-        exit 1
-    fi
-    print_step "Operating System: $OS $VERSION"
-    
-    # Check available memory
-    TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
-    if [ "$TOTAL_MEM" -lt 2048 ]; then
-        print_warning "Low memory detected: ${TOTAL_MEM}MB. Recommended: 4GB+"
-    else
-        print_step "Memory: ${TOTAL_MEM}MB"
-    fi
-    
-    # Check available disk space
-    AVAILABLE_DISK=$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')
-    if [ "$AVAILABLE_DISK" -lt 10 ]; then
-        print_warning "Low disk space: ${AVAILABLE_DISK}GB. Recommended: 20GB+"
-    else
-        print_step "Disk Space: ${AVAILABLE_DISK}GB available"
-    fi
-    
-    # Interactive prompts
-    if [ -z "$DOMAIN" ]; then
-        echo ""
-        read -p "Enter your domain name (e.g., multibase.example.com): " DOMAIN
-        if [ -z "$DOMAIN" ]; then
-            print_error "Domain name is required"
-            exit 1
+
+    source /etc/os-release
+    if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
+        echo -e "${YELLOW}WARNING: This script is designed for Ubuntu/Debian. Your OS: ${ID}${NC}"
+        echo -ne "  Continue anyway? (y/n) [n]: "
+        read -r cont
+        if [ "$cont" != "y" ]; then
+            exit 0
         fi
     fi
-    print_step "Domain: $DOMAIN"
-    
-    # Generate passwords if not set
-    if [ -z "$DB_PASSWORD" ]; then
-        DB_PASSWORD=$(generate_password)
+
+    # Check minimum RAM (1 GB)
+    local total_ram
+    total_ram=$(free -m | awk '/^Mem:/{print $2}')
+    if [ "$total_ram" -lt 1024 ]; then
+        error_exit "Minimum 1 GB RAM required. Detected: ${total_ram} MB"
     fi
-    if [ -z "$JWT_SECRET" ]; then
-        JWT_SECRET=$(generate_password)
+
+    # Check disk space (5 GB minimum)
+    local free_disk
+    free_disk=$(df -BG / | awk 'NR==2{print $4}' | tr -d 'G')
+    if [ "$free_disk" -lt 5 ]; then
+        error_exit "Minimum 5 GB free disk space required. Available: ${free_disk} GB"
     fi
-    print_step "Credentials generated"
+
+    # Initialize log file
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "=== Multibase Installer v${SCRIPT_VERSION} - $(date) ===" > "$LOG_FILE"
 }
 
 # =============================================================================
-# INSTALL DEPENDENCIES
+# Banner
+# =============================================================================
+
+show_banner() {
+    echo ""
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${BOLD}"
+    echo "    __  __       _ _   _ _"
+    echo "   |  \/  |_   _| | |_(_) |__   __ _ ___  ___"
+    echo "   | |\/| | | | | | __| | '_ \ / _\` / __|/ _ \\"
+    echo "   | |  | | |_| | | |_| | |_) | (_| \__ \  __/"
+    echo "   |_|  |_|\__,_|_|\__|_|_.__/ \__,_|___/\___|"
+    echo -e "${NC}"
+    echo -e "   ${DIM}Dashboard Installer v${SCRIPT_VERSION}${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo ""
+    echo -e "  Welcome! This script will set up Multibase"
+    echo -e "  on your server."
+    echo ""
+    echo -ne "  Press ${BOLD}Enter${NC} to continue..."
+    read -r
+}
+
+# =============================================================================
+# Interactive Wizard
+# =============================================================================
+
+wizard_deployment_mode() {
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 1/6 -- Deployment Mode${NC}"
+    separator
+    echo ""
+    echo "  How should Multibase be installed?"
+    echo ""
+    echo -e "  ${BOLD}[1]${NC} Single Server"
+    echo -e "      ${DIM}Frontend + Backend on this server${NC}"
+    echo ""
+    echo -e "  ${BOLD}[2]${NC} Split VPS -- Frontend Only"
+    echo -e "      ${DIM}Static frontend, backend runs elsewhere${NC}"
+    echo ""
+    echo -e "  ${BOLD}[3]${NC} Split VPS -- Backend Only"
+    echo -e "      ${DIM}API + Docker, frontend runs elsewhere${NC}"
+    echo ""
+
+    local choice=""
+    prompt choice "Choice" "1"
+
+    case "$choice" in
+        1) DEPLOY_MODE="single" ;;
+        2) DEPLOY_MODE="split-frontend" ;;
+        3) DEPLOY_MODE="split-backend" ;;
+        *) DEPLOY_MODE="single" ;;
+    esac
+}
+
+wizard_domains() {
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 2/6 -- Domains${NC}"
+    separator
+    echo ""
+
+    case "$DEPLOY_MODE" in
+        single)
+            prompt FRONTEND_DOMAIN "Frontend domain (e.g. dashboard.example.com)" ""
+            [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
+            echo ""
+            prompt BACKEND_DOMAIN "Backend domain (e.g. api.example.com)" ""
+            [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
+            BACKEND_URL="https://${BACKEND_DOMAIN}"
+            FRONTEND_URL="https://${FRONTEND_DOMAIN}"
+            ;;
+        split-frontend)
+            prompt FRONTEND_DOMAIN "Frontend domain (this server)" ""
+            [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
+            echo ""
+            prompt BACKEND_URL "Backend URL (remote server, incl. https://)" ""
+            [ -z "$BACKEND_URL" ] && error_exit "Backend URL is required"
+            # Extract domain from URL
+            BACKEND_DOMAIN=$(echo "$BACKEND_URL" | sed 's|https\?://||' | sed 's|/.*||')
+            FRONTEND_URL="https://${FRONTEND_DOMAIN}"
+            ;;
+        split-backend)
+            prompt BACKEND_DOMAIN "Backend domain (this server)" ""
+            [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
+            echo ""
+            prompt FRONTEND_URL "Frontend URL (remote server, for CORS)" ""
+            [ -z "$FRONTEND_URL" ] && error_exit "Frontend URL is required"
+            BACKEND_URL="https://${BACKEND_DOMAIN}"
+            # Extract domain from URL
+            FRONTEND_DOMAIN=$(echo "$FRONTEND_URL" | sed 's|https\?://||' | sed 's|/.*||')
+            ;;
+    esac
+}
+
+wizard_admin() {
+    # Skip for frontend-only installations
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 3/6 -- Admin Account${NC}"
+    separator
+    echo ""
+
+    prompt ADMIN_USER "Username" "admin"
+    prompt ADMIN_EMAIL "Email" ""
+    [ -z "$ADMIN_EMAIL" ] && error_exit "Admin email is required"
+    prompt_password ADMIN_PASS "Password"
+}
+
+wizard_ssl() {
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 4/6 -- SSL Certificate${NC}"
+    separator
+    echo ""
+
+    prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "y"
+
+    if [ "$SSL_ENABLED" = "y" ]; then
+        prompt SSL_EMAIL "Email for Let's Encrypt" "${ADMIN_EMAIL:-}"
+        [ -z "$SSL_EMAIL" ] && error_exit "SSL email is required"
+    fi
+}
+
+wizard_extras() {
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 5/6 -- Additional Options${NC}"
+    separator
+    echo ""
+
+    prompt_yn UFW_ENABLED "Configure UFW firewall?" "y"
+
+    local total_ram
+    total_ram=$(free -m | awk '/^Mem:/{print $2}')
+    if [ "$total_ram" -lt 4096 ]; then
+        local current_swap
+        current_swap=$(free -m | awk '/^Swap:/{print $2}')
+        if [ "$current_swap" -lt 512 ]; then
+            prompt_yn SWAP_ENABLED "Create 2 GB swap file? (recommended, ${total_ram} MB RAM)" "y"
+        else
+            SWAP_ENABLED="n"
+            echo -e "  ${DIM}Swap already configured (${current_swap} MB)${NC}"
+        fi
+    else
+        SWAP_ENABLED="n"
+        echo -e "  ${DIM}Sufficient RAM detected (${total_ram} MB), swap not needed${NC}"
+    fi
+}
+
+wizard_confirm() {
+    echo ""
+    separator
+    echo -e "  ${BOLD}STEP 6/6 -- Summary${NC}"
+    separator
+    echo ""
+    echo -e "  Mode:             ${BOLD}${DEPLOY_MODE}${NC}"
+
+    case "$DEPLOY_MODE" in
+        single)
+            echo -e "  Frontend Domain:  ${BOLD}${FRONTEND_DOMAIN}${NC}"
+            echo -e "  Backend Domain:   ${BOLD}${BACKEND_DOMAIN}${NC}"
+            ;;
+        split-frontend)
+            echo -e "  Frontend Domain:  ${BOLD}${FRONTEND_DOMAIN}${NC}"
+            echo -e "  Backend URL:      ${BOLD}${BACKEND_URL}${NC}"
+            ;;
+        split-backend)
+            echo -e "  Backend Domain:   ${BOLD}${BACKEND_DOMAIN}${NC}"
+            echo -e "  Frontend URL:     ${BOLD}${FRONTEND_URL}${NC}"
+            ;;
+    esac
+
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo -e "  Admin:            ${BOLD}${ADMIN_USER}${NC} (${ADMIN_EMAIL})"
+    fi
+    echo -e "  SSL:              ${BOLD}$([ "$SSL_ENABLED" = "y" ] && echo "Yes" || echo "No")${NC}"
+    echo -e "  Firewall:         ${BOLD}$([ "$UFW_ENABLED" = "y" ] && echo "Yes (UFW)" || echo "No")${NC}"
+    echo -e "  Swap:             ${BOLD}$([ "$SWAP_ENABLED" = "y" ] && echo "2 GB" || echo "No")${NC}"
+    echo ""
+
+    local confirm=""
+    prompt_yn confirm "Start installation?" "y"
+    if [ "$confirm" != "y" ]; then
+        echo ""
+        echo -e "  ${YELLOW}Installation cancelled.${NC}"
+        exit 0
+    fi
+}
+
+run_wizard() {
+    wizard_deployment_mode
+    wizard_domains
+    wizard_admin
+    wizard_ssl
+    wizard_extras
+    wizard_confirm
+
+    # Adjust total steps based on mode
+    case "$DEPLOY_MODE" in
+        single)       TOTAL_STEPS=14 ;;
+        split-frontend) TOTAL_STEPS=9 ;;
+        split-backend)  TOTAL_STEPS=13 ;;
+    esac
+}
+
+# =============================================================================
+# Dependency Installation
 # =============================================================================
 
 install_dependencies() {
-    print_header "Installing Dependencies"
-    
+    step "Installing dependencies..."
+
     # Update package lists
-    print_info "Updating package lists..."
-    apt-get update -qq
-    
-    # Install basic dependencies
-    print_info "Installing basic dependencies..."
-    apt-get install -y -qq \
-        curl \
-        wget \
-        git \
-        gnupg \
-        ca-certificates \
-        lsb-release \
-        software-properties-common \
-        build-essential \
-        openssl
-    print_step "Basic dependencies installed"
-    
-    # Install Node.js 20
-    if ! command -v node &> /dev/null; then
-        print_info "Installing Node.js 20..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        apt-get install -y -qq nodejs
+    apt-get update -qq >> "$LOG_FILE" 2>&1
+
+    # Base tools
+    local base_pkgs="curl wget git openssl build-essential software-properties-common"
+    for pkg in $base_pkgs; do
+        if dpkg -s "$pkg" &>/dev/null; then
+            step_ok "$pkg (already installed)"
+        else
+            apt-get install -y -qq "$pkg" >> "$LOG_FILE" 2>&1
+            step_new "$pkg (installed)"
+        fi
+    done
+
+    # Node.js
+    if command -v node &>/dev/null; then
+        local node_ver
+        node_ver=$(node -v)
+        step_ok "Node.js ${node_ver} (already installed)"
+    else
+        curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >> "$LOG_FILE" 2>&1
+        apt-get install -y -qq nodejs >> "$LOG_FILE" 2>&1
+        step_new "Node.js $(node -v) (installed)"
     fi
-    NODE_VERSION=$(node -v)
-    print_step "Node.js installed: $NODE_VERSION"
-    
-    # Install Docker
-    if ! command -v docker &> /dev/null; then
-        print_info "Installing Docker..."
-        curl -fsSL https://get.docker.com | bash
-        systemctl enable docker
-        systemctl start docker
+
+    # Docker (only for single + split-backend)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        if command -v docker &>/dev/null; then
+            step_ok "Docker $(docker --version | awk '{print $3}' | tr -d ',') (already installed)"
+        else
+            curl -fsSL https://get.docker.com | bash >> "$LOG_FILE" 2>&1
+            systemctl enable docker >> "$LOG_FILE" 2>&1
+            systemctl start docker >> "$LOG_FILE" 2>&1
+            step_new "Docker $(docker --version | awk '{print $3}' | tr -d ',') (installed)"
+        fi
+
+        # Docker Compose plugin
+        if docker compose version &>/dev/null; then
+            step_ok "Docker Compose (already installed)"
+        else
+            apt-get install -y -qq docker-compose-plugin >> "$LOG_FILE" 2>&1
+            step_new "Docker Compose (installed)"
+        fi
+
+        # Python 3
+        if command -v python3 &>/dev/null; then
+            step_ok "Python $(python3 --version | awk '{print $2}') (already installed)"
+        else
+            apt-get install -y -qq python3 python3-pip python3-venv >> "$LOG_FILE" 2>&1
+            step_new "Python $(python3 --version | awk '{print $2}') (installed)"
+        fi
     fi
-    DOCKER_VERSION=$(docker --version | cut -d ' ' -f 3 | tr -d ',')
-    print_step "Docker installed: $DOCKER_VERSION"
-    
-    # Install Docker Compose
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        print_info "Installing Docker Compose..."
-        apt-get install -y -qq docker-compose-plugin
+
+    # Nginx
+    if command -v nginx &>/dev/null; then
+        step_ok "Nginx $(nginx -v 2>&1 | awk -F/ '{print $2}') (already installed)"
+    else
+        apt-get install -y -qq nginx >> "$LOG_FILE" 2>&1
+        systemctl enable nginx >> "$LOG_FILE" 2>&1
+        step_new "Nginx (installed)"
     fi
-    print_step "Docker Compose installed"
-    
-    # Install PostgreSQL
-    if ! command -v psql &> /dev/null; then
-        print_info "Installing PostgreSQL..."
-        apt-get install -y -qq postgresql postgresql-contrib
-        systemctl enable postgresql
-        systemctl start postgresql
+
+    # Certbot
+    if [ "$SSL_ENABLED" = "y" ]; then
+        if command -v certbot &>/dev/null; then
+            step_ok "Certbot (already installed)"
+        else
+            apt-get install -y -qq certbot python3-certbot-nginx >> "$LOG_FILE" 2>&1
+            step_new "Certbot (installed)"
+        fi
     fi
-    PSQL_VERSION=$(psql --version | cut -d ' ' -f 3)
-    print_step "PostgreSQL installed: $PSQL_VERSION"
-    
-    # Install Redis
-    if ! command -v redis-cli &> /dev/null; then
-        print_info "Installing Redis..."
-        apt-get install -y -qq redis-server
-        systemctl enable redis-server
-        systemctl start redis-server
+
+    # PM2 (only for single + split-backend)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        if command -v pm2 &>/dev/null; then
+            step_ok "PM2 $(pm2 -v) (already installed)"
+        else
+            npm install -g pm2 >> "$LOG_FILE" 2>&1
+            step_new "PM2 $(pm2 -v) (installed)"
+        fi
     fi
-    print_step "Redis installed"
-    
-    # Install Nginx
-    if ! command -v nginx &> /dev/null; then
-        print_info "Installing Nginx..."
-        apt-get install -y -qq nginx
-        systemctl enable nginx
-    fi
-    print_step "Nginx installed"
-    
-    # Install Certbot
-    if ! command -v certbot &> /dev/null; then
-        print_info "Installing Certbot..."
-        apt-get install -y -qq certbot python3-certbot-nginx
-    fi
-    print_step "Certbot installed"
 }
 
 # =============================================================================
-# CREATE USER AND DIRECTORIES
+# User & Directory Setup
 # =============================================================================
 
-setup_user_and_dirs() {
-    print_header "Setting Up User and Directories"
-    
-    # Create multibase user if not exists
-    if ! id "$MULTIBASE_USER" &>/dev/null; then
-        useradd -r -m -s /bin/bash "$MULTIBASE_USER"
-        print_step "User '$MULTIBASE_USER' created"
+setup_user_dirs() {
+    step "Creating user and directories..."
+
+    # Create system user
+    if id "$INSTALL_USER" &>/dev/null; then
+        step_ok "User '$INSTALL_USER' already exists"
     else
-        print_step "User '$MULTIBASE_USER' already exists"
+        useradd -r -m -s /bin/bash "$INSTALL_USER"
+        step_new "User '$INSTALL_USER' created"
     fi
-    
-    # Add user to docker group
-    usermod -aG docker "$MULTIBASE_USER"
-    print_step "User added to docker group"
-    
+
+    # Add to docker group (backend modes only)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        if getent group docker &>/dev/null; then
+            usermod -aG docker "$INSTALL_USER" 2>/dev/null || true
+            step_ok "User added to docker group"
+        fi
+    fi
+
     # Create directories
-    mkdir -p "$INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR/projects"
-    mkdir -p "$INSTALL_DIR/backups"
-    mkdir -p "$INSTALL_DIR/logs"
-    
-    chown -R "$MULTIBASE_USER:$MULTIBASE_USER" "$INSTALL_DIR"
-    print_step "Directories created at $INSTALL_DIR"
-}
+    local dirs=(
+        "$INSTALL_DIR"
+        "$INSTALL_DIR/logs"
+        "$INSTALL_DIR/nginx/sites-enabled"
+    )
 
-# =============================================================================
-# SETUP DATABASE
-# =============================================================================
-
-setup_database() {
-    print_header "Setting Up PostgreSQL Database"
-    
-    # Create database user and database
-    sudo -u postgres psql -c "CREATE USER multibase WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
-    sudo -u postgres psql -c "CREATE DATABASE multibase OWNER multibase;" 2>/dev/null || true
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE multibase TO multibase;" 2>/dev/null || true
-    
-    print_step "Database 'multibase' created"
-    print_step "Database user 'multibase' created"
-}
-
-# =============================================================================
-# CLONE AND BUILD APPLICATION
-# =============================================================================
-
-clone_and_build() {
-    print_header "Cloning and Building Application"
-    
-    # Clone repository
-    if [ -d "$INSTALL_DIR/.git" ]; then
-        print_info "Repository exists, pulling latest changes..."
-        cd "$INSTALL_DIR"
-        sudo -u "$MULTIBASE_USER" git pull origin "$BRANCH"
-    else
-        print_info "Cloning repository..."
-        # For now, we'll assume the code is already uploaded or will be
-        # In production, uncomment this:
-        # sudo -u "$MULTIBASE_USER" git clone -b "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
-        print_warning "Repository cloning skipped - please upload your code to $INSTALL_DIR"
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        dirs+=(
+            "$INSTALL_DIR/projects"
+            "$INSTALL_DIR/backups"
+        )
     fi
-    
-    # If dashboard directory doesn't exist, skip build
-    if [ ! -d "$INSTALL_DIR/dashboard" ]; then
-        print_warning "Dashboard directory not found. Please upload your code first."
-        print_warning "Expected structure: $INSTALL_DIR/dashboard/backend and $INSTALL_DIR/dashboard/frontend"
+
+    for dir in "${dirs[@]}"; do
+        mkdir -p "$dir"
+        step_ok "Created $dir"
+    done
+
+    chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
+}
+
+# =============================================================================
+# Git Clone
+# =============================================================================
+
+clone_repo() {
+    step "Cloning repository..."
+
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        step_ok "Repository already exists, pulling latest..."
+        cd "$INSTALL_DIR"
+        sudo -u "$INSTALL_USER" git pull >> "$LOG_FILE" 2>&1
+        step_ok "Repository updated"
+    else
+        # Clone into a temp dir first, then move contents
+        local tmp_dir
+        tmp_dir=$(mktemp -d)
+        git clone "$REPO_URL" "$tmp_dir" >> "$LOG_FILE" 2>&1
+
+        # Move contents (preserving dirs we already created)
+        cp -a "$tmp_dir"/. "$INSTALL_DIR"/
+        rm -rf "$tmp_dir"
+
+        chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
+        step_ok "Repository cloned to $INSTALL_DIR"
+    fi
+}
+
+# =============================================================================
+# Python Environment
+# =============================================================================
+
+setup_python() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
         return
     fi
-    
-    # Build Backend
-    print_info "Building backend..."
+
+    step "Setting up Python environment..."
+
+    local venv_dir="$INSTALL_DIR/venv"
+
+    if [ -d "$venv_dir" ]; then
+        step_ok "Virtual environment already exists"
+    else
+        sudo -u "$INSTALL_USER" python3 -m venv "$venv_dir"
+        step_new "Virtual environment created"
+    fi
+
+    # Install requirements
+    if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+        sudo -u "$INSTALL_USER" "$venv_dir/bin/pip" install -r "$INSTALL_DIR/requirements.txt" >> "$LOG_FILE" 2>&1
+        step_ok "Python requirements installed (psutil, requests, pyjwt)"
+    else
+        step_skip "No requirements.txt found"
+    fi
+}
+
+# =============================================================================
+# Build Backend
+# =============================================================================
+
+build_backend() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Building backend..."
+
     cd "$INSTALL_DIR/dashboard/backend"
-    
-    # Create .env file
-    cat > .env << EOF
+
+    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    step_ok "Dependencies installed"
+
+    sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
+    step_ok "Prisma client generated"
+
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    step_ok "Backend built"
+
+    # Ensure data directory exists for SQLite
+    mkdir -p "$INSTALL_DIR/dashboard/backend/data"
+    chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/data"
+
+    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    step_ok "Database migrations applied"
+}
+
+# =============================================================================
+# Build Frontend
+# =============================================================================
+
+build_frontend() {
+    if [ "$DEPLOY_MODE" = "split-backend" ]; then
+        return
+    fi
+
+    step "Building frontend..."
+
+    cd "$INSTALL_DIR/dashboard/frontend"
+
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    step_ok "Dependencies installed"
+
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    step_ok "Frontend built"
+}
+
+# =============================================================================
+# Generate Configuration Files
+# =============================================================================
+
+generate_configs() {
+    step "Generating configuration files..."
+
+    local session_secret
+    session_secret=$(generate_secret)
+
+    # Backend .env (only for single + split-backend)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        cat > "$INSTALL_DIR/dashboard/backend/.env" <<EOF
+# Multibase Backend Configuration
+# Generated by installer v${SCRIPT_VERSION} on $(date)
+
 # Server
 PORT=3001
 NODE_ENV=production
 
-# Database
-DATABASE_URL="postgresql://multibase:${DB_PASSWORD}@localhost:5432/multibase"
+# Database (SQLite)
+DATABASE_URL="file:./data/multibase.db"
 
 # Redis
 REDIS_URL=redis://localhost:6379
 
-# JWT
-JWT_SECRET="${JWT_SECRET}"
-JWT_EXPIRES_IN=7d
-
 # Docker
-DOCKER_SOCKET_PATH=/var/run/docker.sock
+DOCKER_HOST=/var/run/docker.sock
 
-# Projects path
+# Paths
 PROJECTS_PATH=${INSTALL_DIR}/projects
+PYTHON_PATH=${INSTALL_DIR}/venv/bin/python3
+BACKUP_PATH=${INSTALL_DIR}/backups
 
 # CORS
-CORS_ORIGIN=https://${DOMAIN},http://localhost:5173
+CORS_ORIGIN=${FRONTEND_URL}
 
-# Monitoring
+# Logging
+LOG_LEVEL=info
+
+# Metrics
 METRICS_INTERVAL=15000
 HEALTH_CHECK_INTERVAL=10000
+ALERT_CHECK_INTERVAL=60000
+
+# Session
+SESSION_SECRET=${session_secret}
 EOF
-    chown "$MULTIBASE_USER:$MULTIBASE_USER" .env
-    chmod 600 .env
-    print_step "Backend .env created"
-    
-    # Install and build backend
-    sudo -u "$MULTIBASE_USER" npm ci --production=false
-    sudo -u "$MULTIBASE_USER" npx prisma generate
-    sudo -u "$MULTIBASE_USER" npm run build
-    sudo -u "$MULTIBASE_USER" npx prisma migrate deploy
-    sudo -u "$MULTIBASE_USER" npm prune --production
-    print_step "Backend built successfully"
-    
-    # Build Frontend
-    print_info "Building frontend..."
-    cd "$INSTALL_DIR/dashboard/frontend"
-    
-    # Create frontend .env
-    cat > .env << EOF
-VITE_API_URL=https://${DOMAIN}/api
-VITE_WS_URL=wss://${DOMAIN}
+        chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/.env"
+        step_ok "Backend .env created"
+    fi
+
+    # Frontend .env (only for single + split-frontend)
+    if [ "$DEPLOY_MODE" != "split-backend" ]; then
+        cat > "$INSTALL_DIR/dashboard/frontend/.env" <<EOF
+# Multibase Frontend Configuration
+# Generated by installer v${SCRIPT_VERSION} on $(date)
+VITE_API_URL=${BACKEND_URL}
 EOF
-    chown "$MULTIBASE_USER:$MULTIBASE_USER" .env
-    
-    sudo -u "$MULTIBASE_USER" npm ci
-    sudo -u "$MULTIBASE_USER" npm run build
-    print_step "Frontend built successfully"
+        chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/frontend/.env"
+        step_ok "Frontend .env created (VITE_API_URL=${BACKEND_URL})"
+    fi
+
+    # PM2 ecosystem (only for single + split-backend)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        cat > "$INSTALL_DIR/ecosystem.config.js" <<EOF
+module.exports = {
+  apps: [{
+    name: '${PM2_APP_NAME}',
+    cwd: '${INSTALL_DIR}/dashboard/backend',
+    script: 'dist/server.js',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3001
+    },
+    instances: 1,
+    autorestart: true,
+    max_memory_restart: '512M',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    error_file: '${INSTALL_DIR}/logs/backend-error.log',
+    out_file: '${INSTALL_DIR}/logs/backend-out.log'
+  }]
+};
+EOF
+        chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/ecosystem.config.js"
+        step_ok "PM2 ecosystem.config.js created"
+    fi
 }
 
 # =============================================================================
-# CONFIGURE NGINX
+# Redis Container
+# =============================================================================
+
+start_redis() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Starting Redis..."
+
+    if docker ps --format '{{.Names}}' | grep -q "^${REDIS_CONTAINER}$"; then
+        step_ok "Redis container already running"
+    else
+        # Remove stopped container if exists
+        docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
+
+        docker run -d \
+            --name "$REDIS_CONTAINER" \
+            --restart unless-stopped \
+            -p 6379:6379 \
+            redis:7-alpine >> "$LOG_FILE" 2>&1
+
+        step_new "Redis container started"
+    fi
+}
+
+# =============================================================================
+# Nginx Configuration
 # =============================================================================
 
 configure_nginx() {
-    print_header "Configuring Nginx"
-    
-    # Create Nginx config
-    cat > /etc/nginx/sites-available/multibase << EOF
-# Multibase Dashboard - Nginx Configuration
-# Generated by install.sh
+    step "Configuring Nginx..."
 
-upstream multibase_backend {
-    server 127.0.0.1:3001;
-    keepalive 64;
-}
-
+    # Frontend vhost (single + split-frontend)
+    if [ "$DEPLOY_MODE" != "split-backend" ]; then
+        cat > /etc/nginx/sites-available/multibase-frontend <<EOF
 server {
     listen 80;
-    server_name ${DOMAIN};
-    
-    # For initial setup - will be replaced by Certbot
-    location / {
-        root ${INSTALL_DIR}/dashboard/frontend/dist;
-        try_files \$uri \$uri/ /index.html;
+    listen [::]:80;
+    server_name ${FRONTEND_DOMAIN};
+    root ${INSTALL_DIR}/dashboard/frontend/dist;
+
+    # HTTPS redirect
+    if (\$scheme != "https") {
+        rewrite ^ https://\$host\$request_uri permanent;
     }
-    
+
+    # Let's Encrypt challenge
+    location ~ /.well-known {
+        auth_basic off;
+        allow all;
+    }
+
+    # API Proxy to backend
     location /api {
-        proxy_pass http://multibase_backend;
+        proxy_pass ${BACKEND_URL};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
+        proxy_set_header Host ${BACKEND_DOMAIN};
+        proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
     }
-    
+
+    # WebSocket proxy (Socket.IO for realtime logs)
     location /socket.io {
-        proxy_pass http://multibase_backend;
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host ${BACKEND_DOMAIN};
+        proxy_read_timeout 3600s;
+    }
+
+    # Static asset caching
+    location ~* ^.+\.(css|js|jpg|jpeg|gif|png|ico|svg|woff|woff2|ttf|otf|eot|webp|mp4|ogg|webm|zip)$ {
+        add_header Access-Control-Allow-Origin "*";
+        expires max;
+        access_log off;
+    }
+
+    # React Router SPA fallback
+    index index.html;
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+        ln -sf /etc/nginx/sites-available/multibase-frontend /etc/nginx/sites-enabled/
+        step_ok "Frontend vhost created (${FRONTEND_DOMAIN})"
+    fi
+
+    # Backend vhost (single + split-backend)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        cat > /etc/nginx/sites-available/multibase-backend <<EOF
+server {
+    server_name ${BACKEND_DOMAIN};
+    listen 80;
+    client_max_body_size 100M;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # API proxy
+    location / {
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
         proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
     }
 }
+
+# Include dynamic instance configs
+include ${INSTALL_DIR}/nginx/sites-enabled/*.conf;
 EOF
-    
-    # Enable site
-    ln -sf /etc/nginx/sites-available/multibase /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
-    
+        ln -sf /etc/nginx/sites-available/multibase-backend /etc/nginx/sites-enabled/
+        step_ok "Backend vhost created (${BACKEND_DOMAIN})"
+    fi
+
+    # Remove default site if it exists
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+
     # Test and reload
-    nginx -t
+    nginx -t >> "$LOG_FILE" 2>&1
     systemctl reload nginx
-    print_step "Nginx configured"
+    step_ok "Nginx configuration tested and reloaded"
 }
 
 # =============================================================================
-# CONFIGURE SYSTEMD
+# PM2 Setup
 # =============================================================================
 
-configure_systemd() {
-    print_header "Configuring Systemd Service"
-    
-    # Create systemd service file
-    cat > /etc/systemd/system/multibase-backend.service << EOF
-[Unit]
-Description=Multibase Dashboard Backend
-After=network.target postgresql.service redis.service docker.service
-Wants=postgresql.service redis.service docker.service
+start_pm2() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
 
-[Service]
-Type=simple
-User=${MULTIBASE_USER}
-Group=${MULTIBASE_USER}
-WorkingDirectory=${INSTALL_DIR}/dashboard/backend
-ExecStart=/usr/bin/node dist/server.js
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-Environment=NODE_ENV=production
+    step "Starting backend via PM2..."
 
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
+    # Stop existing if running
+    sudo -u "$INSTALL_USER" pm2 delete "$PM2_APP_NAME" 2>/dev/null || true
 
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    # Reload and enable
-    systemctl daemon-reload
-    systemctl enable multibase-backend
-    systemctl start multibase-backend
-    
-    print_step "Systemd service created and started"
+    # Start with ecosystem file
+    cd "$INSTALL_DIR"
+    sudo -u "$INSTALL_USER" pm2 start ecosystem.config.js >> "$LOG_FILE" 2>&1
+    step_ok "Backend started"
+
+    # Save PM2 process list
+    sudo -u "$INSTALL_USER" pm2 save >> "$LOG_FILE" 2>&1
+    step_ok "PM2 process list saved"
+
+    # Setup PM2 startup script
+    pm2 startup systemd -u "$INSTALL_USER" --hp "/home/$INSTALL_USER" >> "$LOG_FILE" 2>&1
+    step_ok "PM2 startup configured (auto-start on reboot)"
+
+    # Install log rotation
+    sudo -u "$INSTALL_USER" pm2 install pm2-logrotate >> "$LOG_FILE" 2>&1
+    step_ok "PM2 log rotation enabled"
 }
 
 # =============================================================================
-# SETUP SSL
+# SSL Setup
 # =============================================================================
 
 setup_ssl() {
-    print_header "Setting Up SSL Certificate"
-    
-    print_info "Obtaining SSL certificate from Let's Encrypt..."
-    print_warning "Make sure your domain ($DOMAIN) is pointing to this server!"
-    
-    read -p "Proceed with SSL certificate? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@$DOMAIN" || {
-            print_warning "SSL setup failed. You can run 'certbot --nginx -d $DOMAIN' later."
-        }
-        print_step "SSL certificate obtained"
+    if [ "$SSL_ENABLED" != "y" ]; then
+        return
+    fi
+
+    step "Setting up SSL certificates..."
+
+    local domains=()
+
+    if [ "$DEPLOY_MODE" != "split-backend" ]; then
+        domains+=("$FRONTEND_DOMAIN")
+    fi
+
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        domains+=("$BACKEND_DOMAIN")
+    fi
+
+    for domain in "${domains[@]}"; do
+        if [ -d "/etc/letsencrypt/live/$domain" ]; then
+            step_ok "SSL certificate for $domain already exists"
+        else
+            certbot --nginx \
+                -d "$domain" \
+                --email "$SSL_EMAIL" \
+                --agree-tos \
+                --non-interactive \
+                --redirect >> "$LOG_FILE" 2>&1
+            step_new "SSL certificate obtained for $domain"
+        fi
+    done
+}
+
+# =============================================================================
+# Firewall & Swap
+# =============================================================================
+
+setup_firewall_swap() {
+    step "Configuring firewall and swap..."
+
+    # UFW
+    if [ "$UFW_ENABLED" = "y" ]; then
+        ufw allow 22/tcp >> "$LOG_FILE" 2>&1
+        ufw allow 80/tcp >> "$LOG_FILE" 2>&1
+        ufw allow 443/tcp >> "$LOG_FILE" 2>&1
+        ufw --force enable >> "$LOG_FILE" 2>&1
+        step_ok "UFW firewall enabled (ports 22, 80, 443)"
     else
-        print_warning "SSL setup skipped. Run 'certbot --nginx -d $DOMAIN' when ready."
+        step_skip "UFW firewall (disabled)"
+    fi
+
+    # Swap
+    if [ "$SWAP_ENABLED" = "y" ]; then
+        if [ ! -f /swapfile ]; then
+            fallocate -l 2G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile >> "$LOG_FILE" 2>&1
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            step_new "2 GB swap file created"
+        else
+            step_ok "Swap file already exists"
+        fi
+    else
+        step_skip "Swap file (disabled)"
     fi
 }
 
 # =============================================================================
-# CREATE ADMIN USER
+# Admin User Creation
 # =============================================================================
 
-create_admin_user() {
-    print_header "Creating Admin User"
-    
-    ADMIN_PASSWORD=$(generate_password | head -c 16)
-    
-    # Hash password using Node.js bcrypt
-    HASHED_PASSWORD=$(cd "$INSTALL_DIR/dashboard/backend" && node -e "
-        const bcrypt = require('bcryptjs');
-        console.log(bcrypt.hashSync('$ADMIN_PASSWORD', 10));
-    ")
-    
-    # Insert admin user
-    sudo -u postgres psql -d multibase -c "
-        INSERT INTO \"User\" (id, username, email, password, role, \"createdAt\", \"updatedAt\")
-        VALUES (gen_random_uuid(), 'admin', 'admin@$DOMAIN', '$HASHED_PASSWORD', 'admin', NOW(), NOW())
-        ON CONFLICT (username) DO NOTHING;
-    " 2>/dev/null || true
-    
-    print_step "Admin user created"
-    echo ""
-    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║  ADMIN CREDENTIALS - SAVE THESE!                               ║${NC}"
-    echo -e "${YELLOW}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${YELLOW}║  Username: admin                                               ║${NC}"
-    echo -e "${YELLOW}║  Password: ${ADMIN_PASSWORD}                                   ║${NC}"
-    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+create_admin() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Creating admin account..."
+
+    cd "$INSTALL_DIR/dashboard/backend"
+
+    # Create a temporary Node.js script to seed the admin user
+    cat > /tmp/multibase-create-admin.js <<'SCRIPT'
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+
+async function main() {
+    const prisma = new PrismaClient();
+
+    const username = process.env.ADMIN_USER;
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASS;
+
+    // Check if admin already exists
+    const existing = await prisma.user.findFirst({
+        where: { OR: [{ email }, { username }] }
+    });
+
+    if (existing) {
+        console.log('Admin user already exists, skipping.');
+        await prisma.$disconnect();
+        return;
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+
+    await prisma.user.create({
+        data: {
+            username,
+            email,
+            passwordHash: hash,
+            role: 'admin',
+            isActive: true,
+            isEmailVerified: true
+        }
+    });
+
+    console.log('Admin user created successfully.');
+    await prisma.$disconnect();
+}
+
+main().catch(e => {
+    console.error('Error creating admin:', e.message);
+    process.exit(1);
+});
+SCRIPT
+
+    ADMIN_USER="$ADMIN_USER" \
+    ADMIN_EMAIL="$ADMIN_EMAIL" \
+    ADMIN_PASS="$ADMIN_PASS" \
+    DATABASE_URL="file:./data/multibase.db" \
+    sudo -u "$INSTALL_USER" -E node /tmp/multibase-create-admin.js >> "$LOG_FILE" 2>&1
+
+    rm -f /tmp/multibase-create-admin.js
+    step_ok "Admin account created ($ADMIN_USER)"
 }
 
 # =============================================================================
-# VERIFICATION
+# Verification
 # =============================================================================
 
 verify_installation() {
-    print_header "Verifying Installation"
-    
-    # Check backend
-    sleep 3
-    if curl -s http://localhost:3001/api/ping > /dev/null 2>&1; then
-        print_step "Backend is running"
+    step "Verifying installation..."
+
+    local all_ok=true
+
+    # Check Nginx
+    if systemctl is-active --quiet nginx; then
+        step_ok "Nginx is running"
     else
-        print_error "Backend is not responding"
+        step_fail "Nginx is not running"
+        all_ok=false
     fi
-    
-    # Check frontend
-    if curl -s http://localhost:80 > /dev/null 2>&1; then
-        print_step "Frontend is accessible"
-    else
-        print_error "Frontend is not accessible"
+
+    # Check PM2 (backend modes only)
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        if sudo -u "$INSTALL_USER" pm2 show "$PM2_APP_NAME" &>/dev/null; then
+            step_ok "Backend is running via PM2"
+        else
+            step_fail "Backend is not running"
+            all_ok=false
+        fi
+
+        # Check Redis
+        if docker ps --format '{{.Names}}' | grep -q "^${REDIS_CONTAINER}$"; then
+            step_ok "Redis container is running"
+        else
+            step_fail "Redis container is not running"
+            all_ok=false
+        fi
     fi
-    
-    # Check PostgreSQL
-    if sudo -u postgres psql -c "SELECT 1" > /dev/null 2>&1; then
-        print_step "PostgreSQL is running"
-    else
-        print_error "PostgreSQL is not responding"
+
+    # Check frontend files exist
+    if [ "$DEPLOY_MODE" != "split-backend" ]; then
+        if [ -f "$INSTALL_DIR/dashboard/frontend/dist/index.html" ]; then
+            step_ok "Frontend build files exist"
+        else
+            step_fail "Frontend build files not found"
+            all_ok=false
+        fi
     fi
-    
-    # Check Redis
-    if redis-cli ping > /dev/null 2>&1; then
-        print_step "Redis is running"
-    else
-        print_warning "Redis is not responding (optional)"
-    fi
-    
-    # Check Docker
-    if docker info > /dev/null 2>&1; then
-        print_step "Docker is running"
-    else
-        print_error "Docker is not responding"
+
+    if [ "$all_ok" = false ]; then
+        echo ""
+        echo -e "  ${YELLOW}Some checks failed. Review the log: ${LOG_FILE}${NC}"
     fi
 }
 
 # =============================================================================
-# PRINT SUMMARY
+# Completion Screen
 # =============================================================================
 
-print_summary() {
-    print_header "Installation Complete!"
-    
-    echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║          MULTIBASE DASHBOARD INSTALLATION SUMMARY              ║${NC}"
-    echo -e "${GREEN}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║                                                                ║${NC}"
-    echo -e "${GREEN}║  Dashboard URL:    https://${DOMAIN}                           ${NC}"
-    echo -e "${GREEN}║  Install Path:     ${INSTALL_DIR}                              ${NC}"
-    echo -e "${GREEN}║  Projects Path:    ${INSTALL_DIR}/projects                     ${NC}"
-    echo -e "${GREEN}║                                                                ║${NC}"
-    echo -e "${GREEN}║  Services:                                                     ║${NC}"
-    echo -e "${GREEN}║    - Backend:      systemctl status multibase-backend          ║${NC}"
-    echo -e "${GREEN}║    - Nginx:        systemctl status nginx                      ║${NC}"
-    echo -e "${GREEN}║    - PostgreSQL:   systemctl status postgresql                 ║${NC}"
-    echo -e "${GREEN}║    - Redis:        systemctl status redis-server               ║${NC}"
-    echo -e "${GREEN}║                                                                ║${NC}"
-    echo -e "${GREEN}║  Logs:                                                         ║${NC}"
-    echo -e "${GREEN}║    journalctl -u multibase-backend -f                          ║${NC}"
-    echo -e "${GREEN}║                                                                ║${NC}"
-    echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
-    
+show_completion() {
     echo ""
-    echo -e "${CYAN}Next steps:${NC}"
-    echo "  1. Visit https://$DOMAIN and log in with admin credentials"
-    echo "  2. Create your first Supabase instance"
-    echo "  3. Configure alert rules and webhooks"
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "  ${GREEN}${BOLD}Installation Complete!${NC}"
+    echo -e "${CYAN}======================================================${NC}"
     echo ""
-    
-    # Save credentials to file
-    cat > "$INSTALL_DIR/CREDENTIALS.txt" << EOF
-Multibase Dashboard Credentials
-================================
-Generated: $(date)
 
-Dashboard URL: https://${DOMAIN}
-Admin Username: admin
-Admin Password: [see terminal output above]
+    case "$DEPLOY_MODE" in
+        single)
+            echo -e "  Frontend:  ${BOLD}https://${FRONTEND_DOMAIN}${NC}"
+            echo -e "  Backend:   ${BOLD}https://${BACKEND_DOMAIN}${NC}"
+            ;;
+        split-frontend)
+            echo -e "  Frontend:  ${BOLD}https://${FRONTEND_DOMAIN}${NC}"
+            echo -e "  Backend:   ${DIM}${BACKEND_URL} (remote)${NC}"
+            ;;
+        split-backend)
+            echo -e "  Backend:   ${BOLD}https://${BACKEND_DOMAIN}${NC}"
+            echo -e "  Frontend:  ${DIM}${FRONTEND_URL} (remote)${NC}"
+            ;;
+    esac
 
-Database:
-  Host: localhost
-  Port: 5432
-  Database: multibase
-  User: multibase
-  Password: ${DB_PASSWORD}
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo ""
+        echo -e "  ${BOLD}Admin Login:${NC}"
+        echo -e "    Username:  ${ADMIN_USER}"
+        echo -e "    Email:     ${ADMIN_EMAIL}"
+        echo -e "    Password:  ${ADMIN_PASS}"
+        echo ""
+        echo -e "  ${YELLOW}Save these credentials! They will not be shown again.${NC}"
+    fi
 
-JWT Secret: ${JWT_SECRET}
+    echo ""
+    echo -e "  ${BOLD}Next Steps:${NC}"
+    echo "    - Point your DNS records to this server's IP"
 
-IMPORTANT: Delete this file after saving credentials securely!
-EOF
-    chmod 600 "$INSTALL_DIR/CREDENTIALS.txt"
-    chown root:root "$INSTALL_DIR/CREDENTIALS.txt"
-    
-    print_warning "Credentials saved to $INSTALL_DIR/CREDENTIALS.txt - DELETE AFTER SAVING!"
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo "    - Set up *.${BACKEND_DOMAIN} wildcard DNS"
+        echo "      for Supabase instance subdomains"
+    fi
+
+    if [ "$DEPLOY_MODE" = "split-backend" ]; then
+        echo "    - Run the installer on your frontend server"
+        echo "      and choose option [2] Split VPS -- Frontend Only"
+    fi
+
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        echo "    - Make sure your backend server is running"
+    fi
+
+    echo "    - Log in and create your first Supabase instance"
+
+    echo ""
+    echo -e "  ${BOLD}Useful Commands:${NC}"
+
+    if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo "    pm2 status                     -- Check backend status"
+        echo "    pm2 logs multibase-backend     -- View backend logs"
+    fi
+
+    echo "    sudo nginx -t                  -- Test Nginx config"
+    echo "    sudo systemctl reload nginx    -- Reload Nginx"
+
+    echo ""
+    echo -e "  ${BOLD}Management:${NC}"
+    echo "    Update:     sudo ${INSTALL_DIR}/deployment/install.sh --update"
+    echo "    Uninstall:  sudo ${INSTALL_DIR}/deployment/install.sh --uninstall"
+
+    echo ""
+    echo -e "  ${DIM}Install log: ${LOG_FILE}${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo ""
 }
 
 # =============================================================================
-# MAIN
+# Update Mode
+# =============================================================================
+
+run_update() {
+    echo ""
+    echo -e "${CYAN}Multibase Dashboard -- Update${NC}"
+    echo ""
+
+    if [ ! -d "$INSTALL_DIR/.git" ]; then
+        error_exit "No installation found at $INSTALL_DIR"
+    fi
+
+    TOTAL_STEPS=6
+    CURRENT_STEP=0
+
+    step "Pulling latest changes..."
+    cd "$INSTALL_DIR"
+    sudo -u "$INSTALL_USER" git pull >> "$LOG_FILE" 2>&1
+    step_ok "Repository updated"
+
+    step "Rebuilding backend..."
+    cd "$INSTALL_DIR/dashboard/backend"
+    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    step_ok "Backend built"
+
+    step "Running database migrations..."
+    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    step_ok "Migrations applied"
+
+    step "Rebuilding frontend..."
+    cd "$INSTALL_DIR/dashboard/frontend"
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    step_ok "Frontend built"
+
+    step "Restarting services..."
+    sudo -u "$INSTALL_USER" pm2 restart "$PM2_APP_NAME" >> "$LOG_FILE" 2>&1
+    step_ok "Backend restarted"
+    nginx -t >> "$LOG_FILE" 2>&1
+    systemctl reload nginx
+    step_ok "Nginx reloaded"
+
+    step "Verifying..."
+    if sudo -u "$INSTALL_USER" pm2 show "$PM2_APP_NAME" &>/dev/null; then
+        step_ok "Backend is running"
+    else
+        step_fail "Backend is not running"
+    fi
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}Update complete!${NC}"
+    echo ""
+}
+
+# =============================================================================
+# Uninstall Mode
+# =============================================================================
+
+run_uninstall() {
+    local keep_data=false
+    if [[ "${2:-}" == "--keep-data" ]]; then
+        keep_data=true
+    fi
+
+    echo ""
+    echo -e "${CYAN}Multibase Dashboard -- Uninstall${NC}"
+    echo ""
+    echo "  The following will be removed:"
+    echo "    - PM2 processes (${PM2_APP_NAME})"
+    echo "    - Nginx vhosts (multibase-frontend, multibase-backend)"
+    echo "    - SSL certificates (via certbot)"
+    echo "    - Redis container (${REDIS_CONTAINER})"
+    echo "    - Install directory (${INSTALL_DIR})"
+    echo "    - UFW rules"
+    echo "    - System user (${INSTALL_USER})"
+    echo ""
+    echo "  NOT removed (system packages):"
+    echo "    - Node.js, Docker, Nginx, Python3, PM2"
+
+    if [ "$keep_data" = true ]; then
+        echo ""
+        echo -e "  ${YELLOW}--keep-data: Projects and database will be preserved${NC}"
+    fi
+
+    echo ""
+    local confirm=""
+    prompt_yn confirm "Continue with uninstall?" "n"
+
+    if [ "$confirm" != "y" ]; then
+        echo "  Uninstall cancelled."
+        exit 0
+    fi
+
+    echo ""
+
+    # Stop PM2
+    echo -e "  Stopping PM2 processes..."
+    sudo -u "$INSTALL_USER" pm2 delete "$PM2_APP_NAME" 2>/dev/null || true
+    sudo -u "$INSTALL_USER" pm2 save --force 2>/dev/null || true
+    echo -e "  ${GREEN}[OK]${NC} PM2 processes stopped"
+
+    # Remove Nginx vhosts
+    echo -e "  Removing Nginx vhosts..."
+    rm -f /etc/nginx/sites-enabled/multibase-frontend
+    rm -f /etc/nginx/sites-enabled/multibase-backend
+    rm -f /etc/nginx/sites-available/multibase-frontend
+    rm -f /etc/nginx/sites-available/multibase-backend
+    nginx -t &>/dev/null && systemctl reload nginx
+    echo -e "  ${GREEN}[OK]${NC} Nginx vhosts removed"
+
+    # Remove SSL certificates
+    echo -e "  Removing SSL certificates..."
+    for cert_dir in /etc/letsencrypt/live/*/; do
+        local cert_name
+        cert_name=$(basename "$cert_dir")
+        if [[ "$cert_name" == *"multibase"* ]] || [[ "$cert_name" == "$FRONTEND_DOMAIN" ]] || [[ "$cert_name" == "$BACKEND_DOMAIN" ]]; then
+            certbot delete --cert-name "$cert_name" --non-interactive 2>/dev/null || true
+        fi
+    done
+    echo -e "  ${GREEN}[OK]${NC} SSL certificates removed"
+
+    # Stop Redis container
+    echo -e "  Stopping Redis container..."
+    docker stop "$REDIS_CONTAINER" 2>/dev/null || true
+    docker rm "$REDIS_CONTAINER" 2>/dev/null || true
+    echo -e "  ${GREEN}[OK]${NC} Redis container removed"
+
+    # Remove installation directory
+    if [ "$keep_data" = true ]; then
+        echo -e "  Preserving data directories..."
+        # Keep projects and db, remove everything else
+        local data_backup
+        data_backup=$(mktemp -d)
+        cp -a "$INSTALL_DIR/projects" "$data_backup/" 2>/dev/null || true
+        cp -a "$INSTALL_DIR/dashboard/backend/data" "$data_backup/" 2>/dev/null || true
+        rm -rf "$INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR/projects" "$INSTALL_DIR/dashboard/backend/data"
+        cp -a "$data_backup/projects"/. "$INSTALL_DIR/projects/" 2>/dev/null || true
+        cp -a "$data_backup/data"/. "$INSTALL_DIR/dashboard/backend/data/" 2>/dev/null || true
+        rm -rf "$data_backup"
+        echo -e "  ${GREEN}[OK]${NC} Data preserved, application removed"
+    else
+        rm -rf "$INSTALL_DIR"
+        echo -e "  ${GREEN}[OK]${NC} Installation directory removed"
+    fi
+
+    # Remove user
+    echo -e "  Removing system user..."
+    userdel -r "$INSTALL_USER" 2>/dev/null || true
+    echo -e "  ${GREEN}[OK]${NC} User removed"
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}Uninstall complete.${NC}"
+    echo ""
+}
+
+# =============================================================================
+# Cleanup Trap
+# =============================================================================
+
+cleanup() {
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo -e "${RED}Installation failed. Check the log for details: ${LOG_FILE}${NC}"
+        echo ""
+    fi
+    rm -f /tmp/multibase-create-admin.js 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+# =============================================================================
+# Main
 # =============================================================================
 
 main() {
-    echo ""
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                                                                   ║${NC}"
-    echo -e "${CYAN}║     ███╗   ███╗██╗   ██╗██╗  ████████╗██╗██████╗  █████╗ ███████╗ ║${NC}"
-    echo -e "${CYAN}║     ████╗ ████║██║   ██║██║  ╚══██╔══╝██║██╔══██╗██╔══██╗██╔════╝ ║${NC}"
-    echo -e "${CYAN}║     ██╔████╔██║██║   ██║██║     ██║   ██║██████╔╝███████║███████╗ ║${NC}"
-    echo -e "${CYAN}║     ██║╚██╔╝██║██║   ██║██║     ██║   ██║██╔══██╗██╔══██║╚════██║ ║${NC}"
-    echo -e "${CYAN}║     ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║██████╔╝██║  ██║███████║ ║${NC}"
-    echo -e "${CYAN}║     ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝╚═════╝ ╚═╝  ╚═╝╚══════╝ ║${NC}"
-    echo -e "${CYAN}║                                                                   ║${NC}"
-    echo -e "${CYAN}║              Automated Installation Script v1.0                   ║${NC}"
-    echo -e "${CYAN}║                                                                   ║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    
+    # Handle flags
+    case "${1:-}" in
+        --update)
+            preflight_checks
+            run_update
+            exit 0
+            ;;
+        --uninstall)
+            preflight_checks
+            run_uninstall "$@"
+            exit 0
+            ;;
+        --version)
+            echo "Multibase Installer v${SCRIPT_VERSION}"
+            exit 0
+            ;;
+        --help|-h)
+            echo "Multibase Dashboard Installer v${SCRIPT_VERSION}"
+            echo ""
+            echo "Usage:"
+            echo "  sudo bash install.sh              Fresh installation"
+            echo "  sudo bash install.sh --update     Update existing installation"
+            echo "  sudo bash install.sh --uninstall  Remove installation"
+            echo "  sudo bash install.sh --uninstall --keep-data  Remove but keep data"
+            echo ""
+            exit 0
+            ;;
+    esac
+
+    # Fresh installation
     preflight_checks
+    show_banner
+    run_wizard
+
+    echo ""
+    echo -e "${BOLD}Starting installation...${NC}"
+    echo ""
+
     install_dependencies
-    setup_user_and_dirs
-    setup_database
-    clone_and_build
+    setup_user_dirs
+    clone_repo
+    setup_python
+    build_backend
+    build_frontend
+    generate_configs
+    start_redis
     configure_nginx
-    configure_systemd
+    start_pm2
     setup_ssl
-    create_admin_user
+    setup_firewall_swap
+    create_admin
     verify_installation
-    print_summary
+    show_completion
 }
 
-# Run main function
 main "$@"

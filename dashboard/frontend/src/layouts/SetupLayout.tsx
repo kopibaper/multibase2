@@ -52,6 +52,9 @@ export default function SetupLayout({}: SetupLayoutProps) {
             <SidebarLink to='/setup/getting-started/requirements' icon={Book}>
               Requirements
             </SidebarLink>
+            <SidebarLink to='/setup/getting-started/installation' icon={Book}>
+              Installation
+            </SidebarLink>
             <SidebarLink to='/setup/getting-started/hosting' icon={Book}>
               Choosing a VPS
             </SidebarLink>

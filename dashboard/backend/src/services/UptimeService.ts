@@ -57,7 +57,7 @@ export class UptimeService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`http://127.0.0.1:${port}/`, {
+      const response = await fetch(`http://localhost:${port}/`, {
         signal: controller.signal,
       });
 
@@ -90,17 +90,23 @@ export class UptimeService {
   /**
    * Get uptime statistics for an instance
    */
-  async getUptimeStats(instanceId: string, days: number = 30) {
+  async getUptimeStats(instanceName: string, days: number = 30) {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
     try {
-      // Verify instance exists to avoid empty stats for non-existent instance
-      // We can skip this if we trust the caller, but good for error handling
+      // Find instance by name to get its ID
+      const instance = await this.prisma.instance.findUnique({
+        where: { name: instanceName },
+      });
+
+      if (!instance) {
+        throw new Error(`Instance not found: ${instanceName}`);
+      }
 
       const records = await this.prisma.uptimeRecord.findMany({
         where: {
-          instanceId,
+          instanceId: instance.id,
           timestamp: {
             gte: since,
           },
@@ -153,7 +159,7 @@ export class UptimeService {
         lastCheck: records[records.length - 1],
       };
     } catch (error) {
-      logger.error(`Error getting stats for ${instanceId}:`, error);
+      logger.error(`Error getting stats for ${instanceName}:`, error);
       throw error;
     }
   }
