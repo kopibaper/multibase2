@@ -118,6 +118,11 @@ model User {
   twoFactorEnabled Boolean             @default(false)
   twoFactorSecret  String?             // TOTP Secret for 2FA
   
+  // AI Assistant
+  aiProvider          String?          // 'openai', 'gemini', 'anthropic', 'openrouter'
+  aiApiKeyEncrypted   String?          // AES-256-GCM encrypted API key
+  aiModel             String?          // Selected model ID (e.g. 'gpt-4o-mini')
+  
   // Password Reset & Email Verification
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
@@ -132,9 +137,37 @@ model User {
   auditLogs        AuditLog[]
   apiKeys          ApiKey[]
   templates        InstanceTemplate[]
+  aiChatSessions   AiChatSession[]
 
   @@index([email])
   @@index([role])
+}
+
+model AiChatSession {
+  id        String          @id @default(uuid())
+  userId    String
+  title     String          @default("New Chat")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiChatMessage[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model AiChatMessage {
+  id          Int            @id @default(autoincrement())
+  sessionId   String
+  role        String         // 'user', 'assistant', 'tool'
+  content     String
+  toolCalls   String?        // JSON array of tool calls
+  toolResults String?        // JSON array of tool results
+  createdAt   DateTime       @default(now())
+  session     AiChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
 }
 
 model Session {
