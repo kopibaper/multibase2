@@ -17,10 +17,14 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import PageHeader from '../components/PageHeader';
+import AiKeySection from '../components/AiKeySection';
+
+type ProfileTab = 'profile' | 'security' | 'ai' | 'account';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -42,6 +46,7 @@ export default function UserProfile() {
   const { user, token, refreshUser } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -439,7 +444,7 @@ export default function UserProfile() {
       </PageHeader>
 
       <main className='container mx-auto px-6 py-8'>
-        <div className='max-w-4xl mx-auto space-y-6'>
+        <div className='max-w-4xl mx-auto'>
           {/* Page Title */}
           <div className='flex items-center gap-3 mb-6'>
             <div className='w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center'>
@@ -451,393 +456,461 @@ export default function UserProfile() {
             </div>
           </div>
 
-          {/* Avatar & Profile Card */}
-          <div className='bg-card border border-border rounded-lg p-6'>
-            <div className='flex items-start gap-6'>
-              {/* Avatar */}
-              <div className='relative group'>
-                {user?.avatar ? (
-                  <img
-                    src={getAvatarUrl(user.avatar) || ''}
-                    alt='Avatar'
-                    className='w-24 h-24 rounded-full object-cover border-2 border-border'
-                  />
-                ) : (
-                  <div className='w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center text-3xl font-bold text-primary border-2 border-border'>
-                    {getInitials()}
+          {/* Tab Navigation */}
+          <div className='flex gap-1 mb-6 bg-card/50 border border-border rounded-xl p-1'>
+            {[
+              { id: 'profile' as ProfileTab, label: 'Profile', icon: User },
+              { id: 'security' as ProfileTab, label: 'Security', icon: Shield },
+              { id: 'ai' as ProfileTab, label: 'AI Assistant', icon: Bot },
+              { id: 'account' as ProfileTab, label: 'Account', icon: AlertCircle },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+                  activeTab === tab.id
+                    ? 'bg-primary/10 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-card'
+                }`}
+              >
+                <tab.icon className='w-4 h-4' />
+                <span className='hidden sm:inline'>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className='space-y-6'>
+            {/* ===== PROFILE TAB ===== */}
+            {activeTab === 'profile' && (
+              <>
+                {/* Avatar & Profile Card */}
+                <div className='bg-card border border-border rounded-lg p-6'>
+                  <div className='flex items-start gap-6'>
+                    {/* Avatar */}
+                    <div className='relative group'>
+                      {user?.avatar ? (
+                        <img
+                          src={getAvatarUrl(user.avatar) || ''}
+                          alt='Avatar'
+                          className='w-24 h-24 rounded-full object-cover border-2 border-border'
+                        />
+                      ) : (
+                        <div className='w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center text-3xl font-bold text-primary border-2 border-border'>
+                          {getInitials()}
+                        </div>
+                      )}
+                      <div className='absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2'>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          className='p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors'
+                          title='Upload avatar'
+                        >
+                          {avatarUploading ? (
+                            <Loader2 className='w-4 h-4 text-white animate-spin' />
+                          ) : (
+                            <Camera className='w-4 h-4 text-white' />
+                          )}
+                        </button>
+                        {user?.avatar && (
+                          <button
+                            onClick={handleRemoveAvatar}
+                            disabled={avatarUploading}
+                            className='p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors'
+                            title='Remove avatar'
+                          >
+                            <X className='w-4 h-4 text-white' />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type='file'
+                        accept='image/*'
+                        onChange={handleAvatarUpload}
+                        className='hidden'
+                      />
+                    </div>
+
+                    {/* Profile Info */}
+                    <div className='flex-1'>
+                      <div className='flex items-center justify-between mb-4'>
+                        <h2 className='text-lg font-semibold text-foreground flex items-center gap-2'>
+                          <User className='w-5 h-5 text-primary' />
+                          User Information
+                        </h2>
+                        {!editingProfile && (
+                          <button
+                            onClick={() => setEditingProfile(true)}
+                            className='flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors'
+                          >
+                            <Edit2 className='w-4 h-4' />
+                            Edit
+                          </button>
+                        )}
+                      </div>
+
+                      {editingProfile ? (
+                        <form onSubmit={handleUpdateProfile} className='space-y-4'>
+                          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                            <div>
+                              <label className='block text-sm text-muted-foreground mb-1'>Username</label>
+                              <input
+                                type='text'
+                                value={editUsername}
+                                onChange={(e) => setEditUsername(e.target.value)}
+                                className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className='block text-sm text-muted-foreground mb-1'>Email</label>
+                              <input
+                                type='email'
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                              />
+                            </div>
+                          </div>
+                          <div className='flex gap-2'>
+                            <button
+                              type='submit'
+                              disabled={savingProfile}
+                              className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2'
+                            >
+                              {savingProfile ? (
+                                <Loader2 className='w-4 h-4 animate-spin' />
+                              ) : (
+                                <Save className='w-4 h-4' />
+                              )}
+                              Save
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => {
+                                setEditingProfile(false);
+                                setEditUsername(user?.username || '');
+                                setEditEmail(user?.email || '');
+                              }}
+                              className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                          <div>
+                            <label className='text-sm text-muted-foreground'>Username</label>
+                            <p className='text-foreground font-medium'>{user?.username}</p>
+                          </div>
+                          <div>
+                            <label className='text-sm text-muted-foreground'>Email</label>
+                            <p className='text-foreground font-medium'>{user?.email}</p>
+                          </div>
+                          <div>
+                            <label className='text-sm text-muted-foreground'>Role</label>
+                            <p className='text-foreground font-medium capitalize'>{user?.role}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-                <div className='absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2'>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={avatarUploading}
-                    className='p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors'
-                    title='Upload avatar'
-                  >
-                    {avatarUploading ? (
-                      <Loader2 className='w-4 h-4 text-white animate-spin' />
-                    ) : (
-                      <Camera className='w-4 h-4 text-white' />
+                </div>
+              </>
+            )}
+
+            {/* ===== SECURITY TAB ===== */}
+            {activeTab === 'security' && (
+              <>
+                {/* Two-Factor Authentication Card */}
+                <div className='bg-card border border-border rounded-lg p-6'>
+                  <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
+                    <Shield className='w-5 h-5 text-purple-500' />
+                    Two-Factor Authentication
+                    {twoFactorEnabled && (
+                      <span className='ml-2 px-2 py-0.5 bg-green-500/20 text-green-500 text-xs rounded-full'>
+                        Enabled
+                      </span>
                     )}
-                  </button>
-                  {user?.avatar && (
-                    <button
-                      onClick={handleRemoveAvatar}
-                      disabled={avatarUploading}
-                      className='p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors'
-                      title='Remove avatar'
-                    >
-                      <X className='w-4 h-4 text-white' />
-                    </button>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type='file'
-                  accept='image/*'
-                  onChange={handleAvatarUpload}
-                  className='hidden'
-                />
-              </div>
-
-              {/* Profile Info */}
-              <div className='flex-1'>
-                <div className='flex items-center justify-between mb-4'>
-                  <h2 className='text-lg font-semibold text-foreground flex items-center gap-2'>
-                    <User className='w-5 h-5 text-primary' />
-                    User Information
                   </h2>
-                  {!editingProfile && (
-                    <button
-                      onClick={() => setEditingProfile(true)}
-                      className='flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors'
-                    >
-                      <Edit2 className='w-4 h-4' />
-                      Edit
-                    </button>
-                  )}
-                </div>
 
-                {editingProfile ? (
-                  <form onSubmit={handleUpdateProfile} className='space-y-4'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                      <div>
-                        <label className='block text-sm text-muted-foreground mb-1'>Username</label>
+                  {!twoFactorEnabled && !twoFASetupData && (
+                    <div className='text-muted-foreground mb-4'>
+                      <p>Add an extra layer of security to your account by enabling 2FA.</p>
+                      <p className='text-sm mt-1'>
+                        You'll need an authenticator app like Google Authenticator or Authy.
+                      </p>
+                    </div>
+                  )}
+
+                  {twoFASetupData ? (
+                    <div className='space-y-4'>
+                      <div className='bg-secondary/50 rounded-lg p-4'>
+                        <p className='text-sm text-muted-foreground mb-4'>
+                          Scan the QR code with your authenticator app, then enter the 6-digit code below.
+                        </p>
+                        <div className='flex flex-col md:flex-row items-center gap-6'>
+                          <img
+                            src={twoFASetupData.qrCodeDataUrl}
+                            alt='2FA QR Code'
+                            className='w-48 h-48 bg-white rounded-lg p-2'
+                          />
+                          <div className='flex-1'>
+                            <p className='text-sm text-muted-foreground mb-2'>Or enter this secret manually:</p>
+                            <code className='block bg-background p-2 rounded text-sm font-mono break-all'>
+                              {twoFASetupData.secret}
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+                      <form onSubmit={handleVerify2FA} className='flex gap-2'>
                         <input
                           type='text'
-                          value={editUsername}
-                          onChange={(e) => setEditUsername(e.target.value)}
-                          className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                          value={twoFACode}
+                          onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder='Enter 6-digit code'
+                          className='flex-1 bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center text-lg tracking-widest'
+                          maxLength={6}
+                        />
+                        <button
+                          type='submit'
+                          disabled={twoFALoading || twoFACode.length !== 6}
+                          className='px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2'
+                        >
+                          {twoFALoading ? (
+                            <Loader2 className='w-4 h-4 animate-spin' />
+                          ) : (
+                            <ShieldCheck className='w-4 h-4' />
+                          )}
+                          Verify
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => {
+                            setTwoFASetupData(null);
+                            setTwoFACode('');
+                          }}
+                          className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    </div>
+                  ) : twoFactorEnabled ? (
+                    <div>
+                      {showDisable2FA ? (
+                        <form onSubmit={handleDisable2FA} className='space-y-4'>
+                          <p className='text-sm text-muted-foreground'>
+                            Enter your 2FA code to disable two-factor authentication.
+                          </p>
+                          <div className='flex gap-2'>
+                            <input
+                              type='text'
+                              value={disableCode}
+                              onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              placeholder='Enter 6-digit code'
+                              className='flex-1 bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center text-lg tracking-widest'
+                              maxLength={6}
+                            />
+                            <button
+                              type='submit'
+                              disabled={twoFALoading || disableCode.length !== 6}
+                              className='px-6 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center gap-2'
+                            >
+                              {twoFALoading ? (
+                                <Loader2 className='w-4 h-4 animate-spin' />
+                              ) : (
+                                <ShieldOff className='w-4 h-4' />
+                              )}
+                              Disable
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => {
+                                setShowDisable2FA(false);
+                                setDisableCode('');
+                              }}
+                              className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className='flex items-center justify-between'>
+                          <p className='text-green-500 flex items-center gap-2'>
+                            <ShieldCheck className='w-5 h-5' />
+                            Two-factor authentication is enabled
+                          </p>
+                          <button
+                            onClick={() => setShowDisable2FA(true)}
+                            className='px-4 py-2 text-destructive hover:bg-destructive/10 rounded-md transition-colors'
+                          >
+                            Disable 2FA
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleEnable2FA}
+                      disabled={twoFALoading}
+                      className='px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2'
+                    >
+                      {twoFALoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <Shield className='w-4 h-4' />}
+                      Enable Two-Factor Authentication
+                    </button>
+                  )}
+                </div>
+
+                {/* Password Change Card */}
+                <div className='bg-card border border-border rounded-lg p-6'>
+                  <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
+                    <Key className='w-5 h-5 text-yellow-500' />
+                    Change Password
+                  </h2>
+                  <form onSubmit={handleChangePassword} className='space-y-4'>
+                    <div>
+                      <label className='block text-sm text-muted-foreground mb-1'>Current Password</label>
+                      <input
+                        type='password'
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                        placeholder='••••••••'
+                        required
+                      />
+                    </div>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                      <div>
+                        <label className='block text-sm text-muted-foreground mb-1'>New Password</label>
+                        <input
+                          type='password'
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                          placeholder='••••••••'
                           required
                         />
                       </div>
                       <div>
-                        <label className='block text-sm text-muted-foreground mb-1'>Email</label>
+                        <label className='block text-sm text-muted-foreground mb-1'>Confirm Password</label>
                         <input
-                          type='email'
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                          type='password'
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+                          placeholder='••••••••'
+                          required
                         />
                       </div>
                     </div>
-                    <div className='flex gap-2'>
-                      <button
-                        type='submit'
-                        disabled={savingProfile}
-                        className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2'
-                      >
-                        {savingProfile ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
-                        Save
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => {
-                          setEditingProfile(false);
-                          setEditUsername(user?.username || '');
-                          setEditEmail(user?.email || '');
-                        }}
-                        className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                    <div>
-                      <label className='text-sm text-muted-foreground'>Username</label>
-                      <p className='text-foreground font-medium'>{user?.username}</p>
-                    </div>
-                    <div>
-                      <label className='text-sm text-muted-foreground'>Email</label>
-                      <p className='text-foreground font-medium'>{user?.email}</p>
-                    </div>
-                    <div>
-                      <label className='text-sm text-muted-foreground'>Role</label>
-                      <p className='text-foreground font-medium capitalize'>{user?.role}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Two-Factor Authentication Card */}
-          <div className='bg-card border border-border rounded-lg p-6'>
-            <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
-              <Shield className='w-5 h-5 text-purple-500' />
-              Two-Factor Authentication
-              {twoFactorEnabled && (
-                <span className='ml-2 px-2 py-0.5 bg-green-500/20 text-green-500 text-xs rounded-full'>Enabled</span>
-              )}
-            </h2>
-
-            {!twoFactorEnabled && !twoFASetupData && (
-              <div className='text-muted-foreground mb-4'>
-                <p>Add an extra layer of security to your account by enabling 2FA.</p>
-                <p className='text-sm mt-1'>You'll need an authenticator app like Google Authenticator or Authy.</p>
-              </div>
-            )}
-
-            {twoFASetupData ? (
-              <div className='space-y-4'>
-                <div className='bg-secondary/50 rounded-lg p-4'>
-                  <p className='text-sm text-muted-foreground mb-4'>
-                    Scan the QR code with your authenticator app, then enter the 6-digit code below.
-                  </p>
-                  <div className='flex flex-col md:flex-row items-center gap-6'>
-                    <img
-                      src={twoFASetupData.qrCodeDataUrl}
-                      alt='2FA QR Code'
-                      className='w-48 h-48 bg-white rounded-lg p-2'
-                    />
-                    <div className='flex-1'>
-                      <p className='text-sm text-muted-foreground mb-2'>Or enter this secret manually:</p>
-                      <code className='block bg-background p-2 rounded text-sm font-mono break-all'>
-                        {twoFASetupData.secret}
-                      </code>
-                    </div>
-                  </div>
-                </div>
-                <form onSubmit={handleVerify2FA} className='flex gap-2'>
-                  <input
-                    type='text'
-                    value={twoFACode}
-                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder='Enter 6-digit code'
-                    className='flex-1 bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center text-lg tracking-widest'
-                    maxLength={6}
-                  />
-                  <button
-                    type='submit'
-                    disabled={twoFALoading || twoFACode.length !== 6}
-                    className='px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2'
-                  >
-                    {twoFALoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <ShieldCheck className='w-4 h-4' />}
-                    Verify
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      setTwoFASetupData(null);
-                      setTwoFACode('');
-                    }}
-                    className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
-                  >
-                    Cancel
-                  </button>
-                </form>
-              </div>
-            ) : twoFactorEnabled ? (
-              <div>
-                {showDisable2FA ? (
-                  <form onSubmit={handleDisable2FA} className='space-y-4'>
-                    <p className='text-sm text-muted-foreground'>
-                      Enter your 2FA code to disable two-factor authentication.
-                    </p>
-                    <div className='flex gap-2'>
-                      <input
-                        type='text'
-                        value={disableCode}
-                        onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder='Enter 6-digit code'
-                        className='flex-1 bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center text-lg tracking-widest'
-                        maxLength={6}
-                      />
-                      <button
-                        type='submit'
-                        disabled={twoFALoading || disableCode.length !== 6}
-                        className='px-6 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center gap-2'
-                      >
-                        {twoFALoading ? (
-                          <Loader2 className='w-4 h-4 animate-spin' />
-                        ) : (
-                          <ShieldOff className='w-4 h-4' />
-                        )}
-                        Disable
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => {
-                          setShowDisable2FA(false);
-                          setDisableCode('');
-                        }}
-                        className='px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80'
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className='flex items-center justify-between'>
-                    <p className='text-green-500 flex items-center gap-2'>
-                      <ShieldCheck className='w-5 h-5' />
-                      Two-factor authentication is enabled
-                    </p>
                     <button
-                      onClick={() => setShowDisable2FA(true)}
-                      className='px-4 py-2 text-destructive hover:bg-destructive/10 rounded-md transition-colors'
+                      type='submit'
+                      disabled={changingPassword}
+                      className='px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors'
                     >
-                      Disable 2FA
+                      {changingPassword ? 'Saving...' : 'Change Password'}
                     </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={handleEnable2FA}
-                disabled={twoFALoading}
-                className='px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2'
-              >
-                {twoFALoading ? <Loader2 className='w-4 h-4 animate-spin' /> : <Shield className='w-4 h-4' />}
-                Enable Two-Factor Authentication
-              </button>
-            )}
-          </div>
-
-          {/* Password Change Card */}
-          <div className='bg-card border border-border rounded-lg p-6'>
-            <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
-              <Key className='w-5 h-5 text-yellow-500' />
-              Change Password
-            </h2>
-            <form onSubmit={handleChangePassword} className='space-y-4'>
-              <div>
-                <label className='block text-sm text-muted-foreground mb-1'>Current Password</label>
-                <input
-                  type='password'
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
-                  placeholder='••••••••'
-                  required
-                />
-              </div>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-sm text-muted-foreground mb-1'>New Password</label>
-                  <input
-                    type='password'
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
-                    placeholder='••••••••'
-                    required
-                  />
+                  </form>
                 </div>
-                <div>
-                  <label className='block text-sm text-muted-foreground mb-1'>Confirm Password</label>
-                  <input
-                    type='password'
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className='w-full bg-secondary border border-border rounded-md px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
-                    placeholder='••••••••'
-                    required
-                  />
-                </div>
-              </div>
-              <button
-                type='submit'
-                disabled={changingPassword}
-                className='px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors'
-              >
-                {changingPassword ? 'Saving...' : 'Change Password'}
-              </button>
-            </form>
-          </div>
 
-          {/* Active Sessions Card */}
-          <div className='bg-card border border-border rounded-lg p-6'>
-            <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
-              <Monitor className='w-5 h-5 text-green-500' />
-              Active Sessions ({sessions.length})
-            </h2>
+                {/* Active Sessions Card */}
+                <div className='bg-card border border-border rounded-lg p-6'>
+                  <h2 className='text-lg font-semibold text-foreground mb-4 flex items-center gap-2'>
+                    <Monitor className='w-5 h-5 text-green-500' />
+                    Active Sessions ({sessions.length})
+                  </h2>
 
-            {loading ? (
-              <div className='text-muted-foreground'>Loading...</div>
-            ) : sessions.length === 0 ? (
-              <div className='text-muted-foreground'>No active sessions found</div>
-            ) : (
-              <div className='space-y-3'>
-                {sessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className='flex items-center justify-between bg-secondary/50 border border-border rounded-lg p-4'
-                  >
-                    <div className='flex items-center gap-4'>
-                      <div className='w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center'>
-                        <Globe className='w-5 h-5 text-primary' />
-                      </div>
-                      <div>
-                        <p className='text-foreground font-medium'>{parseUserAgent(session.userAgent)}</p>
-                        <div className='flex items-center gap-3 text-sm text-muted-foreground'>
-                          <span className='flex items-center gap-1'>
-                            <Globe className='w-3 h-3' />
-                            {session.ipAddress || 'Unknown IP'}
-                          </span>
-                          <span className='flex items-center gap-1'>
-                            <Clock className='w-3 h-3' />
-                            {formatDate(session.createdAt)}
-                          </span>
+                  {loading ? (
+                    <div className='text-muted-foreground'>Loading...</div>
+                  ) : sessions.length === 0 ? (
+                    <div className='text-muted-foreground'>No active sessions found</div>
+                  ) : (
+                    <div className='space-y-3'>
+                      {sessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className='flex items-center justify-between bg-secondary/50 border border-border rounded-lg p-4'
+                        >
+                          <div className='flex items-center gap-4'>
+                            <div className='w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center'>
+                              <Globe className='w-5 h-5 text-primary' />
+                            </div>
+                            <div>
+                              <p className='text-foreground font-medium'>{parseUserAgent(session.userAgent)}</p>
+                              <div className='flex items-center gap-3 text-sm text-muted-foreground'>
+                                <span className='flex items-center gap-1'>
+                                  <Globe className='w-3 h-3' />
+                                  {session.ipAddress || 'Unknown IP'}
+                                </span>
+                                <span className='flex items-center gap-1'>
+                                  <Clock className='w-3 h-3' />
+                                  {formatDate(session.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleTerminateSession(session.id)}
+                            className='flex items-center gap-2 text-destructive hover:text-destructive/80 hover:bg-destructive/10 px-3 py-2 rounded-md transition-colors'
+                            title='Terminate session'
+                          >
+                            <LogOut className='w-4 h-4' />
+                            <span className='hidden sm:inline'>End</span>
+                          </button>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                    <button
-                      onClick={() => handleTerminateSession(session.id)}
-                      className='flex items-center gap-2 text-destructive hover:text-destructive/80 hover:bg-destructive/10 px-3 py-2 rounded-md transition-colors'
-                      title='Terminate session'
-                    >
-                      <LogOut className='w-4 h-4' />
-                      <span className='hidden sm:inline'>End</span>
-                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ===== AI ASSISTANT TAB ===== */}
+            {activeTab === 'ai' && (
+              <div className='bg-card border border-border rounded-lg p-6'>
+                <div className='flex items-center gap-3 mb-6'>
+                  <div className='w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center'>
+                    <Bot className='w-5 h-5 text-purple-400' />
                   </div>
-                ))}
+                  <div>
+                    <h2 className='text-lg font-semibold text-foreground'>AI Assistant Configuration</h2>
+                    <p className='text-sm text-muted-foreground'>
+                      Configure your AI provider and model to use the chat assistant
+                    </p>
+                  </div>
+                </div>
+                <AiKeySection />
               </div>
             )}
-          </div>
 
-          {/* Danger Zone */}
-          <div className='bg-destructive/5 border border-destructive/20 rounded-lg p-6'>
-            <h2 className='text-lg font-semibold text-destructive mb-4 flex items-center gap-2'>
-              <AlertCircle className='w-5 h-5' />
-              Danger Zone
-            </h2>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-foreground font-medium'>Delete Account</p>
-                <p className='text-sm text-muted-foreground'>
-                  Permanently delete your account and all associated data. This action cannot be undone.
-                </p>
+            {/* ===== ACCOUNT TAB ===== */}
+            {activeTab === 'account' && (
+              <div className='bg-destructive/5 border border-destructive/20 rounded-lg p-6'>
+                <h2 className='text-lg font-semibold text-destructive mb-4 flex items-center gap-2'>
+                  <AlertCircle className='w-5 h-5' />
+                  Danger Zone
+                </h2>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-foreground font-medium'>Delete Account</p>
+                    <p className='text-sm text-muted-foreground'>
+                      Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className='px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors'
+                  >
+                    Delete Account
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className='px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors'
-              >
-                Delete Account
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </main>

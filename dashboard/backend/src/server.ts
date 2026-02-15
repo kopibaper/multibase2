@@ -42,6 +42,8 @@ import { UptimeService } from './services/UptimeService';
 import { FunctionService } from './services/FunctionService';
 import { StorageService } from './services/StorageService';
 import { createStorageRoutes } from './routes/storage';
+import { createAiAgentRoutes } from './routes/ai-agent';
+import { AiAgentService } from './services/AiAgentService';
 
 // Utils
 import { logger } from './utils/logger';
@@ -85,8 +87,8 @@ app.use(
   })
 );
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // Static file serving for uploads (avatars)
@@ -152,6 +154,16 @@ app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
+
+// AI Agent
+const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {
+  metricsCollector,
+  redisCache,
+  uptimeService,
+  functionService,
+  storageService,
+});
+app.use('/api/ai-agent', createAiAgentRoutes(aiAgentService, prisma));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {

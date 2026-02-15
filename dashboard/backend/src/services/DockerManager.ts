@@ -22,8 +22,13 @@ export class DockerManager {
         dockerOptions = { socketPath: dockerHost };
       }
     } else {
-      // Default Unix socket
-      dockerOptions = { socketPath: '/var/run/docker.sock' };
+      // Auto-detect: Windows named pipe vs Unix socket
+      const isWindows = process.platform === 'win32';
+      const defaultSocket = isWindows ? '//./pipe/docker_engine' : '/var/run/docker.sock';
+      dockerOptions = { socketPath: defaultSocket };
+      logger.info(
+        `Using default Docker socket for ${isWindows ? 'Windows' : 'Linux'}: ${defaultSocket}`
+      );
     }
 
     this.docker = new Docker(dockerOptions);

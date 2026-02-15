@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { File as FileIcon, Download, Trash2 } from 'lucide-react';
+import { File as FileIcon, Download, Trash2, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface FileItemProps {
   file: any;
@@ -26,6 +27,19 @@ export default function FileItem({ file, isPrivate, onPreview, onDownload, onDel
     };
   }, [file.name, isPrivate, isImage]);
 
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const url = await getFileUrl(file.name, isPrivate);
+      if (url) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard');
+      }
+    } catch (error) {
+      toast.error('Failed to copy link');
+    }
+  };
+
   return (
     <div
       className='group relative flex flex-col items-center p-3 rounded-lg border border-transparent hover:border-border hover:bg-secondary/30 transition-all cursor-pointer'
@@ -51,6 +65,13 @@ export default function FileItem({ file, isPrivate, onPreview, onDownload, onDel
 
         {/* Overlay actions */}
         <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm'>
+          <button
+            onClick={handleCopyLink}
+            className='p-1.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors'
+            title='Copy Link'
+          >
+            <Copy className='w-4 h-4' />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
