@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import AiChatPanel from '../components/AiChatPanel';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,6 +54,9 @@ export default function DashboardLayout() {
       <main className='lg:ml-64 min-h-screen relative z-10 pt-14 lg:pt-0'>
         <Outlet />
       </main>
+
+      {/* AI Chat Overlay */}
+      <AiChatPanel />
     </div>
   );
 }
