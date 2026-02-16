@@ -1,6 +1,30 @@
-# Future Features - Multibase Dashboard v1.3
+# Multibase Dashboard v1.3 - Features
 
-Planned features for the next major version of the Multibase Dashboard.
+Features and roadmap for version 1.3.
+
+---
+
+## 🤖 **AI Chat Agent** ✅
+
+### **Description**
+
+Integrated AI assistant for natural-language infrastructure management. Supports multi-provider LLMs with tool calling to operate all Supabase instances directly from the chat panel.
+
+### **Features**
+
+- ✅ **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, OpenRouter (incl. Llama, Mistral, DeepSeek)
+- ✅ **30+ Tools**: Instance CRUD, backups, storage, SQL execution, logs, metrics, templates, alerts
+- ✅ **Destructive Action Confirmation**: Dangerous operations require explicit user approval
+- ✅ **Session Management**: Persistent chat history per user with multiple sessions
+- ✅ **SSE Streaming**: Real-time response streaming via Server-Sent Events
+- ✅ **Encrypted Key Storage**: User API keys encrypted at rest (AES-256-GCM)
+- ✅ **Rate Limiting**: 50 messages/hour per user
+
+### **Priority**: High
+
+### **Effort**: Completed
+
+> 📖 Full technical documentation: [AIchat.md](./AIchat.md)
 
 ---
 
@@ -78,3 +102,7 @@ Tools for data privacy and compliance.
 ### **Priority**: Low
 
 ### **Effort**: Medium (1-2 Weeks)
+
+---
+
+[Back to Version Overview](./VERSION_OVERVIEW.md)

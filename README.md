@@ -105,13 +105,15 @@ A complete reference of all technical documentation available in this repository
 
 ### 🗺️ Features & Roadmap (`/Markdowns`)
 
-| Document                                              | Description                                             | Status      |
-| :---------------------------------------------------- | :------------------------------------------------------ | :---------- |
-| [**Feature Guide v1.0**](Markdowns/README.md)         | Complete manual for the current production version.     | ✅ Active   |
-| [**Roadmap v1.1**](Markdowns/Readme1_1_feature.md)    | detailed task list for upcoming Q1 2026 release.        | 🚧 Planning |
-| [**Vision v1.2**](Markdowns/Readme1_2_Feature.md)     | Future concepts for Multi-Tenancy and Billing.          | 🔮 Future   |
-| [**Version Overview**](Markdowns/VERSION_OVERVIEW.md) | High-level summary of the update strategy.              | ℹ️ Info     |
-| [**Scripts Reference**](Markdowns/SCRIPTS.md)         | Guide to the maintenance scripts in the root directory. | 🔧 Tech     |
+| Document                                              | Description                                             | Status       |
+| :---------------------------------------------------- | :------------------------------------------------------ | :----------- |
+| [**Feature Guide v1.0**](Markdowns/README.md)         | Complete manual for the current production version.     | ✅ Active    |
+| [**Features v1.1**](Markdowns/Readme1_1_feature.md)   | User Mgmt, Alerts, Backups, Security, Templates, SMTP.  | ✅ Released  |
+| [**Features v1.2**](Markdowns/Readme1_2_Feature.md)   | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
+| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)   | AI Chat Agent, Multi-Tenancy, Cost Tracking (planned).   | 🚧 Active   |
+| [**AI Chat Agent**](Markdowns/AIchat.md)               | Deep-dive: AI assistant with 30+ tools & multi-provider. | 🤖 Tech      |
+| [**Version Overview**](Markdowns/VERSION_OVERVIEW.md) | High-level summary of the update strategy.              | ℹ️ Info      |
+| [**Scripts Reference**](Markdowns/SCRIPTS.md)         | Guide to the maintenance scripts in the root directory. | 🔧 Tech      |
 
 ### 🛠️ Deployment & Operations (`/deployment`, `/docs`)
 
