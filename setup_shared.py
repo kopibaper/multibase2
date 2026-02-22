@@ -29,6 +29,12 @@ import hashlib
 import base64
 from pathlib import Path
 
+# Ensure stdout/stderr use UTF-8 on Windows (needed for emoji output)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 
 def generate_random_string(length, chars=None):
     """Generate a random string of specified length."""

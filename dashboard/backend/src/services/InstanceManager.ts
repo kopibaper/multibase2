@@ -346,6 +346,7 @@ export class InstanceManager {
         const child = spawn(pythonCmd, [setupScript, ...args], {
           cwd: this.templatesPath,
           stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
         });
 
         let stdout = '';
