@@ -1,0 +1,40 @@
+# Force LF line endings for files used in Linux containers
+# prevents Windows git autocrlf from breaking container configs
+
+# Shell scripts
+*.sh        text eol=lf
+
+# SQL files (PostgreSQL init scripts run inside containers)
+*.sql       text eol=lf
+
+# Elixir config files (Supavisor/Pooler)
+*.exs       text eol=lf
+*.ex        text eol=lf
+
+# YAML/YML configs
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# TOML configs
+*.toml      text eol=lf
+
+# NGINX configs
+*.conf      text eol=lf
+
+# Environment templates
+*.env       text eol=lf
+.env*       text eol=lf
+
+# TypeScript/JavaScript (can stay with native, no impact on containers)
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.json      text eol=lf
+
+# Python
+*.py        text eol=lf
+
+# General text files
+*.md        text eol=lf
+*.txt       text eol=lf
