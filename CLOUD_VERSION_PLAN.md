@@ -1,5 +1,44 @@
 # Multibase Cloud Version – Architektur-Plan
 
+## Implementierungs-Fortschritt
+
+| Phase | Status | Details |
+|---|---|---|
+| **Phase 0** | ✅ FERTIG | Branch, Verzeichnisstruktur, Plan-Dokument |
+| **Phase 1.1** | ✅ FERTIG | `shared/docker-compose.shared.yml` (9 Services) |
+| **Phase 1.2** | ✅ FERTIG | DB-Init-Scripts (7 SQL-Dateien in `shared/volumes/db/init/`) |
+| **Phase 1.3** | ✅ FERTIG | `supabase_setup.py` komplett umgeschrieben (6 statt 13 Container) |
+| **Phase 1.4** | ✅ FERTIG | `supabase_manager.py` angepasst (shared-start/stop/status + Tenant-Mgmt) |
+| **Phase 2.1** | ✅ FERTIG | Shared Vector (multi-tenant Log-Routing in `shared/volumes/logs/vector.yml`) |
+| **Phase 2.2** | ✅ FERTIG | Shared Analytics, Studio, Meta, imgproxy (in docker-compose.shared.yml) |
+| **Phase 2.3** | ✅ FERTIG | Per-Projekt Analytics/Vector entfernt (in supabase_setup.py) |
+| **Phase 3** | ✅ FERTIG | Shared Studio, Meta, imgproxy, Pooler (in docker-compose.shared.yml) |
+| **Phase 4** | ✅ FERTIG | Lightweight Tenant Template (6 Container pro Projekt) |
+| **Phase 5** | 🔄 OFFEN | Dashboard Backend Anpassungen |
+| **Phase 6** | 🔄 OFFEN | Dashboard Frontend Anpassungen |
+| **Phase 7** | 🔄 OFFEN | Nginx & Routing |
+| **Phase 8** | ⬜ OPTIONAL | Erweiterte Optimierungen (Shared Kong, Realtime, Auth) |
+
+### Erstellte Dateien (Cloud-Version)
+- `shared/docker-compose.shared.yml` - 9 Shared Services
+- `shared/.env.shared` - Template-Konfiguration
+- `shared/volumes/db/init/97-_supabase.sql` - Supabase-Basis-Schema
+- `shared/volumes/db/init/98-webhooks.sql` - Webhook-Schema
+- `shared/volumes/db/init/99-realtime.sql` - Realtime-Schema
+- `shared/volumes/db/init/99-logs.sql` - Analytics-Schema
+- `shared/volumes/db/init/99-pooler.sql` - Pooler-Schema
+- `shared/volumes/db/init/99-jwt.sql` - JWT-Einstellungen
+- `shared/volumes/db/init/99-roles.sql` - Rollen-Passwörter
+- `shared/volumes/logs/vector.yml` - Multi-Tenant Log-Config
+- `shared/volumes/pooler/pooler.exs` - Pooler-Config
+- `shared/volumes/api/kong.yml` - Shared Kong-Config
+- `setup_shared.py` - Shared Infrastructure Manager (CLI)
+- `supabase_setup.py` - **UMGESCHRIEBEN** (Lightweight 6-Container Template)
+- `supabase_manager.py` - **AKTUALISIERT** (Shared + Tenant Befehle)
+- `supabase_setup_original.py` - Backup der Original-Version
+
+---
+
 ## Branch-Strategie
 
 | Branch | Zweck | Deployment |
@@ -120,9 +159,9 @@ Supabase Cloud teilt sich Infrastruktur-Services über alle Projekte:
 
 #### 0.1 Branch & Projekt-Setup
 - [x] Branch `cloud-version` erstellen
-- [ ] Alle Dateien aus `main` übernehmen (bereits durch Branch-Erstellung)
-- [ ] `.gitignore` anpassen für neue Konfigurationen
-- [ ] `CLOUD_VERSION_PLAN.md` (dieses Dokument) committen
+- [x] Alle Dateien aus `main` übernehmen (bereits durch Branch-Erstellung)
+- [x] `.gitignore` anpassen für neue Konfigurationen
+- [x] `CLOUD_VERSION_PLAN.md` (dieses Dokument) committen
 
 #### 0.2 Neue Verzeichnisstruktur definieren
 ```
@@ -211,12 +250,12 @@ CREATE DATABASE project_{name};
 -- (realtime, webhooks, roles, jwt, pooler, logs, _supabase)
 ```
 
-#### 1.3 Änderungen in `supabase_setup.py`
-- **ENTFERNEN**: `db` und `vector` Service aus dem per-Projekt docker-compose Template
-- **ÄNDERN**: Alle `POSTGRES_HOST` → `multibase-db` (shared Container)
-- **ÄNDERN**: Alle `DB_PORT: 5432` → zeigen auf den shared PG
-- **NEU**: SQL-Initialisierung der Projekt-Datenbank im shared Cluster
-- **NEU**: Projekt-spezifische Passwörter für DB-Rollen
+#### 1.3 Änderungen in `supabase_setup.py` ✅ ERLEDIGT
+- [x] **ENTFERNEN**: `db` und `vector` Service aus dem per-Projekt docker-compose Template
+- [x] **ÄNDERN**: Alle `POSTGRES_HOST` → `multibase-db` (shared Container)
+- [x] **ÄNDERN**: Alle `DB_PORT: 5432` → zeigen auf den shared PG
+- [x] **NEU**: SQL-Initialisierung der Projekt-Datenbank im shared Cluster
+- [x] **NEU**: Projekt-spezifische Passwörter für DB-Rollen
 
 #### 1.4 Änderungen im Dashboard Backend
 - `InstanceManager.ts`: Bei `create` → SQL ausführen statt neuen DB-Container starten

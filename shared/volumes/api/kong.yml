@@ -1,0 +1,86 @@
+_format_version: '2.1'
+_transform: true
+
+# Shared Kong - Minimale Konfiguration für Studio/Meta Zugriff
+# Per-Projekt Kong-Instanzen übernehmen das volle API-Routing.
+
+consumers:
+  - username: DASHBOARD
+  - username: anon
+    keyauth_credentials:
+      - key: $SUPABASE_ANON_KEY
+  - username: service_role
+    keyauth_credentials:
+      - key: $SUPABASE_SERVICE_KEY
+
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: admin
+
+basicauth_credentials:
+  - consumer: DASHBOARD
+    username: $DASHBOARD_USERNAME
+    password: $DASHBOARD_PASSWORD
+
+services:
+  # Analytics API (für Studio Logs)
+  - name: analytics
+    url: http://multibase-analytics:4000
+    routes:
+      - name: analytics-route
+        paths:
+          - /analytics/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+          max_age: 3600
+
+  # Meta API (für Studio DB-Verwaltung)
+  - name: meta
+    url: http://multibase-meta:8080
+    routes:
+      - name: meta-route
+        paths:
+          - /pg
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: true
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin

@@ -1,0 +1,290 @@
+# Multibase Cloud Version - Shared Infrastructure
+# Diese Services werden EINMAL gestartet und von allen Projekten geteilt.
+#
+# Start:   docker compose -f shared/docker-compose.shared.yml up -d
+# Stop:    docker compose -f shared/docker-compose.shared.yml down
+# Logs:    docker compose -f shared/docker-compose.shared.yml logs -f
+# Status:  docker compose -f shared/docker-compose.shared.yml ps
+
+name: multibase-shared
+
+services:
+  # ============================================================
+  # Shared PostgreSQL - Ein Cluster für alle Projekte
+  # ============================================================
+  db:
+    container_name: multibase-db
+    image: supabase/postgres:15.8.1.060
+    restart: unless-stopped
+    ports:
+      - "${SHARED_PG_PORT:-5432}:5432"
+    volumes:
+      # DB Init Scripts (Supabase-Basis)
+      - ./volumes/db/init/97-_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      - ./volumes/db/init/99-realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./volumes/db/init/99-logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      - ./volumes/db/init/99-pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      - ./volumes/db/init/98-webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      - ./volumes/db/init/99-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/init/99-jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # Persistent data
+      - ./volumes/db/data:/var/lib/postgresql/data:Z
+      # Custom config
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-d', '_supabase', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      vector:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${SHARED_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_SECRET: ${SHARED_JWT_SECRET}
+      JWT_EXP: ${SHARED_JWT_EXPIRY:-3600}
+    command:
+      [
+        'postgres',
+        '-c', 'config_file=/etc/postgresql/postgresql.conf',
+        '-c', 'max_connections=500',
+        '-c', 'log_min_messages=warning',
+      ]
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Studio - Ein Dashboard für alle Projekte
+  # ============================================================
+  studio:
+    container_name: multibase-studio
+    image: supabase/studio:20250317-6955350
+    restart: unless-stopped
+    ports:
+      - "${SHARED_STUDIO_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      analytics:
+        condition: service_healthy
+    environment:
+      STUDIO_PG_META_URL: http://multibase-meta:8080
+      STORAGE_URL: http://multibase-storage:5000
+      POSTGRES_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: ${SHARED_STUDIO_ORG:-Multibase}
+      DEFAULT_PROJECT_NAME: ${SHARED_STUDIO_PROJECT:-default}
+      SUPABASE_URL: http://multibase-kong:8000
+      SUPABASE_PUBLIC_URL: ${SHARED_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${SHARED_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SHARED_SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${SHARED_JWT_SECRET}
+      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY}
+      LOGFLARE_URL: http://multibase-analytics:4000
+      NEXT_PUBLIC_ENABLE_LOGS: true
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Kong - Zentrales API-Gateway (für Studio/Meta Zugriff)
+  # ============================================================
+  kong:
+    container_name: multibase-kong
+    image: kong:2.8.1
+    restart: unless-stopped
+    ports:
+      - "${SHARED_KONG_HTTP_PORT:-8000}:8000/tcp"
+      - "${SHARED_KONG_HTTPS_PORT:-8443}:8443/tcp"
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+    depends_on:
+      analytics:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: 'off'
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: ${SHARED_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SHARED_SERVICE_ROLE_KEY}
+      DASHBOARD_USERNAME: ${SHARED_DASHBOARD_USERNAME:-supabase}
+      DASHBOARD_PASSWORD: ${SHARED_DASHBOARD_PASSWORD}
+    entrypoint: /docker-entrypoint.sh kong docker-start
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Analytics (Logflare) - Zentrales Logging
+  # ============================================================
+  analytics:
+    container_name: multibase-analytics
+    image: supabase/logflare:1.12.0
+    restart: unless-stopped
+    ports:
+      - "${SHARED_ANALYTICS_PORT:-4000}:4000"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ['CMD', 'curl', 'http://localhost:4000/health']
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LOGFLARE_NODE_HOST: 127.0.0.1
+      DB_USERNAME: supabase_admin
+      DB_DATABASE: _supabase
+      DB_HOSTNAME: multibase-db
+      DB_PORT: 5432
+      DB_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
+      DB_SCHEMA: _analytics
+      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY}
+      LOGFLARE_SINGLE_TENANT: true
+      LOGFLARE_SUPABASE_MODE: true
+      LOGFLARE_MIN_CLUSTER_SIZE: 1
+      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${SHARED_POSTGRES_PASSWORD}@multibase-db:5432/_supabase
+      POSTGRES_BACKEND_SCHEMA: _analytics
+      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Vector - Log-Collector für ALLE Container
+  # ============================================================
+  vector:
+    container_name: multibase-vector
+    image: timberio/vector:0.28.1-alpine
+    restart: unless-stopped
+    volumes:
+      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
+      - /var/run/docker.sock:/var/run/docker.sock:ro,z
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://multibase-vector:9001/health']
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY}
+    command: ['--config', '/etc/vector/vector.yml']
+    security_opt:
+      - 'label=disable'
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Meta - PostgreSQL-Metadaten-API für Studio
+  # ============================================================
+  meta:
+    container_name: multibase-meta
+    image: supabase/postgres-meta:v0.87.1
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: multibase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared imgproxy - Bild-Transformationen
+  # ============================================================
+  imgproxy:
+    container_name: multibase-imgproxy
+    image: darthsim/imgproxy:v3.8.0
+    restart: unless-stopped
+    volumes:
+      - ./volumes/storage:/var/lib/storage:z
+    healthcheck:
+      test: ['CMD', 'imgproxy', 'health']
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      IMGPROXY_BIND: ':5001'
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: 'true'
+      IMGPROXY_ENABLE_WEBP_DETECTION: 'true'
+    networks:
+      - multibase-shared
+
+  # ============================================================
+  # Shared Supavisor/Pooler - Connection Pooling
+  # ============================================================
+  pooler:
+    container_name: multibase-pooler
+    image: supabase/supavisor:2.4.14
+    restart: unless-stopped
+    ports:
+      - "${SHARED_POOLER_PORT:-6543}:6543"
+    volumes:
+      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
+    healthcheck:
+      test: ['CMD', 'curl', '-sSfL', '--head', '-o', '/dev/null', 'http://127.0.0.1:4000/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
+      DATABASE_URL: ecto://supabase_admin:${SHARED_POSTGRES_PASSWORD}@multibase-db:5432/_supabase
+      CLUSTER_POSTGRES: true
+      SECRET_KEY_BASE: ${SHARED_SECRET_KEY_BASE}
+      VAULT_ENC_KEY: ${SHARED_VAULT_ENC_KEY}
+      API_JWT_SECRET: ${SHARED_JWT_SECRET}
+      METRICS_JWT_SECRET: ${SHARED_JWT_SECRET}
+      REGION: local
+      ERL_AFLAGS: -proto_dist inet_tcp
+      POOLER_TENANT_ID: ${SHARED_POOLER_TENANT_ID:-multibase-shared}
+      POOLER_DEFAULT_POOL_SIZE: ${SHARED_POOLER_POOL_SIZE:-50}
+      POOLER_MAX_CLIENT_CONN: ${SHARED_POOLER_MAX_CONN:-500}
+      POOLER_POOL_MODE: transaction
+    command:
+      [
+        '/bin/sh',
+        '-c',
+        '/app/bin/migrate && /app/bin/supavisor eval "$$(cat /etc/pooler/pooler.exs)" && /app/bin/server',
+      ]
+    networks:
+      - multibase-shared
+
+volumes:
+  db-config:
+    name: multibase-db-config
+
+networks:
+  multibase-shared:
+    name: multibase-shared
+    driver: bridge

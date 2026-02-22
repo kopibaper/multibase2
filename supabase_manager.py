@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
 """
-Supabase Manager Utility
+Multibase Cloud Version - Project Manager
 
-This script provides a command-line interface for managing Supabase projects.
-It offers commands for creating, starting, stopping, and resetting projects.
+CLI for managing lightweight Supabase tenant projects.
+Uses shared infrastructure (PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler).
+
+Commands:
+  shared-start   - Start shared infrastructure
+  shared-stop    - Stop shared infrastructure
+  shared-status  - Show shared infrastructure status
+  create         - Create new tenant project
+  start          - Start tenant project
+  stop           - Stop tenant project
+  reset          - Reset tenant project
+  status         - Check tenant project status
+  list           - List all projects
 """
 
 import os
@@ -16,14 +27,15 @@ import psutil
 import time
 import json
 
+# Base directory (where this script lives)
+BASE_DIR = Path(__file__).parent.resolve()
+
 try:
     from supabase_setup import SupabaseProjectGenerator
 except ImportError:
-    # If the module is not installed, use the local file
-    print("Warning: supabase_setup module not found. Using local file.")
     try:
         import importlib.util
-        spec = importlib.util.spec_from_file_location("supabase_setup", "./supabase_setup.py")
+        spec = importlib.util.spec_from_file_location("supabase_setup", str(BASE_DIR / "supabase_setup.py"))
         if spec and spec.loader:
             supabase_setup = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(supabase_setup)
@@ -32,8 +44,22 @@ except ImportError:
             raise ImportError("Could not load supabase_setup.py")
     except Exception as e:
         print(f"Error loading supabase_setup.py: {e}")
-        print("Please ensure supabase_setup.py is in the current directory.")
         sys.exit(1)
+
+try:
+    from setup_shared import SharedInfraManager
+except ImportError:
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("setup_shared", str(BASE_DIR / "setup_shared.py"))
+        if spec and spec.loader:
+            setup_shared_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(setup_shared_mod)
+            SharedInfraManager = setup_shared_mod.SharedInfraManager
+        else:
+            SharedInfraManager = None
+    except Exception:
+        SharedInfraManager = None
 
 def find_used_ports():
     """Find all currently used ports."""
@@ -68,10 +94,97 @@ def check_project_exists(project_path):
     project_dir = Path(project_path)
     return project_dir.exists() and project_dir.is_dir()
 
+def is_shared_running():
+    """Check if shared infrastructure is running."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", "multibase-db"],
+            capture_output=True, text=True
+        )
+        return result.returncode == 0 and "true" in result.stdout.lower()
+    except Exception:
+        return False
+
+def shared_start(args):
+    """Start shared infrastructure."""
+    shared_dir = BASE_DIR / "shared"
+    if not (shared_dir / "docker-compose.shared.yml").exists():
+        print("Error: shared/docker-compose.shared.yml nicht gefunden.")
+        print("Bitte zuerst 'python setup_shared.py init' ausfuehren.")
+        return 1
+    
+    if not (shared_dir / ".env.shared").exists():
+        if SharedInfraManager:
+            print("Initialisiere Shared Infrastructure...")
+            mgr = SharedInfraManager()
+            mgr.init()
+        else:
+            print("Error: setup_shared.py nicht gefunden.")
+            return 1
+    
+    print("Starte Shared Infrastructure...")
+    result = subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.shared.yml", "--env-file", ".env.shared", "up", "-d"],
+        cwd=str(shared_dir)
+    )
+    if result.returncode == 0:
+        print("\nShared Infrastructure gestartet!")
+        print("Services: PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler")
+    return result.returncode
+
+def shared_stop(args):
+    """Stop shared infrastructure."""
+    shared_dir = BASE_DIR / "shared"
+    if not (shared_dir / "docker-compose.shared.yml").exists():
+        print("Error: shared/docker-compose.shared.yml nicht gefunden.")
+        return 1
+    
+    print("Stoppe Shared Infrastructure...")
+    result = subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.shared.yml", "--env-file", ".env.shared", "down"],
+        cwd=str(shared_dir)
+    )
+    if result.returncode == 0:
+        print("Shared Infrastructure gestoppt.")
+    return result.returncode
+
+def shared_status(args):
+    """Show shared infrastructure status."""
+    shared_dir = BASE_DIR / "shared"
+    if not (shared_dir / "docker-compose.shared.yml").exists():
+        print("Shared Infrastructure nicht konfiguriert.")
+        return 1
+    
+    running = is_shared_running()
+    print(f"Shared Infrastructure: {'RUNNING' if running else 'STOPPED'}")
+    print("-" * 60)
+    
+    if running:
+        result = subprocess.run(
+            ["docker", "compose", "-f", "docker-compose.shared.yml", "--env-file", ".env.shared", "ps"],
+            cwd=str(shared_dir)
+        )
+        
+        # List project databases
+        if SharedInfraManager:
+            print("\nProjekt-Datenbanken:")
+            mgr = SharedInfraManager()
+            mgr.list_project_dbs()
+    
+    return 0
+
 def create_project(args):
-    """Create a new Supabase project."""
+    """Create a new lightweight Supabase tenant project."""
+    # Check shared infra
+    if not is_shared_running():
+        print("WARNING: Shared Infrastructure laeuft nicht!")
+        print("Starte zuerst mit: python supabase_manager.py shared-start")
+        response = input("Trotzdem fortfahren? (y/N): ").strip().lower()
+        if response != 'y':
+            return 1
+    
     # Define projects directory
-    projects_dir = "projects"
+    projects_dir = str(BASE_DIR / "projects")
     project_path = os.path.join(projects_dir, args.project_name)
     
     # Create projects directory if it doesn't exist
@@ -81,19 +194,27 @@ def create_project(args):
         print(f"Error: Project directory '{project_path}' already exists.")
         return 1
 
-    # Create a project with the given name and base port
+    # Create lightweight tenant project
     try:
         generator = SupabaseProjectGenerator(project_path, args.base_port)
         generator.run()
+        print(f"\nTenant '{args.project_name}' erstellt (6 Container, Cloud Version)")
         return 0
     except Exception as e:
         print(f"Error creating project: {e}")
         return 1
 
 def start_project(args):
-    """Start an existing Supabase project."""
-    # Define projects directory
-    projects_dir = "projects"
+    """Start an existing Supabase tenant project."""
+    # Check shared infra
+    if not is_shared_running():
+        print("WARNING: Shared Infrastructure laeuft nicht!")
+        print("Starte mit: python supabase_manager.py shared-start")
+        response = input("Shared Infrastructure jetzt starten? (Y/n): ").strip().lower()
+        if response != 'n':
+            shared_start(args)
+    
+    projects_dir = str(BASE_DIR / "projects")
     project_path = os.path.join(projects_dir, args.project_name)
     
     if not check_project_exists(project_path):
@@ -111,7 +232,7 @@ def start_project(args):
         else:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        print(f"Project '{args.project_name}' started successfully.")
+        print(f"Tenant '{args.project_name}' gestartet (6 Container).")
         
         # Load port information from the .env file
         env_path = Path(".env")
@@ -124,39 +245,28 @@ def start_project(args):
                             key, value = line.strip().split('=', 1)
                             if key == "KONG_HTTP_PORT":
                                 ports["api"] = value
-                            elif key == "STUDIO_PORT":
-                                ports["studio"] = value
-                            elif key == "POSTGRES_PORT":
-                                ports["postgres"] = value
                         except ValueError:
                             continue
             
-            # Display access URLs
-            if "studio" in ports and "api" in ports:
-                print("\nYou can access:")
-                print(f"- Studio dashboard: http://localhost:{ports['studio']}")
-                print(f"- API endpoint: http://localhost:{ports['api']}")
-                if "postgres" in ports:
-                    print(f"- PostgreSQL on port: {ports['postgres']}")
+            if "api" in ports:
+                print(f"\nAPI endpoint: http://localhost:{ports['api']}")
+                print(f"Studio: Shared (siehe shared-status)")
         return 0
     except Exception as e:
         print(f"Error starting project: {e}")
         return 1
 
 def stop_project(args):
-    """Stop a running Supabase project."""
-    # Define projects directory
-    projects_dir = "projects"
+    """Stop a running Supabase tenant project (shared infra bleibt laufen)."""
+    projects_dir = str(BASE_DIR / "projects")
     project_path = os.path.join(projects_dir, args.project_name)
     
     if not check_project_exists(project_path):
         print(f"Error: Project directory '{project_path}' does not exist.")
         return 1
 
-    # Change to the project directory
     os.chdir(project_path)
 
-    # Run docker compose down
     try:
         cmd = ["docker", "compose", "down"]
         if not args.volumes:
@@ -167,82 +277,83 @@ def stop_project(args):
         else:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        print(f"Project '{args.project_name}' stopped successfully.")
+        print(f"Tenant '{args.project_name}' gestoppt.")
+        print("Shared Infrastructure laeuft weiter (stop mit: shared-stop)")
         return 0
     except Exception as e:
         print(f"Error stopping project: {e}")
         return 1
 
 def reset_project(args):
-    """Reset a Supabase project by removing database data."""
-    # Define projects directory
-    projects_dir = "projects"
+    """Reset a Supabase tenant project (Container + optional DB Reset)."""
+    projects_dir = str(BASE_DIR / "projects")
     project_path = os.path.join(projects_dir, args.project_name)
     
     if not check_project_exists(project_path):
         print(f"Error: Project directory '{project_path}' does not exist.")
         return 1
 
-    # Change to the project directory
     os.chdir(project_path)
 
-    # Run the reset script if it exists
-    reset_script = Path("reset.sh")
-    if reset_script.exists():
-        try:
-            subprocess.run(["sh", "./reset.sh"], check=True)
-            print(f"Project '{args.project_name}' reset successfully.")
-            return 0
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing reset script: {e}")
-            return 1
-    
-    # Manual reset if script doesn't exist
     try:
-        # Stop the containers first
-        subprocess.run(["docker", "compose", "down", "-v"], 
+        # Stop containers
+        print("Stopping tenant containers...")
+        subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], 
                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        # Remove database data
-        db_data_dir = Path("volumes/db/data")
-        if db_data_dir.exists():
-            subprocess.run(["rm", "-rf", str(db_data_dir)])
+        # Clear storage
+        storage_dir = Path("volumes/storage")
+        if storage_dir.exists():
+            import shutil
+            for item in storage_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
         
-        # Recreate directory
-        db_data_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Tenant '{args.project_name}' zurueckgesetzt.")
         
-        print(f"Project '{args.project_name}' reset successfully.")
+        # Optional: reset database
+        response = input("Auch die Datenbank zuruecksetzen? (y/N): ").strip().lower()
+        if response == 'y' and SharedInfraManager:
+            mgr = SharedInfraManager()
+            mgr.drop_project_db(args.project_name)
+            mgr.create_project_db(args.project_name)
+            print("Datenbank zurueckgesetzt.")
+        
+        print(f"Neustart mit: python supabase_manager.py start {args.project_name}")
         return 0
     except Exception as e:
         print(f"Error resetting project: {e}")
         return 1
 
 def status_project(args):
-    """Check the status of a Supabase project."""
-    # Define projects directory
-    projects_dir = "projects"
+    """Check the status of a Supabase tenant project."""
+    projects_dir = str(BASE_DIR / "projects")
     project_path = os.path.join(projects_dir, args.project_name)
     
     if not check_project_exists(project_path):
         print(f"Error: Project directory '{project_path}' does not exist.")
         return 1
 
-    # Change to the project directory
     os.chdir(project_path)
 
-    # Run docker compose ps
     try:
+        # Show shared infra status first
+        shared_running = is_shared_running()
+        print(f"Shared Infrastructure: {'RUNNING' if shared_running else 'STOPPED'}")
+        print(f"Tenant: {args.project_name}")
+        print("-" * 80)
+        
         result = subprocess.run(
             ["docker", "compose", "ps", "--format", "json"],
-            capture_output=True,
-            text=True
+            capture_output=True, text=True
         )
         
         if result.returncode != 0:
-            print(f"Error checking project status: {result.stderr}")
+            print(f"Error: {result.stderr}")
             return 1
         
-        # Parse the JSON output
         containers = []
         for line in result.stdout.strip().split('\n'):
             if not line.strip():
@@ -251,11 +362,8 @@ def status_project(args):
                 container = json.loads(line)
                 containers.append(container)
             except json.JSONDecodeError:
-                print(f"Warning: Could not parse container info: {line}")
+                pass
         
-        # Display service status
-        print(f"Status of project '{args.project_name}':")
-        print("-" * 80)
         print(f"{'Service':<30} {'Status':<15} {'Health':<15} {'Ports':<20}")
         print("-" * 80)
         
@@ -264,97 +372,133 @@ def status_project(args):
             status = container.get('State', 'unknown')
             health = container.get('Health', 'N/A')
             ports = container.get('Ports', '')
-            
             print(f"{name:<30} {status:<15} {health:<15} {ports:<20}")
+        
+        if not containers:
+            print("Keine Container laufen.")
+        else:
+            print(f"\nTenant Container: {len(containers)}/6")
         
         return 0
     except Exception as e:
-        print(f"Error checking project status: {e}")
+        print(f"Error: {e}")
         return 1
 
 def list_projects(args):
-    """List all Supabase projects in the projects directory."""
+    """List all Supabase tenant projects."""
     projects = []
-    projects_dir = "projects"
+    projects_dir = str(BASE_DIR / "projects")
     
-    # Check if projects directory exists
     if not os.path.exists(projects_dir):
-        print(f"Projects directory '{projects_dir}' not found.")
+        print("Keine Projekte gefunden.")
         return 0
     
-    # Find all directories with a docker-compose.yml file
     for item in os.listdir(projects_dir):
         item_path = os.path.join(projects_dir, item)
         if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, 'docker-compose.yml')):
-            # Check if it's likely a Supabase project
-            if os.path.exists(os.path.join(item_path, 'volumes')) and os.path.exists(os.path.join(item_path, '.env')):
-                projects.append(item_path)
+            projects.append(item)
     
     if not projects:
-        print("No Supabase projects found in the current directory.")
+        print("Keine Tenant-Projekte gefunden.")
         return 0
     
-    print("Supabase projects:")
-    print("-" * 50)
-    for project in projects:
-        # Check if project is running
+    # Show shared status
+    shared_running = is_shared_running()
+    print(f"Shared Infrastructure: {'RUNNING' if shared_running else 'STOPPED'}")
+    print(f"\nTenant-Projekte ({len(projects)}):")
+    print("-" * 60)
+    print(f"{'Name':<25} {'Status':<12} {'Container':<12} {'API Port':<10}")
+    print("-" * 60)
+    
+    for project in sorted(projects):
+        project_path = os.path.join(projects_dir, project)
+        
+        # Check running status
         try:
             result = subprocess.run(
                 ["docker", "compose", "ps", "--services", "--filter", "status=running"],
-                cwd=project,
-                capture_output=True,
-                text=True
+                cwd=project_path, capture_output=True, text=True
             )
-            is_running = result.returncode == 0 and result.stdout.strip() != ""
-            status = "Running" if is_running else "Stopped"
+            running_services = [s for s in result.stdout.strip().split('\n') if s]
+            status = "Running" if running_services else "Stopped"
+            container_count = f"{len(running_services)}/6"
         except Exception:
             status = "Unknown"
+            container_count = "?"
         
-        print(f"{project:<30} {status}")
+        # Get API port
+        api_port = "?"
+        env_path = os.path.join(project_path, ".env")
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    if line.startswith("KONG_HTTP_PORT="):
+                        api_port = line.strip().split("=", 1)[1]
+                        break
+        
+        print(f"{project:<25} {status:<12} {container_count:<12} {api_port:<10}")
+    
+    # Summary
+    print(f"\nGesamt: {len(projects)} Tenants, "
+          f"~{len(projects) * 6} Tenant-Container + 9 Shared Container")
     
     return 0
 
 def setup_parser():
     """Set up the argument parser."""
-    parser = argparse.ArgumentParser(description="Supabase Project Manager")
+    parser = argparse.ArgumentParser(
+        description="Multibase Cloud Version - Supabase Tenant Manager",
+        epilog="Shared Infrastructure muss laufen bevor Tenants gestartet werden."
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     
+    # Shared Infrastructure commands
+    subparsers.add_parser("shared-start", help="Start shared infrastructure (DB, Studio, Analytics, etc.)")
+    subparsers.add_parser("shared-stop", help="Stop shared infrastructure")
+    subparsers.add_parser("shared-status", help="Show shared infrastructure status")
+    
     # Create command
-    create_parser = subparsers.add_parser("create", help="Create a new Supabase project")
+    create_parser = subparsers.add_parser("create", help="Create a new lightweight tenant project")
     create_parser.add_argument("project_name", help="Name for the new project")
     create_parser.add_argument("--base-port", "-p", type=int, help="Base port for services")
     
     # Start command
-    start_parser = subparsers.add_parser("start", help="Start a Supabase project")
+    start_parser = subparsers.add_parser("start", help="Start a tenant project")
     start_parser.add_argument("project_name", help="Name of the project to start")
     start_parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
     
     # Stop command
-    stop_parser = subparsers.add_parser("stop", help="Stop a Supabase project")
+    stop_parser = subparsers.add_parser("stop", help="Stop a tenant project")
     stop_parser.add_argument("project_name", help="Name of the project to stop")
     stop_parser.add_argument("--keep-volumes", "-k", dest="volumes", action="store_true",
                            help="Keep volumes when stopping")
     stop_parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
     
     # Reset command
-    reset_parser = subparsers.add_parser("reset", help="Reset a Supabase project")
+    reset_parser = subparsers.add_parser("reset", help="Reset a tenant project")
     reset_parser.add_argument("project_name", help="Name of the project to reset")
     
     # Status command
-    status_parser = subparsers.add_parser("status", help="Check status of a Supabase project")
+    status_parser = subparsers.add_parser("status", help="Check status of a tenant project")
     status_parser.add_argument("project_name", help="Name of the project to check")
     
     # List command
-    list_parser = subparsers.add_parser("list", help="List all Supabase projects")
+    subparsers.add_parser("list", help="List all tenant projects")
     
     return parser
 
 def main():
-    """Main entry point for the Supabase project manager."""
+    """Main entry point for the Multibase Cloud Version manager."""
     parser = setup_parser()
     args = parser.parse_args()
     
-    if args.command == "create":
+    if args.command == "shared-start":
+        return shared_start(args)
+    elif args.command == "shared-stop":
+        return shared_stop(args)
+    elif args.command == "shared-status":
+        return shared_status(args)
+    elif args.command == "create":
         return create_project(args)
     elif args.command == "start":
         return start_project(args)
