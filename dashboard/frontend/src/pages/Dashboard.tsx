@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useInstances, useSystemMetrics } from '../hooks/useInstances';
+import { useSharedStatus } from '../hooks/useShared';
 import { useAlertStats } from '../hooks/useAlerts';
 import { useAuth } from '../contexts/AuthContext';
 import { useBulkSelection } from '../hooks/useBulkSelection';
@@ -8,12 +9,13 @@ import InstanceCard from '../components/InstanceCard';
 import BulkActionBar from '../components/BulkActionBar';
 import CreateInstanceModal from '../components/CreateInstanceModal';
 import GaugeChart from '../components/charts/GaugeChart';
-import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp } from 'lucide-react';
+import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp, Cloud, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: instances, isLoading, error, refetch } = useInstances();
   const { data: alertStats } = useAlertStats();
   const { data: systemMetrics } = useSystemMetrics();
+  const { data: sharedStatus } = useSharedStatus();
   const { user } = useAuth();
   const location = useLocation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -143,6 +145,45 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Shared Infrastructure Card */}
+        {sharedStatus && (
+          <Link
+            to='/shared'
+            className='block mb-8 glass-card p-4 hover:bg-white/5 transition-colors group'
+          >
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-4'>
+                <div className='w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center'>
+                  <Cloud className='w-5 h-5 text-brand-400' />
+                </div>
+                <div>
+                  <p className='font-medium flex items-center gap-2'>
+                    Shared Infrastructure
+                    {sharedStatus.status === 'running' ? (
+                      <CheckCircle2 className='w-4 h-4 text-brand-400' />
+                    ) : sharedStatus.status === 'degraded' ? (
+                      <AlertTriangle className='w-4 h-4 text-yellow-400' />
+                    ) : (
+                      <XCircle className='w-4 h-4 text-red-400' />
+                    )}
+                  </p>
+                  <p className='text-sm text-muted-foreground'>
+                    {sharedStatus.runningServices}/{sharedStatus.totalServices} Services
+                    {sharedStatus.status === 'running'
+                      ? ' — Alle Dienste aktiv'
+                      : sharedStatus.status === 'degraded'
+                        ? ' — Teilweise beeinträchtigt'
+                        : ' — Gestoppt'}
+                  </p>
+                </div>
+              </div>
+              <span className='text-sm text-muted-foreground group-hover:text-foreground transition-colors'>
+                Details →
+              </span>
+            </div>
+          </Link>
+        )}
 
         {/* System Overview Charts */}
         {systemMetrics && instances && instances.length > 0 && (

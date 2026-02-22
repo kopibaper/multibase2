@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Save,
   Database,
+  Cloud,
 } from 'lucide-react';
 import { useStartInstance, useStopInstance } from '../hooks/useInstances';
 import { useAlerts } from '../hooks/useAlerts';
@@ -115,6 +116,11 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
             <h3 className='text-xl font-semibold text-foreground flex items-center gap-2'>
               <Server className='w-5 h-5 text-primary' />
               {instance.name}
+              {instance.stackType === 'cloud' && (
+                <span className='inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-brand-500/20 text-brand-400'>
+                  <Cloud className='w-3 h-3' />
+                </span>
+              )}
               {alerts && alerts.length > 0 && (
                 <span
                   className='relative flex items-center'
