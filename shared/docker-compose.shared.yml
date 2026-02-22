@@ -156,7 +156,7 @@ services:
       DB_PORT: 5432
       DB_PASSWORD: ${SHARED_POSTGRES_PASSWORD}
       DB_SCHEMA: _analytics
-      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY}
+      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY:-your-super-secret-and-long-logflare-key}
       LOGFLARE_SINGLE_TENANT: true
       LOGFLARE_SUPABASE_MODE: true
       LOGFLARE_MIN_CLUSTER_SIZE: 1
@@ -182,7 +182,7 @@ services:
       interval: 5s
       retries: 3
     environment:
-      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY}
+      LOGFLARE_API_KEY: ${SHARED_LOGFLARE_API_KEY:-your-super-secret-and-long-logflare-key}
     command: ['--config', '/etc/vector/vector.yml']
     security_opt:
       - 'label=disable'
