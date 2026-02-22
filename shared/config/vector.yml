@@ -23,26 +23,23 @@ transforms:
       # Container-Format: {projekt}-{service} (z.B. "myapp-kong", "myapp-auth")
       # Shared Container: "multibase-{service}" (z.B. "multibase-db", "multibase-analytics")
       container = string!(.container_name)
-      
+
       # Prüfe ob es ein Shared-Container ist
       if starts_with(container, "multibase-") {
         .project = "multibase-shared"
-        .service_name = replace(container, "multibase-", "")
+        .service_name = replace(container, r'^multibase-', "")
       } else {
-        # Finde den letzten Bindestrich + Service-Name
-        parts = split(container, "-")
-        if length(parts) >= 2 {
-          # Service ist der letzte Teil
-          .service_name = parts[length(parts) - 1]
-          # Projekt ist alles davor
-          parts_without_last = slice!(parts, 0, length(parts) - 1)
-          .project = join!(parts_without_last, "-")
+        # Split nur beim ersten "-": [project, service]
+        parts = split(container, "-", limit: 2)
+        if length(parts) == 2 {
+          .project = parts[0]
+          .service_name = parts[1]
         } else {
           .project = "unknown"
           .service_name = container
         }
       }
-      
+
       .event_message = del(.message)
       .appname = del(.container_name)
       del(.container_created_at)
