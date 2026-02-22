@@ -88,10 +88,10 @@ export interface GeneratedKeys {
   logflare_api_key: string;
 }
 
-export function generateAllKeys(): GeneratedKeys {
+export function generateAllKeys(overrideJwtSecret?: string): GeneratedKeys {
   logger.info('Generating secure keys for new instance');
 
-  const jwtSecret = generateJwtSecret(48);
+  const jwtSecret = overrideJwtSecret || generateJwtSecret(48);
 
   const keys: GeneratedKeys = {
     postgres_password: generatePassword(32),

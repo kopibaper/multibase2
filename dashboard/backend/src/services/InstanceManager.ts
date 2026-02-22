@@ -86,6 +86,21 @@ export class InstanceManager {
   }
 
   /**
+   * Read the shared JWT secret from shared/.env.shared.
+   * Cloud tenants must use the same JWT secret as shared Studio/Kong so that
+   * tokens issued by the shared Studio validate inside tenant services.
+   */
+  private getSharedJwtSecret(): string | undefined {
+    const sharedEnvPath = path.resolve(this.templatesPath, 'shared', '.env.shared');
+    if (fs.existsSync(sharedEnvPath)) {
+      const secret = parseEnvFile(sharedEnvPath)['SHARED_JWT_SECRET'];
+      if (secret) return secret;
+    }
+    logger.warn('SHARED_JWT_SECRET not found in shared/.env.shared – cloud tenant gets an isolated JWT secret');
+    return undefined;
+  }
+
+  /**
    * Check if shared infrastructure is running.
    */
   async isSharedInfraRunning(): Promise<boolean> {
@@ -861,14 +876,15 @@ server {
       const newBasePort = getRandomBasePort();
       const newPorts = await calculatePorts(newBasePort);
 
-      // Generate new keys
-      const newKeys = generateAllKeys();
-
-      // Detect source stack type
+      // Detect source stack type first to decide which JWT secret to use
       const envPath = path.join(targetPath, '.env');
       if (fs.existsSync(envPath)) {
         const envContent = parseEnvFile(envPath);
         const stackType = this.detectStackType(envContent);
+
+        // Cloud tenants must share the same JWT secret as shared Studio/Kong
+        const jwtSecretOverride = stackType === 'cloud' ? this.getSharedJwtSecret() : undefined;
+        const newKeys = generateAllKeys(jwtSecretOverride);
 
         // Update ports - Cloud instances only have kong ports
         envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
@@ -1475,8 +1491,11 @@ services:
       const envConfig = parseEnvFile(envPath);
 
       if (regenerateKeys) {
-        // Generate new keys
-        const keys = generateAllKeys();
+        // For cloud tenants, use shared JWT secret so tokens stay compatible
+        // with the shared Studio and Kong
+        const stackType = this.detectStackType(envConfig);
+        const jwtSecretOverride = stackType === 'cloud' ? this.getSharedJwtSecret() : undefined;
+        const keys = generateAllKeys(jwtSecretOverride);
         envConfig.JWT_SECRET = keys.jwt_secret;
         envConfig.ANON_KEY = keys.anon_key;
         envConfig.SERVICE_ROLE_KEY = keys.service_role_key;
