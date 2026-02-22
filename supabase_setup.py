@@ -488,7 +488,14 @@ networks:
 
     def _init_env_template(self):
         """Initialize .env template - Cloud-Version mit Shared DB Referenz."""
-        password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        # Tenant-Dienste verbinden sich zur Shared-DB mit dem Shared-Passwort
+        # (authenticator, supabase_storage_admin etc. haben in der Shared-DB dieses Passwort)
+        password = self.shared_env.get('SHARED_POSTGRES_PASSWORD', '').strip()
+        if not password:
+            # Fallback falls shared env nicht gesetzt
+            password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            print("WARNING: SHARED_POSTGRES_PASSWORD nicht gefunden - zufaelliges PW wird genutzt!")
+            print("         Verbindung zur Shared-DB koennte fehlschlagen.")
         jwt_secret = ''.join(random.choices(string.ascii_letters + string.digits, k=48))
         secret_key_base = ''.join(random.choices(string.ascii_letters + string.digits, k=64))
         logflare_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))

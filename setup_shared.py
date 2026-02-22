@@ -245,6 +245,15 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
             result = subprocess.run(cmd, stdin=f, capture_output=True, text=True)
         return result
     
+    def _run_sql_as_admin(self, sql, database="postgres"):
+        """Execute SQL as supabase_admin (superuser) on the shared cluster."""
+        cmd = [
+            "docker", "exec", "-i", "multibase-db",
+            "psql", "-U", "supabase_admin", "-d", database, "-c", sql
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result
+
     def create_project_db(self, project_name):
         """Create a new project database in the shared cluster."""
         db_name = f"project_{project_name}".replace('-', '_')
@@ -262,15 +271,39 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
         
         # 2. Initialize Supabase schemas in the new database
         init_sql = """
--- Realtime schema
+-- Extensions schema
+CREATE SCHEMA IF NOT EXISTS extensions;
+GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
+
+-- Auth schema (owned by supabase_auth_admin - used by GoTrue)
+CREATE SCHEMA IF NOT EXISTS auth;
+ALTER SCHEMA auth OWNER TO supabase_auth_admin;
+
+-- Storage schema (owned by supabase_storage_admin)
+CREATE SCHEMA IF NOT EXISTS storage;
+ALTER SCHEMA storage OWNER TO supabase_storage_admin;
+
+-- Realtime schemas
+CREATE SCHEMA IF NOT EXISTS realtime;
+ALTER SCHEMA realtime OWNER TO supabase_admin;
 CREATE SCHEMA IF NOT EXISTS _realtime;
 ALTER SCHEMA _realtime OWNER TO supabase_admin;
 
--- JWT settings
+-- GraphQL schemas
+CREATE SCHEMA IF NOT EXISTS graphql;
+CREATE SCHEMA IF NOT EXISTS graphql_public;
+ALTER SCHEMA graphql OWNER TO supabase_admin;
+ALTER SCHEMA graphql_public OWNER TO supabase_admin;
+
+-- Vault schema
+CREATE SCHEMA IF NOT EXISTS vault;
+ALTER SCHEMA vault OWNER TO supabase_admin;
+
+-- JWT settings for this project DB
 ALTER DATABASE {db} SET "app.settings.jwt_secret" TO '{jwt_secret}';
 ALTER DATABASE {db} SET "app.settings.jwt_exp" TO '{jwt_exp}';
 
--- Grant roles access
+-- Public schema grants
 GRANT ALL ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
@@ -279,13 +312,27 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, se
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+
+-- supabase_auth_admin permissions
+GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA auth GRANT ALL ON TABLES TO supabase_auth_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA auth GRANT ALL ON SEQUENCES TO supabase_auth_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA auth GRANT ALL ON ROUTINES TO supabase_auth_admin;
+
+-- supabase_storage_admin permissions
+GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+
+-- Database-level grants for service roles (needed for migrations)
+GRANT ALL PRIVILEGES ON DATABASE {db} TO supabase_admin;
+GRANT ALL PRIVILEGES ON DATABASE {db} TO supabase_auth_admin;
+GRANT ALL PRIVILEGES ON DATABASE {db} TO supabase_storage_admin;
 """
         env = self._get_shared_env()
         jwt_secret = env.get('SHARED_JWT_SECRET', '')
         jwt_exp = env.get('SHARED_JWT_EXPIRY', '3600')
         init_sql = init_sql.format(db=db_name, jwt_secret=jwt_secret, jwt_exp=jwt_exp)
         
-        result = self._run_sql(init_sql, database=db_name)
+        result = self._run_sql_as_admin(init_sql, database=db_name)
         if result.returncode != 0:
             print(f"⚠️  Schema-Init Warnung: {result.stderr}")
         

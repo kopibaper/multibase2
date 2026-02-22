@@ -129,42 +129,28 @@ export function createSharedRoutes(dockerManager: DockerManager): Router {
   /**
    * GET /api/shared/databases
    * List all project databases in the shared cluster
+   * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
   router.get('/databases', async (_req: Request, res: Response) => {
     try {
-      const sharedEnv = getSharedEnv();
-      if (!sharedEnv) {
-        res.status(400).json({ error: 'Shared configuration not found' });
-        return;
-      }
+      const sql = `SELECT datname, pg_database_size(datname) as size_bytes FROM pg_database WHERE datname LIKE 'project_%' ORDER BY datname;`;
+      const { stdout } = await execAsync(
+        `docker exec multibase-db psql -U postgres -t -c "${sql}"`
+      );
 
-      const port = sharedEnv.SHARED_PG_PORT || '5432';
-      const password = sharedEnv.SHARED_POSTGRES_PASSWORD;
-
-      const { Client } = await import('pg');
-      const client = new Client({
-        user: 'postgres',
-        host: 'localhost',
-        database: 'postgres',
-        password,
-        port: parseInt(port, 10),
-      });
-
-      await client.connect();
-      const result = await client.query(`
-        SELECT datname, pg_database_size(datname) as size_bytes
-        FROM pg_database 
-        WHERE datname LIKE 'project_%' 
-        ORDER BY datname
-      `);
-      await client.end();
-
-      const databases = result.rows.map((row: any) => ({
-        name: row.datname,
-        projectName: row.datname.replace('project_', '').replace(/_/g, '-'),
-        sizeBytes: parseInt(row.size_bytes, 10),
-        sizeFormatted: formatBytes(parseInt(row.size_bytes, 10)),
-      }));
+      const databases = stdout.trim().split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => {
+          const [datname, sizeBytes] = line.split('|').map(s => s.trim());
+          const bytes = parseInt(sizeBytes, 10) || 0;
+          return {
+            name: datname,
+            projectName: datname.replace('project_', '').replace(/_/g, '-'),
+            sizeBytes: bytes,
+            sizeFormatted: formatBytes(bytes),
+          };
+        });
 
       res.json({ databases, count: databases.length });
     } catch (error: any) {
@@ -176,6 +162,7 @@ export function createSharedRoutes(dockerManager: DockerManager): Router {
   /**
    * POST /api/shared/databases
    * Create a new project database
+   * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
   router.post('/databases', async (req: Request, res: Response) => {
     try {
@@ -186,24 +173,9 @@ export function createSharedRoutes(dockerManager: DockerManager): Router {
       }
 
       const dbName = `project_${projectName}`.replace(/-/g, '_');
-      const sharedEnv = getSharedEnv();
-      if (!sharedEnv) {
-        res.status(400).json({ error: 'Shared configuration not found' });
-        return;
-      }
-
-      const { Client } = await import('pg');
-      const client = new Client({
-        user: 'postgres',
-        host: 'localhost',
-        database: 'postgres',
-        password: sharedEnv.SHARED_POSTGRES_PASSWORD,
-        port: parseInt(sharedEnv.SHARED_PG_PORT || '5432', 10),
-      });
-
-      await client.connect();
-      await client.query(`CREATE DATABASE ${dbName}`);
-      await client.end();
+      await execAsync(
+        `docker exec multibase-db psql -U postgres -c "CREATE DATABASE ${dbName};"`
+      );
 
       logger.info(`Created database: ${dbName}`);
       res.json({ success: true, database: dbName });
@@ -216,35 +188,19 @@ export function createSharedRoutes(dockerManager: DockerManager): Router {
   /**
    * DELETE /api/shared/databases/:name
    * Drop a project database
+   * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
   router.delete('/databases/:name', async (req: Request, res: Response) => {
     try {
       const dbName = `project_${req.params.name}`.replace(/-/g, '_');
-      const sharedEnv = getSharedEnv();
-      if (!sharedEnv) {
-        res.status(400).json({ error: 'Shared configuration not found' });
-        return;
-      }
 
-      const { Client } = await import('pg');
-      const client = new Client({
-        user: 'postgres',
-        host: 'localhost',
-        database: 'postgres',
-        password: sharedEnv.SHARED_POSTGRES_PASSWORD,
-        port: parseInt(sharedEnv.SHARED_PG_PORT || '5432', 10),
-      });
-
-      await client.connect();
-      // Terminate active connections first
-      await client.query(`
-        SELECT pg_terminate_backend(pg_stat_activity.pid)
-        FROM pg_stat_activity
-        WHERE pg_stat_activity.datname = '${dbName}'
-        AND pid <> pg_backend_pid()
-      `);
-      await client.query(`DROP DATABASE IF EXISTS ${dbName}`);
-      await client.end();
+      // Terminate active connections first, then drop
+      await execAsync(
+        `docker exec multibase-db psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid<>pg_backend_pid();"`
+      );
+      await execAsync(
+        `docker exec multibase-db psql -U postgres -c "DROP DATABASE IF EXISTS ${dbName};"`
+      );
 
       logger.info(`Dropped database: ${dbName}`);
       res.json({ success: true, database: dbName });
