@@ -14,12 +14,14 @@
 | **Phase 2.3** | ✅ FERTIG | Per-Projekt Analytics/Vector entfernt (in supabase_setup.py) |
 | **Phase 3** | ✅ FERTIG | Shared Studio, Meta, imgproxy, Pooler (in docker-compose.shared.yml) |
 | **Phase 4** | ✅ FERTIG | Lightweight Tenant Template (6 Container pro Projekt) |
-| **Phase 5** | 🔄 OFFEN | Dashboard Backend Anpassungen |
-| **Phase 6** | 🔄 OFFEN | Dashboard Frontend Anpassungen |
-| **Phase 7** | 🔄 OFFEN | Nginx & Routing |
+| **Phase 5** | ✅ FERTIG | Dashboard Backend (10 Dateien, +779 Zeilen) |
+| **Phase 6** | ✅ FERTIG | Dashboard Frontend (9 Dateien, +550 Zeilen) |
+| **Phase 7** | ✅ FERTIG | Nginx & Routing (shared-infra.conf, cloud-aware Studio Proxy) |
 | **Phase 8** | ⬜ OPTIONAL | Erweiterte Optimierungen (Shared Kong, Realtime, Auth) |
 
 ### Erstellte Dateien (Cloud-Version)
+
+**Shared Infrastructure (Phase 0-4):**
 - `shared/docker-compose.shared.yml` - 9 Shared Services
 - `shared/.env.shared` - Template-Konfiguration
 - `shared/volumes/db/init/97-_supabase.sql` - Supabase-Basis-Schema
@@ -36,6 +38,32 @@
 - `supabase_setup.py` - **UMGESCHRIEBEN** (Lightweight 6-Container Template)
 - `supabase_manager.py` - **AKTUALISIERT** (Shared + Tenant Befehle)
 - `supabase_setup_original.py` - Backup der Original-Version
+
+**Dashboard Backend (Phase 5):**
+- `dashboard/backend/src/routes/shared.ts` - **NEU** Shared API Route (status, start, stop, databases CRUD)
+- `dashboard/backend/src/types/index.ts` - StackType, SharedInfraStatus, SHARED_SERVICES Konstanten
+- `dashboard/backend/src/services/InstanceManager.ts` - detectStackType, cloud-aware DB Routing, Shared Studio
+- `dashboard/backend/src/services/DockerManager.ts` - listSharedContainers, getSharedServiceStatus
+- `dashboard/backend/src/services/MigrationService.ts` - Cloud-aware Shared PostgreSQL
+- `dashboard/backend/src/services/UptimeService.ts` - Kong-basierter Health Check für Cloud
+- `dashboard/backend/src/services/HealthMonitor.ts` - checkSharedInfraHealth, Events/Alerts
+- `dashboard/backend/src/services/MetricsCollector.ts` - collectSharedInfraMetrics
+- `dashboard/backend/src/services/BackupService.ts` - pg_dump/restore für Cloud-Tenant DBs
+- `dashboard/backend/src/server.ts` - Shared Route registriert
+
+**Dashboard Frontend (Phase 6):**
+- `dashboard/frontend/src/pages/SharedInfra.tsx` - **NEU** Shared Infrastructure Management
+- `dashboard/frontend/src/hooks/useShared.ts` - **NEU** React Query Hooks
+- `dashboard/frontend/src/lib/api.ts` - sharedApi Namespace
+- `dashboard/frontend/src/types/index.ts` - SharedInfraStatus, SharedDatabase Interfaces
+- `dashboard/frontend/src/pages/Dashboard.tsx` - Shared Infra Status-Karte
+- `dashboard/frontend/src/pages/InstanceDetail.tsx` - Cloud-Badge
+- `dashboard/frontend/src/components/InstanceCard.tsx` - Cloud-Icon
+- `dashboard/frontend/src/components/Sidebar.tsx` - Shared Infra Navigation
+- `dashboard/frontend/src/App.tsx` - /shared Route
+
+**Nginx (Phase 7):**
+- `nginx/sites-enabled/shared-infra.conf` - **NEU** Shared Studio/Analytics/Meta Routing
 
 ---
 
