@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { PrismaClient } from '@prisma/client';
-import { SystemMetrics } from '../types';
+import { SystemMetrics, SHARED_SERVICES } from '../types';
 import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
 import { RedisCache } from './RedisCache';
@@ -70,7 +70,7 @@ export class MetricsCollector extends EventEmitter {
   }
 
   /**
-   * Collect metrics for all instances
+   * Collect metrics for all instances + shared infrastructure
    */
   private async collectAllMetrics(): Promise<void> {
     try {
@@ -80,6 +80,14 @@ export class MetricsCollector extends EventEmitter {
       let totalMemory = 0;
       let totalDisk = 0;
       let runningCount = 0;
+
+      // Collect shared infrastructure metrics
+      const sharedMetrics = await this.collectSharedInfraMetrics();
+      if (sharedMetrics) {
+        totalCpu += sharedMetrics.cpu;
+        totalMemory += sharedMetrics.memory;
+        totalDisk += sharedMetrics.disk;
+      }
 
       for (const instance of instances) {
         // Nur Metriken von laufenden Instanzen sammeln
@@ -95,7 +103,7 @@ export class MetricsCollector extends EventEmitter {
         }
       }
 
-      // Store system-wide metrics
+      // Store system-wide metrics (including shared infra)
       const systemMetrics: SystemMetrics = {
         totalCpu: isNaN(totalCpu) ? 0 : totalCpu,
         totalMemory: isNaN(totalMemory) ? 0 : totalMemory,
@@ -111,6 +119,46 @@ export class MetricsCollector extends EventEmitter {
       this.emit('metrics:collected', systemMetrics);
     } catch (error) {
       logger.error('Error collecting all metrics:', error);
+    }
+  }
+
+  /**
+   * Collect metrics for shared infrastructure containers
+   */
+  async collectSharedInfraMetrics(): Promise<{ cpu: number; memory: number; disk: number } | null> {
+    try {
+      const sharedContainers = await this.dockerManager.listSharedContainers();
+      let sharedCpu = 0;
+      let sharedMemory = 0;
+      let sharedDisk = 0;
+
+      for (const container of sharedContainers) {
+        if (container.State !== 'running') continue;
+
+        const metrics = await this.dockerManager.getContainerStats(container.Id);
+        if (metrics) {
+          sharedCpu += metrics.cpu;
+          sharedMemory += metrics.memory;
+          sharedDisk += metrics.diskRead + metrics.diskWrite;
+
+          const containerName = container.Names[0].replace('/', '');
+          await this.redisCache.setMetrics('shared-infra', containerName, metrics);
+        }
+      }
+
+      // Cache aggregate shared metrics
+      await this.redisCache.set('shared:metrics', JSON.stringify({
+        cpu: sharedCpu,
+        memory: sharedMemory,
+        disk: sharedDisk,
+        containerCount: sharedContainers.filter(c => c.State === 'running').length,
+        timestamp: new Date(),
+      }), 60);
+
+      return { cpu: sharedCpu, memory: sharedMemory, disk: sharedDisk };
+    } catch (error) {
+      logger.error('Error collecting shared infra metrics:', error);
+      return null;
     }
   }
 

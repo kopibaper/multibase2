@@ -12,6 +12,8 @@ import {
   InstanceCredentials,
   PortMapping,
   ResourceLimits,
+  StackType,
+  SHARED_SERVICES,
 } from '../types';
 import { generateAllKeys } from '../utils/keyGenerator';
 import { calculatePorts, getRandomBasePort } from '../utils/portManager';
@@ -51,6 +53,49 @@ export class InstanceManager {
     if (!fs.existsSync(this.projectsPath)) {
       fs.mkdirSync(this.projectsPath, { recursive: true });
       logger.info(`Created projects directory: ${this.projectsPath}`);
+    }
+  }
+
+  /**
+   * Detect if an instance uses the cloud (shared) or classic stack.
+   * Cloud instances have PROJECT_DB in .env and no POSTGRES_PORT.
+   */
+  private detectStackType(envConfig: Record<string, string>): StackType {
+    if (envConfig['PROJECT_DB'] && !envConfig['POSTGRES_PORT']) {
+      return 'cloud';
+    }
+    return 'classic';
+  }
+
+  /**
+   * Get shared PostgreSQL connection config for cloud instances.
+   */
+  private getSharedDbConfig(envConfig: Record<string, string>) {
+    const sharedEnvPath = path.resolve(this.templatesPath, 'shared', '.env.shared');
+    let sharedPassword = envConfig['POSTGRES_PASSWORD'];
+    let sharedPort = 5432;
+
+    if (fs.existsSync(sharedEnvPath)) {
+      const sharedEnv = parseEnvFile(sharedEnvPath);
+      sharedPassword = sharedEnv['SHARED_POSTGRES_PASSWORD'] || sharedPassword;
+      sharedPort = parseInt(sharedEnv['SHARED_PG_PORT'] || '5432', 10);
+    }
+
+    const projectDb = envConfig['PROJECT_DB'] || 'postgres';
+    return { host: 'localhost', port: sharedPort, database: projectDb, password: sharedPassword };
+  }
+
+  /**
+   * Check if shared infrastructure is running.
+   */
+  async isSharedInfraRunning(): Promise<boolean> {
+    try {
+      const containers = await this.dockerManager.listAllContainers();
+      return containers.some((c: any) =>
+        c.Names?.some((n: string) => n.includes('multibase-db'))
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -143,6 +188,7 @@ export class InstanceManager {
       const envConfig = parseEnvFile(envPath);
       const credentials = extractCredentials(envConfig);
       const ports = extractPorts(envConfig);
+      const stackType = this.detectStackType(envConfig);
 
       // Get service status from Docker
       const services = await this.dockerManager.getServiceStatus(name);
@@ -214,6 +260,7 @@ export class InstanceManager {
         id: name,
         name,
         status: overallStatus,
+        stackType,
         basePort: ports.kong_http,
         ports,
         credentials,
@@ -409,6 +456,11 @@ export class InstanceManager {
       const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.tyto-design.de';
       const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
 
+      // Cloud-Version: Studio Proxy zeigt auf Shared Studio
+      const studioPort = instance.stackType === 'cloud'
+        ? (process.env.SHARED_STUDIO_PORT || '3000')
+        : (instance.ports.studio || '3000');
+
       const configContent = `# Auto-generated config for ${instance.name} with authentication
 server {
     listen 80;
@@ -461,7 +513,7 @@ server {
         error_page 401 = @error401;
         error_page 403 = @error403;
 
-        proxy_pass http://127.0.0.1:${instance.ports.studio};
+        proxy_pass http://127.0.0.1:${studioPort};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -812,18 +864,25 @@ server {
       // Generate new keys
       const newKeys = generateAllKeys();
 
-      // Update .env file with new values
+      // Detect source stack type
       const envPath = path.join(targetPath, '.env');
       if (fs.existsSync(envPath)) {
         const envContent = parseEnvFile(envPath);
+        const stackType = this.detectStackType(envContent);
 
-        // Update ports
+        // Update ports - Cloud instances only have kong ports
         envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
         envContent['KONG_HTTPS_PORT'] = newPorts.kong_https.toString();
-        envContent['POSTGRES_PORT'] = newPorts.postgres.toString();
-        envContent['POOLER_PORT'] = newPorts.pooler.toString();
-        envContent['STUDIO_PORT'] = newPorts.studio.toString();
-        envContent['ANALYTICS_PORT'] = newPorts.analytics.toString();
+        if (stackType === 'classic') {
+          envContent['POSTGRES_PORT'] = newPorts.postgres?.toString() || '';
+          envContent['POOLER_PORT'] = newPorts.pooler?.toString() || '';
+          envContent['STUDIO_PORT'] = newPorts.studio?.toString() || '';
+          envContent['ANALYTICS_PORT'] = newPorts.analytics?.toString() || '';
+        } else {
+          // Cloud: Update PROJECT_DB for the new tenant
+          const newDbName = `project_${newName}`.replace(/-/g, '_');
+          envContent['PROJECT_DB'] = newDbName;
+        }
 
         // Update keys
         envContent['JWT_SECRET'] = newKeys.jwt_secret;
@@ -901,6 +960,7 @@ server {
 
   /**
    * Get database schema for an instance
+   * Cloud-Version: Uses shared PostgreSQL with project-specific database
    * @param name Instance name
    */
   async getSchema(name: string): Promise<any[]> {
@@ -912,19 +972,33 @@ server {
     }
 
     const env = parseEnvFile(envPath);
-    const port = env['POSTGRES_PORT'] || '5432';
-    const password = env['POSTGRES_PASSWORD'];
+    const stackType = this.detectStackType(env);
 
-    if (!password) {
+    let dbHost: string, dbPort: number, dbName: string, dbPassword: string;
+
+    if (stackType === 'cloud') {
+      const sharedDb = this.getSharedDbConfig(env);
+      dbHost = sharedDb.host;
+      dbPort = sharedDb.port;
+      dbName = sharedDb.database;
+      dbPassword = sharedDb.password;
+    } else {
+      dbHost = 'localhost';
+      dbPort = parseInt(env['POSTGRES_PORT'] || '5432', 10);
+      dbName = 'postgres';
+      dbPassword = env['POSTGRES_PASSWORD'] || '';
+    }
+
+    if (!dbPassword) {
       throw new Error('Database password not found');
     }
 
     const client = new Client({
       user: 'postgres',
-      host: 'localhost',
-      database: 'postgres',
-      password: password,
-      port: parseInt(port, 10),
+      host: dbHost,
+      database: dbName,
+      password: dbPassword,
+      port: dbPort,
     });
 
     try {
@@ -979,6 +1053,7 @@ server {
 
   /**
    * Execute SQL query on an instance database
+   * Cloud-Version: Uses shared PostgreSQL with project-specific database
    * @param name Instance name
    * @param sql SQL query to execute
    */
@@ -991,19 +1066,33 @@ server {
     }
 
     const env = parseEnvFile(envPath);
-    const port = env['POSTGRES_PORT'] || '5432';
-    const password = env['POSTGRES_PASSWORD'];
+    const stackType = this.detectStackType(env);
 
-    if (!password) {
+    let dbHost: string, dbPort: number, dbName: string, dbPassword: string;
+
+    if (stackType === 'cloud') {
+      const sharedDb = this.getSharedDbConfig(env);
+      dbHost = sharedDb.host;
+      dbPort = sharedDb.port;
+      dbName = sharedDb.database;
+      dbPassword = sharedDb.password;
+    } else {
+      dbHost = 'localhost';
+      dbPort = parseInt(env['POSTGRES_PORT'] || '5432', 10);
+      dbName = 'postgres';
+      dbPassword = env['POSTGRES_PASSWORD'] || '';
+    }
+
+    if (!dbPassword) {
       throw new Error('Database password not found');
     }
 
     const client = new Client({
       user: 'postgres',
-      host: 'localhost',
-      database: 'postgres',
-      password: password,
-      port: parseInt(port, 10),
+      host: dbHost,
+      database: dbName,
+      password: dbPassword,
+      port: dbPort,
     });
 
     try {

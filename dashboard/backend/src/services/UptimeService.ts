@@ -50,14 +50,15 @@ export class UptimeService {
     let responseTime = 0;
 
     try {
-      // Check Studio port instead of Kong (Kong returns 404 on /health by default)
-      // Studio serves the UI on / and should return 200
-      const port = instance.ports.studio;
+      // Cloud-Version: Use Kong HTTP port for health check (no per-instance Studio)
+      // Classic: Use Studio port
+      const port = instance.ports.studio || instance.ports.kong_http;
+      const healthPath = instance.ports.studio ? '/' : '/rest/v1/';
       // Using 5s timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`http://localhost:${port}/`, {
+      const response = await fetch(`http://localhost:${port}${healthPath}`, {
         signal: controller.signal,
       });
 

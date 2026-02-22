@@ -1,9 +1,12 @@
 // Multibase Dashboard TypeScript Type Definitions
 
+export type StackType = 'classic' | 'cloud';
+
 export interface SupabaseInstance {
   id: string;
   name: string;
   status: 'running' | 'stopped' | 'degraded' | 'healthy' | 'unhealthy';
+  stackType: StackType;
   basePort: number;
   ports: PortMapping;
   credentials: InstanceCredentials;
@@ -17,10 +20,11 @@ export interface SupabaseInstance {
 export interface PortMapping {
   kong_http: number;
   kong_https: number;
-  studio: number;
-  postgres: number;
-  pooler: number;
-  analytics: number;
+  // Cloud-Version: Diese Ports sind optional (kommen aus Shared Infrastructure)
+  studio?: number;
+  postgres?: number;
+  pooler?: number;
+  analytics?: number;
 }
 
 export interface InstanceCredentials {
@@ -209,5 +213,55 @@ export interface SystemMetrics {
   totalDisk: number;
   instanceCount: number;
   runningCount: number;
+  sharedInfraStatus: 'running' | 'stopped' | 'degraded' | 'unknown';
   timestamp: Date;
 }
+
+// Shared Infrastructure Types (Cloud-Version)
+export interface SharedInfraStatus {
+  status: 'running' | 'stopped' | 'degraded';
+  services: SharedServiceStatus[];
+  databases: SharedDatabase[];
+  ports: SharedPorts;
+}
+
+export interface SharedServiceStatus {
+  name: string;
+  containerName: string;
+  status: 'running' | 'stopped' | 'healthy' | 'unhealthy';
+  uptime?: number;
+  cpu?: number;
+  memory?: number;
+}
+
+export interface SharedDatabase {
+  name: string;
+  projectName: string;
+  size?: string;
+  connections?: number;
+}
+
+export interface SharedPorts {
+  postgres: number;
+  studio: number;
+  analytics: number;
+  pooler: number;
+  kong: number;
+  meta: number;
+}
+
+// Shared Infrastructure Config
+export const SHARED_SERVICES = [
+  'multibase-db',
+  'multibase-studio',
+  'multibase-analytics',
+  'multibase-vector',
+  'multibase-imgproxy',
+  'multibase-meta',
+  'multibase-pooler',
+  'multibase-kong',
+] as const;
+
+export const TENANT_SERVICES = [
+  'kong', 'auth', 'rest', 'realtime', 'storage', 'edge-functions'
+] as const;

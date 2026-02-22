@@ -1,10 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { promises as fs } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import path from 'path';
 import archiver from 'archiver';
 import extract from 'extract-zip';
 import { logger } from '../utils/logger';
+import { parseEnvFile } from '../utils/envParser';
 
+const execAsync = promisify(exec);
 const prisma = new PrismaClient();
 
 export interface BackupOptions {
@@ -248,10 +252,86 @@ export class BackupService {
 
   /**
    * Get files for instance backup
+   * For cloud tenants, also dump the project database from the shared cluster
    */
   private async getInstanceBackupFiles(instanceId: string): Promise<string[]> {
     const projectPath = path.join(process.cwd(), '../../projects', instanceId);
-    return [projectPath];
+    const files = [projectPath];
+
+    // Check if this is a cloud tenant (has PROJECT_DB in .env)
+    const envPath = path.join(projectPath, '.env');
+    try {
+      const envContent = await fs.readFile(envPath, 'utf-8');
+      if (envContent.includes('PROJECT_DB=')) {
+        // Cloud tenant → dump project database from shared cluster
+        const dbDumpPath = await this.dumpCloudTenantDb(instanceId);
+        if (dbDumpPath) {
+          files.push(dbDumpPath);
+        }
+      }
+    } catch {
+      // Not a cloud tenant or no env file
+    }
+
+    return files;
+  }
+
+  /**
+   * Dump a cloud tenant's database from the shared PostgreSQL cluster
+   */
+  async dumpCloudTenantDb(instanceName: string): Promise<string | null> {
+    try {
+      const sharedEnvPath = path.join(process.cwd(), '../../shared/.env.shared');
+      if (!(await fs.stat(sharedEnvPath).catch(() => null))) {
+        logger.warn('Shared .env.shared not found for cloud DB dump');
+        return null;
+      }
+
+      const sharedEnv = parseEnvFile(sharedEnvPath);
+      const dbName = `project_${instanceName}`.replace(/-/g, '_');
+      const port = sharedEnv.SHARED_PG_PORT || '5432';
+      const password = sharedEnv.SHARED_POSTGRES_PASSWORD;
+
+      const dumpPath = path.join(this.BACKUP_DIR, `${instanceName}-db-${Date.now()}.sql`);
+
+      // Use docker exec to pg_dump from the shared database container
+      const cmd = `docker exec -e PGPASSWORD=${password} multibase-db pg_dump -U postgres -d ${dbName} --no-owner --no-privileges`;
+      const { stdout } = await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 });
+
+      await fs.writeFile(dumpPath, stdout, 'utf-8');
+      logger.info(`Cloud tenant DB dump created: ${dumpPath} (${this.formatBytes(stdout.length)})`);
+      return dumpPath;
+    } catch (error) {
+      logger.error(`Error dumping cloud tenant DB for ${instanceName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Restore a cloud tenant's database into the shared PostgreSQL cluster
+   */
+  async restoreCloudTenantDb(instanceName: string, sqlDumpPath: string): Promise<boolean> {
+    try {
+      const sharedEnvPath = path.join(process.cwd(), '../../shared/.env.shared');
+      const sharedEnv = parseEnvFile(sharedEnvPath);
+      const dbName = `project_${instanceName}`.replace(/-/g, '_');
+      const password = sharedEnv.SHARED_POSTGRES_PASSWORD;
+
+      // Terminate connections and recreate database
+      const dropCmd = `docker exec -e PGPASSWORD=${password} multibase-db psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid<>pg_backend_pid();" -c "DROP DATABASE IF EXISTS ${dbName};" -c "CREATE DATABASE ${dbName};"`;
+      await execAsync(dropCmd);
+
+      // Restore dump via docker exec with stdin
+      const sqlContent = await fs.readFile(sqlDumpPath, 'utf-8');
+      const restoreCmd = `docker exec -i -e PGPASSWORD=${password} multibase-db psql -U postgres -d ${dbName}`;
+      await execAsync(restoreCmd, { input: sqlContent } as any);
+
+      logger.info(`Cloud tenant DB restored: ${dbName}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error restoring cloud tenant DB for ${instanceName}:`, error);
+      return false;
+    }
   }
 
   /**
@@ -311,14 +391,23 @@ export class BackupService {
   }
 
   /**
-   * Restore instance backup
+   * Restore instance backup (cloud-aware)
    */
   private async restoreInstanceBackup(extractPath: string, instanceId: string): Promise<void> {
     const projectsDest = path.join(process.cwd(), '../../projects', instanceId);
     const extractedDirs = await fs.readdir(extractPath);
 
-    if (extractedDirs.length > 0) {
-      const src = path.join(extractPath, extractedDirs[0]);
+    // Check for cloud tenant DB dump (.sql file)
+    const sqlDump = extractedDirs.find(f => f.endsWith('.sql'));
+    if (sqlDump) {
+      const sqlPath = path.join(extractPath, sqlDump);
+      await this.restoreCloudTenantDb(instanceId, sqlPath);
+    }
+
+    // Restore project files
+    const projectDir = extractedDirs.find(f => !f.endsWith('.sql'));
+    if (projectDir) {
+      const src = path.join(extractPath, projectDir);
       await this.copyRecursive(src, projectsDest);
     }
   }

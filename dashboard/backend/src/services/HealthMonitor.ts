@@ -1,13 +1,12 @@
 import { EventEmitter } from 'events';
-import { HealthStatus } from '../types';
-// import DockerManager from './DockerManager'; // Reserved for future use
+import { HealthStatus, SHARED_SERVICES, SharedInfraStatus } from '../types';
+import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
 import { RedisCache } from './RedisCache';
 import { logger } from '../utils/logger';
 
 export class HealthMonitor extends EventEmitter {
-  // Reserved for future direct container health checks
-  // private dockerManager: DockerManager;
+  private dockerManager: DockerManager;
   private instanceManager: InstanceManager;
   private redisCache: RedisCache;
   private interval: NodeJS.Timeout | null = null;
@@ -15,13 +14,13 @@ export class HealthMonitor extends EventEmitter {
   private isRunning: boolean = false;
 
   constructor(
-    _dockerManager: unknown, // Reserved for future use
+    dockerManager: DockerManager,
     instanceManager: InstanceManager,
     redisCache: RedisCache,
     checkInterval: number = 10000
   ) {
     super();
-    // this.dockerManager = dockerManager;
+    this.dockerManager = dockerManager;
     this.instanceManager = instanceManager;
     this.redisCache = redisCache;
     this.checkInterval = checkInterval;
@@ -67,10 +66,13 @@ export class HealthMonitor extends EventEmitter {
   }
 
   /**
-   * Check health of all instances
+   * Check health of all instances + shared infrastructure
    */
   private async checkAllInstances(): Promise<void> {
     try {
+      // Check shared infrastructure health
+      await this.checkSharedInfraHealth();
+
       const instances = await this.instanceManager.listInstances();
 
       for (const instance of instances) {
@@ -79,6 +81,77 @@ export class HealthMonitor extends EventEmitter {
     } catch (error) {
       logger.error('Error checking all instances:', error);
     }
+  }
+
+  /**
+   * Check health of the shared infrastructure services
+   */
+  async checkSharedInfraHealth(): Promise<SharedInfraStatus> {
+    try {
+      const sharedContainers = await this.dockerManager.listSharedContainers();
+      const runningCount = sharedContainers.filter(
+        (c) => c.State === 'running'
+      ).length;
+      const totalExpected = SHARED_SERVICES.length;
+
+      let status: SharedInfraStatus['status'] = 'stopped';
+      if (runningCount === totalExpected) status = 'running';
+      else if (runningCount > 0) status = 'degraded';
+
+      const services = sharedContainers.map((c) => ({
+        name: (c.Names?.[0] || '').replace(/^\//, ''),
+        status: c.State as string,
+        health: (c as any).Status?.includes('healthy')
+          ? 'healthy'
+          : (c as any).Status?.includes('unhealthy')
+            ? 'unhealthy'
+            : ('unknown' as 'healthy' | 'unhealthy' | 'unknown'),
+      }));
+
+      const sharedHealth: SharedInfraStatus = {
+        status,
+        services,
+        ports: {},
+        lastChecked: new Date(),
+      };
+
+      // Cache shared health
+      await this.redisCache.set('shared:health', JSON.stringify(sharedHealth), 60);
+
+      // Emit events on status changes
+      const prevRaw = await this.redisCache.get('shared:health:prev');
+      const prev = prevRaw ? JSON.parse(prevRaw) : null;
+      if (prev && prev.status !== status) {
+        this.emit('shared:health:changed', {
+          previous: prev.status,
+          current: status,
+          timestamp: new Date(),
+        });
+        if (status === 'degraded' || status === 'stopped') {
+          this.emit('alert:triggered', {
+            instanceName: 'shared-infrastructure',
+            type: 'shared_health_degraded',
+            message: `Shared Infrastructure status: ${status} (${runningCount}/${totalExpected} services)`,
+            severity: status === 'stopped' ? 'critical' : 'warning',
+            timestamp: new Date(),
+          });
+        }
+      }
+      await this.redisCache.set('shared:health:prev', JSON.stringify(sharedHealth), 300);
+
+      return sharedHealth;
+    } catch (error) {
+      logger.error('Error checking shared infra health:', error);
+      return { status: 'stopped', services: [], ports: {}, lastChecked: new Date() };
+    }
+  }
+
+  /**
+   * Get cached shared infrastructure health
+   */
+  async getCachedSharedHealth(): Promise<SharedInfraStatus | null> {
+    const raw = await this.redisCache.get('shared:health');
+    return raw ? JSON.parse(raw) : null;
   }
 
   /**

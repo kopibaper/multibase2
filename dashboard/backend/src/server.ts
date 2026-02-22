@@ -42,6 +42,7 @@ import { UptimeService } from './services/UptimeService';
 import { FunctionService } from './services/FunctionService';
 import { StorageService } from './services/StorageService';
 import { createStorageRoutes } from './routes/storage';
+import { createSharedRoutes } from './routes/shared';
 import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
 
@@ -154,6 +155,7 @@ app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
+app.use('/api/shared', createSharedRoutes(dockerManager));
 
 // AI Agent
 const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {

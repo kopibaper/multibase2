@@ -77,18 +77,42 @@ export class MigrationService {
 
     const envConfig = parseEnvFile(envPath);
     const password = envConfig.POSTGRES_PASSWORD;
-    const port = envConfig.POSTGRES_PORT || '5432';
 
-    if (!password) {
+    // Cloud-Version: Detect stack type and connect to shared DB
+    const isCloud = !!envConfig.PROJECT_DB && !envConfig.POSTGRES_PORT;
+    let dbHost: string, dbPort: number, dbName: string, dbPassword: string;
+
+    if (isCloud) {
+      // Read shared PostgreSQL config
+      const sharedEnvPath = path.resolve(PROJECTS_PATH, '..', 'shared', '.env.shared');
+      let sharedPassword = password;
+      let sharedPort = 5432;
+      if (fs.existsSync(sharedEnvPath)) {
+        const sharedEnv = parseEnvFile(sharedEnvPath);
+        sharedPassword = sharedEnv.SHARED_POSTGRES_PASSWORD || password;
+        sharedPort = parseInt(sharedEnv.SHARED_PG_PORT || '5432', 10);
+      }
+      dbHost = 'localhost';
+      dbPort = sharedPort;
+      dbName = envConfig.PROJECT_DB;
+      dbPassword = sharedPassword || password;
+    } else {
+      dbHost = 'localhost';
+      dbPort = parseInt(envConfig.POSTGRES_PORT || '5432', 10);
+      dbName = 'postgres';
+      dbPassword = password;
+    }
+
+    if (!dbPassword) {
       throw new Error('Database password not found in configuration');
     }
 
     const client = new Client({
       user: 'postgres',
-      host: 'localhost',
-      database: 'postgres',
-      password: password,
-      port: parseInt(port, 10),
+      host: dbHost,
+      database: dbName,
+      password: dbPassword,
+      port: dbPort,
     });
 
     try {
