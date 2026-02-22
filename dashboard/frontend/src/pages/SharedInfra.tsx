@@ -6,7 +6,6 @@ import {
   useStopSharedInfra,
   useDeleteDatabase,
 } from '../hooks/useShared';
-import GaugeChart from '../components/charts/GaugeChart';
 import {
   Loader2,
   AlertCircle,

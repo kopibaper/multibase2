@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { HealthStatus, SHARED_SERVICES, SharedInfraStatus } from '../types';
+import { HealthStatus, SHARED_SERVICES, SharedInfraStatus, SharedServiceStatus } from '../types';
 import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
 import { RedisCache } from './RedisCache';
@@ -98,9 +98,9 @@ export class HealthMonitor extends EventEmitter {
       if (runningCount === totalExpected) status = 'running';
       else if (runningCount > 0) status = 'degraded';
 
-      const services = sharedContainers.map((c) => ({
+      const services: SharedServiceStatus[] = sharedContainers.map((c) => ({
         name: (c.Names?.[0] || '').replace(/^\//, ''),
-        status: c.State as string,
+        status: (c.State === 'running' ? 'running' : 'stopped') as 'running' | 'stopped',
         health: (c as any).Status?.includes('healthy')
           ? 'healthy'
           : (c as any).Status?.includes('unhealthy')

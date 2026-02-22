@@ -213,7 +213,7 @@ export interface SystemMetrics {
   totalDisk: number;
   instanceCount: number;
   runningCount: number;
-  sharedInfraStatus: 'running' | 'stopped' | 'degraded' | 'unknown';
+  sharedInfraStatus?: 'running' | 'stopped' | 'degraded' | 'unknown';
   timestamp: Date;
 }
 
@@ -221,13 +221,14 @@ export interface SystemMetrics {
 export interface SharedInfraStatus {
   status: 'running' | 'stopped' | 'degraded';
   services: SharedServiceStatus[];
-  databases: SharedDatabase[];
+  databases?: SharedDatabase[];
   ports: SharedPorts;
+  lastChecked?: Date;
 }
 
 export interface SharedServiceStatus {
   name: string;
-  containerName: string;
+  containerName?: string;
   status: 'running' | 'stopped' | 'healthy' | 'unhealthy';
   uptime?: number;
   cpu?: number;
@@ -242,12 +243,12 @@ export interface SharedDatabase {
 }
 
 export interface SharedPorts {
-  postgres: number;
-  studio: number;
-  analytics: number;
-  pooler: number;
-  kong: number;
-  meta: number;
+  postgres?: number;
+  studio?: number;
+  analytics?: number;
+  pooler?: number;
+  kong?: number;
+  meta?: number;
 }
 
 // Shared Infrastructure Config

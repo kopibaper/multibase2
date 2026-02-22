@@ -336,7 +336,7 @@ export class MetricsCollector extends EventEmitter {
         take: limit
       });
 
-      return metrics.reverse() as SystemMetrics[];
+      return metrics.reverse() as unknown as SystemMetrics[];
     } catch (error) {
       logger.error('Error getting system metrics history:', error);
       return [];
