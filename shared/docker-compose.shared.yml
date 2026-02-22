@@ -174,7 +174,7 @@ services:
     image: timberio/vector:0.28.1-alpine
     restart: unless-stopped
     volumes:
-      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
+      - ./config/vector.yml:/etc/vector/vector.yml:ro,z
       - /var/run/docker.sock:/var/run/docker.sock:ro,z
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://multibase-vector:9001/health']
