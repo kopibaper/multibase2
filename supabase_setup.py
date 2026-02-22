@@ -47,8 +47,10 @@ def generate_jwt_token(secret, role):
     def base64url_encode(data):
         return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
     
-    header_b64 = base64url_encode(json.dumps(header).encode())
-    payload_b64 = base64url_encode(json.dumps(payload).encode())
+    # Use compact separators to avoid spaces in base64-encoded header/payload
+    # (spaces in JSON cause non-standard JWT headers that some validators reject)
+    header_b64 = base64url_encode(json.dumps(header, separators=(',', ':')).encode())
+    payload_b64 = base64url_encode(json.dumps(payload, separators=(',', ':')).encode())
     
     message = f'{header_b64}.{payload_b64}'
     signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
@@ -496,7 +498,15 @@ networks:
             password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
             print("WARNING: SHARED_POSTGRES_PASSWORD nicht gefunden - zufaelliges PW wird genutzt!")
             print("         Verbindung zur Shared-DB koennte fehlschlagen.")
-        jwt_secret = ''.join(random.choices(string.ascii_letters + string.digits, k=48))
+
+        # Use SHARED_JWT_SECRET so tenant services & shared Studio use the same secret.
+        # Tokens signed by shared Studio will then validate in tenant auth/rest/realtime.
+        jwt_secret = self.shared_env.get('SHARED_JWT_SECRET', '').strip()
+        if not jwt_secret:
+            jwt_secret = ''.join(random.choices(string.ascii_letters + string.digits, k=48))
+            print("WARNING: SHARED_JWT_SECRET nicht gefunden - zufaelliges JWT Secret wird genutzt!")
+            print("         Tenant-Services und Shared-Studio teilen KEIN gemeinsames JWT Secret.")
+
         secret_key_base = ''.join(random.choices(string.ascii_letters + string.digits, k=64))
         logflare_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         

@@ -11,7 +11,10 @@ export function parseEnvFile(filePath: string): EnvConfig {
     const content = fs.readFileSync(filePath, 'utf8');
     const config: EnvConfig = {};
 
-    content.split('\n').forEach((line) => {
+    content.split('\n').forEach((rawLine) => {
+      // Strip trailing \r for CRLF support (Windows line endings)
+      const line = rawLine.replace(/\r$/, '');
+
       // Skip comments and empty lines
       if (line.trim().startsWith('#') || line.trim() === '') {
         return;

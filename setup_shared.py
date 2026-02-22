@@ -51,8 +51,9 @@ def generate_jwt_token(secret, role):
     def base64url_encode(data):
         return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
     
-    header_b64 = base64url_encode(json.dumps(header).encode())
-    payload_b64 = base64url_encode(json.dumps(payload).encode())
+    # Use compact separators to avoid spaces in base64-encoded header/payload
+    header_b64 = base64url_encode(json.dumps(header, separators=(',', ':')).encode())
+    payload_b64 = base64url_encode(json.dumps(payload, separators=(',', ':')).encode())
     
     message = f'{header_b64}.{payload_b64}'
     signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
