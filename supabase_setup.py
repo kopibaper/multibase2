@@ -212,14 +212,26 @@ class SupabaseProjectGenerator:
             sys.path.insert(0, str(Path(__file__).parent))
             from setup_shared import SharedInfraManager
             manager = SharedInfraManager()
-            manager.create_project_db(self.project_name)
+            result = manager.create_project_db(self.project_name)
+            if result is False:
+                db_name = f"project_{self.project_name}".replace('-', '_')
+                raise RuntimeError(
+                    f"Datenbank {db_name} konnte nicht erstellt werden. "
+                    f"Prüfe ob der shared Stack läuft: python setup_shared.py create-db {self.project_name}"
+                )
         except ImportError:
-            print("WARNING: setup_shared.py nicht gefunden - Datenbank muss manuell erstellt werden:")
             db_name = f"project_{self.project_name}".replace('-', '_')
-            print(f"   docker exec -i multibase-db psql -U postgres -c 'CREATE DATABASE {db_name};'")
+            raise RuntimeError(
+                f"setup_shared.py nicht gefunden - Datenbank muss manuell erstellt werden:\n"
+                f"   docker exec -i multibase-db psql -U postgres -c 'CREATE DATABASE {db_name};'"
+            )
+        except RuntimeError:
+            raise  # Weiterleiten ohne erneutes Wrapping
         except Exception as e:
-            print(f"WARNING: Datenbank-Erstellung fehlgeschlagen: {e}")
-            print(f"   Manuell erstellen mit: python setup_shared.py create-db {self.project_name}")
+            raise RuntimeError(
+                f"Datenbank-Erstellung fehlgeschlagen: {e}\n"
+                f"   Manuell erstellen mit: python setup_shared.py create-db {self.project_name}"
+            ) from e
 
     def _create_project_directory(self):
         """Create the project directory if it doesn't exist."""

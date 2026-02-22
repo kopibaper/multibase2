@@ -121,9 +121,19 @@ export class DockerManager {
   async listProjectContainers(projectName: string): Promise<Docker.ContainerInfo[]> {
     try {
       const containers = await this.docker.listContainers({ all: true });
-      return containers.filter((container) =>
-        container.Names.some((name) => name.includes(projectName))
-      );
+      return containers.filter((container) => {
+        // Use Docker Compose project label for exact matching to avoid substring
+        // collisions (e.g. "cloud-test" matching "cloud-test-2")
+        const composeProject = container.Labels?.['com.docker.compose.project'];
+        if (composeProject !== undefined) {
+          return composeProject === projectName;
+        }
+        // Fallback: exact name match (container name is "/<projectName>-<service>-<n>")
+        return container.Names.some((name) => {
+          const stripped = name.startsWith('/') ? name.slice(1) : name;
+          return stripped === projectName || stripped.startsWith(`${projectName}-`);
+        });
+      });
     } catch (error) {
       logger.error(`Error listing containers for project ${projectName}:`, error);
       throw error;
