@@ -61,6 +61,15 @@ function CredentialItem({ label, value, icon, isSecret = false }: CredentialItem
 }
 
 export default function CredentialsTab({ instance }: CredentialsTabProps) {
+  const portDisplayOrder: Array<{ key: keyof SupabaseInstance['ports']; label: string }> = [
+    { key: 'kong_http', label: 'kong http' },
+    { key: 'kong_https', label: 'kong https' },
+    { key: 'studio', label: 'studio' },
+    { key: 'postgres', label: 'postgres' },
+    { key: 'pooler', label: 'pooler' },
+    { key: 'analytics', label: 'analytics' },
+  ];
+
   const credentials = [
     {
       label: 'Project URL',
@@ -148,10 +157,10 @@ export default function CredentialsTab({ instance }: CredentialsTabProps) {
         <div className='glass-card p-6'>
           <h2 className='text-lg font-semibold mb-4'>Port Mappings</h2>
           <div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
-            {Object.entries(instance.ports).map(([service, port]) => (
-              <div key={service} className='border border-border/50 rounded p-3'>
-                <p className='text-sm text-muted-foreground capitalize'>{service.replace(/_/g, ' ')}</p>
-                <p className='text-lg font-bold mt-1'>{port || 'N/A'}</p>
+            {portDisplayOrder.map(({ key, label }) => (
+              <div key={key} className='border border-border/50 rounded p-3'>
+                <p className='text-sm text-muted-foreground capitalize'>{label}</p>
+                <p className='text-lg font-bold mt-1'>{instance.ports[key] ?? 'N/A'}</p>
               </div>
             ))}
           </div>

@@ -1,7 +1,32 @@
 import { Router, Request, Response } from 'express';
+import * as os from 'os';
+import { execSync } from 'child_process';
 import MetricsCollector from '../services/MetricsCollector';
 import { RedisCache } from '../services/RedisCache';
 import { logger } from '../utils/logger';
+
+function getHostDiskInfo(): { totalMB: number; usedMB: number } | null {
+  try {
+    if (process.platform === 'win32') {
+      const drive = process.cwd().slice(0, 1);
+      const out = execSync(
+        `powershell -Command "$d = Get-PSDrive ${drive}; Write-Output (($d.Used + $d.Free).ToString()); Write-Output $d.Used.ToString()"`,
+        { timeout: 4000 }
+      ).toString().replace(/\r/g, '').trim().split('\n');
+      const totalMB = Math.round(parseInt(out[0]) / 1024 / 1024);
+      const usedMB = Math.round(parseInt(out[1]) / 1024 / 1024);
+      if (!isNaN(totalMB) && !isNaN(usedMB)) return { totalMB, usedMB };
+    } else {
+      const out = execSync('df -m / | tail -1', { timeout: 3000 }).toString().trim().split(/\s+/);
+      const totalMB = parseInt(out[1]);
+      const usedMB = parseInt(out[2]);
+      if (!isNaN(totalMB) && !isNaN(usedMB)) return { totalMB, usedMB };
+    }
+  } catch {
+    // ignore – disk info is optional
+  }
+  return null;
+}
 
 export function createMetricsRoutes(
   metricsCollector: MetricsCollector,
@@ -32,7 +57,15 @@ export function createMetricsRoutes(
               runningCount: 0,
               timestamp: new Date(),
             };
-      res.json(latestMetric);
+      // Immer aktuelles Host-RAM und Disk-Info anhängen (dynamisch, plattformunabhängig)
+      const hostTotalMemoryMB = Math.round(os.totalmem() / 1024 / 1024);
+      const diskInfo = getHostDiskInfo();
+      res.json({
+        ...latestMetric,
+        hostTotalMemory: hostTotalMemoryMB,
+        hostDiskTotal: diskInfo?.totalMB ?? null,
+        hostDiskUsed: diskInfo?.usedMB ?? null,
+      });
     } catch (error) {
       logger.error('Error getting system metrics:', error);
       res.status(500).json({ error: 'Failed to get system metrics' });

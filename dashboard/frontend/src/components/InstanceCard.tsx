@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SupabaseInstance } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +22,8 @@ import SaveTemplateModal from './SaveTemplateModal';
 import ConfirmDialog from './ConfirmDialog';
 import { UptimeChart } from './UptimeChart';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 interface InstanceCardProps {
   instance: SupabaseInstance;
   isSelected?: boolean;
@@ -37,6 +39,9 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
   const { data: alerts } = useAlerts({ instanceId: instance.id, status: 'active' });
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [studioActivating, setStudioActivating] = useState(false);
+
+  const isCloudInstance = instance.stackType === 'cloud';
 
   const getHealthColor = (status: string) => {
     switch (status) {
@@ -81,6 +86,42 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
     setShowStopConfirm(false);
     await stopMutation.mutateAsync(instance.name);
   };
+
+  const handleOpenStudio = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isCloudInstance) {
+      // Classic stack: open Studio directly
+      const url = instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`;
+      window.open(url, '_blank');
+      return;
+    }
+
+    // Cloud stack: activate tenant first, then open shared Studio
+    setStudioActivating(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+    } catch (err: any) {
+      console.error('Studio activation failed:', err);
+      alert(`Studio activation failed: ${err.message}`);
+    } finally {
+      setStudioActivating(false);
+    }
+  }, [instance, isCloudInstance]);
 
   const handleCardClick = () => {
     navigate(`/instances/${instance.name}`);
@@ -213,17 +254,15 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                   {stopMutation.isPending ? 'Stopping...' : 'Stop'}
                 </button>
               )}
-              <a
-                href={instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`}
-                target='_blank'
-                rel='noopener noreferrer'
-                onClick={(e) => e.stopPropagation()}
-                className='flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-md hover:bg-violet-500/20 transition-colors text-sm font-medium'
-                title={instance.credentials.studio_url ? 'Open Studio' : `Open Studio (Port ${instance.ports.studio})`}
+              <button
+                onClick={handleOpenStudio}
+                disabled={studioActivating}
+                className='flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-md hover:bg-violet-500/20 transition-colors text-sm font-medium disabled:opacity-50'
+                title={isCloudInstance ? `Activate & Open Studio for ${instance.name}` : `Open Studio (Port ${instance.ports.studio})`}
               >
                 <ExternalLink className='w-4 h-4' />
-                Studio
-              </a>
+                {studioActivating ? 'Activating...' : 'Studio'}
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

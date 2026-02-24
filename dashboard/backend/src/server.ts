@@ -43,8 +43,10 @@ import { FunctionService } from './services/FunctionService';
 import { StorageService } from './services/StorageService';
 import { createStorageRoutes } from './routes/storage';
 import { createSharedRoutes } from './routes/shared';
+import { createStudioRoutes } from './routes/studio';
 import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
+import { StudioManager } from './services/StudioManager';
 
 // Utils
 import { logger } from './utils/logger';
@@ -127,8 +129,9 @@ const metricsCollector = new MetricsCollector(
   METRICS_INTERVAL
 );
 const uptimeService = new UptimeService(prisma, instanceManager);
-const functionService = new FunctionService(dockerManager);
+const functionService = new FunctionService(dockerManager, PROJECTS_PATH);
 const storageService = new StorageService(instanceManager);
+const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -155,7 +158,8 @@ app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
-app.use('/api/shared', createSharedRoutes(dockerManager));
+app.use('/api/shared', createSharedRoutes(dockerManager, studioManager));
+app.use('/api/studio', createStudioRoutes(studioManager));
 
 // AI Agent
 const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {

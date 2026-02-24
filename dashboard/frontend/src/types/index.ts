@@ -117,6 +117,9 @@ export interface SystemMetrics {
   totalCpu: number;
   totalMemory: number;
   totalDisk: number;
+  hostTotalMemory?: number;
+  hostDiskTotal?: number | null;
+  hostDiskUsed?: number | null;
   instanceCount: number;
   runningCount: number;
   timestamp: string;

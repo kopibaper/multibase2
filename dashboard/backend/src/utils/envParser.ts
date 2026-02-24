@@ -86,14 +86,45 @@ export function extractPorts(envConfig: EnvConfig): PortMapping {
     return result;
   };
 
-  const ports = {
+  const extractOptionalPort = (value: string | undefined, name: string): number | undefined => {
+    logger.debug(`extractOptionalPort called for ${name}: value="${value}"`);
+
+    if (!value) {
+      logger.debug('  -> no value, using undefined');
+      return undefined;
+    }
+
+    if (/^\d+$/.test(value)) {
+      const result = parseInt(value, 10);
+      logger.debug(`  -> plain number: ${result}`);
+      return result;
+    }
+
+    const match = value.match(/:(\d+)$/);
+    if (match) {
+      const result = parseInt(match[1], 10);
+      logger.debug(`  -> host:port format: ${result}`);
+      return result;
+    }
+
+    logger.debug('  -> could not parse optional port, using undefined');
+    return undefined;
+  };
+
+  const studioPort = extractOptionalPort(envConfig.STUDIO_PORT, 'STUDIO_PORT');
+  const postgresPort = extractOptionalPort(envConfig.POSTGRES_PORT, 'POSTGRES_PORT');
+  const poolerPort = extractOptionalPort(envConfig.POOLER_PORT, 'POOLER_PORT');
+  const analyticsPort = extractOptionalPort(envConfig.ANALYTICS_PORT, 'ANALYTICS_PORT');
+
+  const ports: PortMapping = {
     kong_http: extractPort(envConfig.KONG_HTTP_PORT, '8000', 'KONG_HTTP_PORT'),
     kong_https: extractPort(envConfig.KONG_HTTPS_PORT, '8443', 'KONG_HTTPS_PORT'),
-    studio: extractPort(envConfig.STUDIO_PORT, '3000', 'STUDIO_PORT'),
-    postgres: extractPort(envConfig.POSTGRES_PORT, '5432', 'POSTGRES_PORT'),
-    pooler: extractPort(envConfig.POOLER_PORT, '6543', 'POOLER_PORT'),
-    analytics: extractPort(envConfig.ANALYTICS_PORT, '4000', 'ANALYTICS_PORT'),
   };
+
+  if (studioPort !== undefined) ports.studio = studioPort;
+  if (postgresPort !== undefined) ports.postgres = postgresPort;
+  if (poolerPort !== undefined) ports.pooler = poolerPort;
+  if (analyticsPort !== undefined) ports.analytics = analyticsPort;
 
   logger.debug('Extracted ports:', ports);
   return ports;

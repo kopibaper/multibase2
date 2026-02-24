@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { PrismaClient } from '@prisma/client';
+import * as os from 'os';
 import { SystemMetrics, SHARED_SERVICES } from '../types';
 import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
@@ -104,10 +105,12 @@ export class MetricsCollector extends EventEmitter {
       }
 
       // Store system-wide metrics (including shared infra)
+      const hostTotalMemoryMB = Math.round(os.totalmem() / 1024 / 1024);
       const systemMetrics: SystemMetrics = {
         totalCpu: isNaN(totalCpu) ? 0 : totalCpu,
         totalMemory: isNaN(totalMemory) ? 0 : totalMemory,
         totalDisk: isNaN(totalDisk) ? 0 : totalDisk,
+        hostTotalMemory: hostTotalMemoryMB,
         instanceCount: instances.length,
         runningCount,
         timestamp: new Date()
@@ -209,15 +212,19 @@ export class MetricsCollector extends EventEmitter {
    */
   private async storeMetrics(instanceName: string, serviceName: string, metrics: any): Promise<void> {
     try {
-      // Check if instance exists in database first
-      const instance = await this.prisma.instance.findUnique({
-        where: { id: instanceName }
+      await this.prisma.instance.upsert({
+        where: { id: instanceName },
+        update: {
+          status: 'running',
+          updatedAt: new Date(),
+        },
+        create: {
+          id: instanceName,
+          name: instanceName,
+          basePort: 0,
+          status: 'running',
+        },
       });
-
-      if (!instance) {
-        logger.warn(`Instance ${instanceName} not found in database, skipping metrics storage`);
-        return;
-      }
 
       await this.prisma.metric.create({
         data: {

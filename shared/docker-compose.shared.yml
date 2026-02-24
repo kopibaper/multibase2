@@ -64,7 +64,7 @@ services:
   # ============================================================
   studio:
     container_name: multibase-studio
-    image: supabase/studio:20250317-6955350
+    image: ${SHARED_STUDIO_IMAGE:-supabase/studio:latest}
     restart: unless-stopped
     ports:
       - "${SHARED_STUDIO_PORT:-3000}:3000"
@@ -92,6 +92,9 @@ services:
       LOGFLARE_URL: http://multibase-analytics:4000
       NEXT_PUBLIC_ENABLE_LOGS: true
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      DOCKER_SOCKET_LOCATION: /var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - multibase-shared
 
@@ -106,7 +109,7 @@ services:
       - "${SHARED_KONG_HTTP_PORT:-8000}:8000/tcp"
       - "${SHARED_KONG_HTTPS_PORT:-8443}:8443/tcp"
     volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:z
     depends_on:
       analytics:
         condition: service_healthy

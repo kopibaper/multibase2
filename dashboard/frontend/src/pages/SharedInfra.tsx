@@ -45,12 +45,12 @@ export default function SharedInfra() {
       <div className='flex items-center justify-center min-h-screen'>
         <div className='text-center'>
           <AlertCircle className='w-12 h-12 text-destructive mx-auto mb-4' />
-          <h2 className='text-xl font-semibold mb-2'>Shared Infrastructure nicht erreichbar</h2>
+          <h2 className='text-xl font-semibold mb-2'>Shared Infrastructure unreachable</h2>
           <p className='text-muted-foreground mb-4'>
-            {error instanceof Error ? error.message : 'Verbindung fehlgeschlagen'}
+            {error instanceof Error ? error.message : 'Connection failed'}
           </p>
           <button onClick={() => refetch()} className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90'>
-            Erneut versuchen
+            Retry
           </button>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function SharedInfra() {
                 <div className='flex items-center gap-2 mt-1'>
                   <StatusIcon className={`w-4 h-4 ${statusColor}`} />
                   <span className={`text-sm font-medium ${statusColor}`}>
-                    {status?.status === 'running' ? 'Läuft' : status?.status === 'degraded' ? 'Beeinträchtigt' : 'Gestoppt'}
+                    {status?.status === 'running' ? 'Running' : status?.status === 'degraded' ? 'Degraded' : 'Stopped'}
                   </span>
                   <span className='text-muted-foreground text-sm'>
                     — {status?.runningServices || 0}/{status?.totalServices || 0} Services
@@ -98,7 +98,7 @@ export default function SharedInfra() {
             <div className='flex items-center gap-3'>
               <button onClick={() => refetch()} className='btn-secondary flex items-center gap-2 px-4 py-2'>
                 <RefreshCw className='w-4 h-4' />
-                Aktualisieren
+                Refresh
               </button>
 
               {status?.status === 'running' || status?.status === 'degraded' ? (
@@ -112,7 +112,7 @@ export default function SharedInfra() {
                   ) : (
                     <Square className='w-4 h-4' />
                   )}
-                  {confirmStop ? 'Wirklich stoppen?' : 'Stoppen'}
+                  {confirmStop ? 'Confirm stop?' : 'Stop'}
                 </button>
               ) : (
                 <button
@@ -125,7 +125,7 @@ export default function SharedInfra() {
                   ) : (
                     <Play className='w-4 h-4' />
                   )}
-                  Starten
+                  Start
                 </button>
               )}
             </div>
@@ -155,7 +155,7 @@ export default function SharedInfra() {
           <div className='glass-card p-6'>
             <div className='flex items-center justify-between'>
               <div>
-                <p className='text-sm text-muted-foreground'>Datenbanken</p>
+                <p className='text-sm text-muted-foreground'>Databases</p>
                 <p className='text-3xl font-bold mt-1 text-brand-400'>{dbData?.count || 0}</p>
               </div>
               <div className='w-12 h-12 bg-brand-500/20 rounded-xl flex items-center justify-center'>
@@ -242,9 +242,9 @@ export default function SharedInfra() {
         <div className='bg-card border rounded-lg p-6'>
           <h2 className='text-xl font-semibold mb-6 flex items-center gap-2'>
             <Database className='w-5 h-5' />
-            Datenbank-Cluster
+            Database Cluster
             <span className='text-sm font-normal text-muted-foreground ml-2'>
-              ({dbData?.count || 0} Projekt-Datenbanken)
+              ({dbData?.count || 0} project databases)
             </span>
           </h2>
 
@@ -253,10 +253,10 @@ export default function SharedInfra() {
               <table className='w-full'>
                 <thead>
                   <tr className='border-b border-white/10'>
-                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Datenbank</th>
-                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Projekt</th>
-                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Größe</th>
-                    <th className='text-right py-3 px-4 text-sm font-medium text-muted-foreground'>Aktionen</th>
+                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Database</th>
+                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Project</th>
+                    <th className='text-left py-3 px-4 text-sm font-medium text-muted-foreground'>Size</th>
+                    <th className='text-right py-3 px-4 text-sm font-medium text-muted-foreground'>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,20 +275,20 @@ export default function SharedInfra() {
                               }}
                               className='text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30'
                             >
-                              Bestätigen
+                              Confirm
                             </button>
                             <button
                               onClick={() => setDeleteTarget(null)}
                               className='text-xs px-3 py-1 bg-white/10 text-muted-foreground rounded hover:bg-white/20'
                             >
-                              Abbrechen
+                              Cancel
                             </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => setDeleteTarget(db.projectName)}
                             className='text-muted-foreground hover:text-red-400 transition-colors'
-                            title='Datenbank löschen'
+                            title='Delete database'
                           >
                             <Trash2 className='w-4 h-4' />
                           </button>
@@ -302,9 +302,9 @@ export default function SharedInfra() {
           ) : (
             <div className='text-center py-12'>
               <Database className='w-12 h-12 text-muted-foreground/30 mx-auto mb-4' />
-              <p className='text-muted-foreground'>Noch keine Projekt-Datenbanken vorhanden</p>
+              <p className='text-muted-foreground'>No project databases yet</p>
               <p className='text-sm text-muted-foreground/70 mt-1'>
-                Erstelle eine Cloud-Instanz, um automatisch eine Datenbank anzulegen
+                Create a cloud instance to automatically provision a database
               </p>
             </div>
           )}

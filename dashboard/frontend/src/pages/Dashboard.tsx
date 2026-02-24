@@ -9,7 +9,7 @@ import InstanceCard from '../components/InstanceCard';
 import BulkActionBar from '../components/BulkActionBar';
 import CreateInstanceModal from '../components/CreateInstanceModal';
 import GaugeChart from '../components/charts/GaugeChart';
-import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp, Cloud, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp, Cloud, CheckCircle2, XCircle, AlertTriangle, HardDrive } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: instances, isLoading, error, refetch } = useInstances();
@@ -193,10 +193,10 @@ export default function Dashboard() {
               System Overview
             </h2>
 
-            <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
               {/* Total CPU Gauge */}
               <div className='flex flex-col items-center'>
-                <GaugeChart label='Total CPU Usage' value={systemMetrics.totalCpu} icon={Activity} size='lg' />
+                <GaugeChart label='Total CPU Usage' value={systemMetrics.totalCpu} icon={Activity} color='cyan' size='lg' />
                 <div className='mt-4 text-center'>
                   <p className='text-sm text-muted-foreground'>
                     Across {systemMetrics?.runningCount ?? 0} running instance
@@ -209,16 +209,49 @@ export default function Dashboard() {
               <div className='flex flex-col items-center'>
                 <GaugeChart
                   label='Total Memory'
-                  value={systemMetrics?.totalMemory ? (systemMetrics.totalMemory / 1024 / 10) * 100 : 0}
-                  displayValue={
-                    systemMetrics?.totalMemory ? `${(systemMetrics.totalMemory / 1024).toFixed(1)} GB` : '0 GB'
+                  value={
+                    systemMetrics?.totalMemory && systemMetrics?.hostTotalMemory
+                      ? Math.min((systemMetrics.totalMemory / systemMetrics.hostTotalMemory) * 100, 100)
+                      : systemMetrics?.totalMemory
+                        ? Math.min((systemMetrics.totalMemory / 1024 / 10) * 100, 100)
+                        : 0
                   }
+                  displayValue={
+                    systemMetrics?.totalMemory && systemMetrics?.hostTotalMemory
+                      ? `${(systemMetrics.totalMemory / 1024).toFixed(1)} / ${(systemMetrics.hostTotalMemory / 1024).toFixed(0)} GB`
+                      : systemMetrics?.totalMemory
+                        ? `${(systemMetrics.totalMemory / 1024).toFixed(1)} GB`
+                        : '0 GB'
+                  }
+                  color='pink'
+                  size='lg'
                   icon={TrendingUp}
-                  color='purple'
+                />
+                <div className='mt-4 text-center'>
+                  <p className='text-sm text-muted-foreground'>Container RAM usage</p>
+                </div>
+              </div>
+
+              {/* Disk Gauge */}
+              <div className='flex flex-col items-center'>
+                <GaugeChart
+                  label='Disk Usage'
+                  value={
+                    systemMetrics?.hostDiskUsed && systemMetrics?.hostDiskTotal
+                      ? Math.min((systemMetrics.hostDiskUsed / systemMetrics.hostDiskTotal) * 100, 100)
+                      : 0
+                  }
+                  displayValue={
+                    systemMetrics?.hostDiskUsed && systemMetrics?.hostDiskTotal
+                      ? `${(systemMetrics.hostDiskUsed / 1024).toFixed(0)} / ${(systemMetrics.hostDiskTotal / 1024).toFixed(0)} GB`
+                      : 'N/A'
+                  }
+                  icon={HardDrive}
+                  color='orange'
                   size='lg'
                 />
                 <div className='mt-4 text-center'>
-                  <p className='text-sm text-muted-foreground'>Combined memory usage</p>
+                  <p className='text-sm text-muted-foreground'>Host disk capacity</p>
                 </div>
               </div>
             </div>

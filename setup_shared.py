@@ -16,6 +16,7 @@ Usage:
     python setup_shared.py status            # Status der Shared Services
 """
 
+import io
 import os
 import sys
 import argparse
@@ -30,9 +31,9 @@ import base64
 from pathlib import Path
 
 # Ensure stdout/stderr use UTF-8 on Windows (needed for emoji output)
-if hasattr(sys.stdout, 'reconfigure'):
+if isinstance(sys.stdout, io.TextIOWrapper):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-if hasattr(sys.stderr, 'reconfigure'):
+if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 
@@ -135,6 +136,7 @@ SHARED_DASHBOARD_PASSWORD={dashboard_password}
 # Shared Studio
 ############
 SHARED_STUDIO_PORT=3000
+SHARED_STUDIO_IMAGE=supabase/studio:latest
 SHARED_STUDIO_ORG=Multibase
 SHARED_STUDIO_PROJECT=default
 SHARED_PUBLIC_URL=http://localhost:8000
@@ -191,10 +193,46 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
         ]
         result = subprocess.run(cmd, cwd=str(self.shared_dir))
         if result.returncode == 0:
+            self.ensure_postgres_auth_users_compat()
             print("✅ Shared Infrastructure gestartet!")
         else:
             print("❌ Fehler beim Starten der Shared Infrastructure")
         return result.returncode
+
+    def ensure_postgres_auth_users_compat(self):
+        """Ensure postgres.auth.users has modern columns expected by Studio/pg-meta."""
+        compat_sql = """
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'auth' AND table_name = 'users'
+    ) THEN
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email_confirmed_at timestamptz;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email_change_token_new character varying;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS phone text;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS phone_confirmed_at timestamptz;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS phone_change text;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS phone_change_token character varying;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS phone_change_sent_at timestamptz;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email_change_token_current character varying;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email_change_confirm_status smallint;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS reauthentication_token character varying;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS reauthentication_sent_at timestamptz;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS is_sso_user boolean;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS is_anonymous boolean;
+        ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS banned_until timestamptz;
+    END IF;
+END $$;
+"""
+
+        result = self._run_sql_as_admin(compat_sql, database="postgres")
+        if result.returncode == 0:
+            print("✅ auth.users Kompatibilitäts-Patch geprüft (postgres)")
+        else:
+            print(f"⚠️  auth.users Kompatibilitäts-Patch Warnung: {result.stderr}")
     
     def stop(self):
         """Stop the shared infrastructure stack."""
@@ -328,6 +366,15 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA auth GRANT ALL ON ROU
 
 -- supabase_storage_admin permissions
 GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+GRANT USAGE ON SCHEMA storage TO postgres, anon, authenticated, service_role;
+
+-- Storage table/sequence grants (for after storage container runs migrations)
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage
+  GRANT ALL ON TABLES TO postgres, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage
+  GRANT SELECT ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage
+  GRANT USAGE ON SEQUENCES TO postgres, anon, authenticated, service_role;
 
 -- Database-level grants for service roles (needed for migrations)
 GRANT ALL PRIVILEGES ON DATABASE {db} TO supabase_admin;

@@ -8,14 +8,39 @@ export class UptimeService {
     private instanceManager: InstanceManager
   ) {}
 
+  private async ensureInstanceRecord(instanceName: string): Promise<{ id: string; status: string }> {
+    const config = (await this.instanceManager.listInstanceConfigs()).find(
+      (instance) => instance.name === instanceName
+    );
+
+    const basePort = config?.ports?.kong_http || config?.ports?.studio || 0;
+
+    const instance = await this.prisma.instance.upsert({
+      where: { id: instanceName },
+      update: {
+        name: instanceName,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: instanceName,
+        name: instanceName,
+        basePort,
+        status: 'running',
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return instance;
+  }
+
   /**
    * Check uptime for all instances
    */
   async checkAllInstances(): Promise<void> {
     try {
-      // Get all instances from DB to check status
-      const dbInstances = await this.prisma.instance.findMany();
-
       // Get configs for ports
       const distinctConfigs = await this.instanceManager.listInstanceConfigs();
 
@@ -23,9 +48,7 @@ export class UptimeService {
 
       // Filter and map
       const checks = distinctConfigs.map(async (config) => {
-        // Check if instance exists in DB (required for foreign key)
-        const dbInstance = dbInstances.find((i) => i.name === config.name);
-        if (!dbInstance) return;
+        const dbInstance = await this.ensureInstanceRecord(config.name);
 
         // Skip if explicitly stopped
         if (dbInstance.status === 'stopped') {
@@ -97,9 +120,12 @@ export class UptimeService {
 
     try {
       // Find instance by name to get its ID
-      const instance = await this.prisma.instance.findUnique({
-        where: { name: instanceName },
-      });
+      let instance = await this.prisma.instance.findUnique({ where: { name: instanceName } });
+
+      if (!instance) {
+        const ensured = await this.ensureInstanceRecord(instanceName);
+        instance = await this.prisma.instance.findUnique({ where: { id: ensured.id } });
+      }
 
       if (!instance) {
         throw new Error(`Instance not found: ${instanceName}`);

@@ -211,6 +211,9 @@ export interface SystemMetrics {
   totalCpu: number;
   totalMemory: number;
   totalDisk: number;
+  hostTotalMemory?: number;
+  hostDiskTotal?: number;
+  hostDiskUsed?: number;
   instanceCount: number;
   runningCount: number;
   sharedInfraStatus?: 'running' | 'stopped' | 'degraded' | 'unknown';

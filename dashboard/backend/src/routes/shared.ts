@@ -16,12 +16,13 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import DockerManager from '../services/DockerManager';
+import { StudioManager } from '../services/StudioManager';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
 
 const execAsync = promisify(exec);
 
-export function createSharedRoutes(dockerManager: DockerManager): Router {
+export function createSharedRoutes(dockerManager: DockerManager, studioManager?: StudioManager): Router {
   const router = Router();
 
   const getSharedDir = () => {
@@ -68,6 +69,7 @@ export function createSharedRoutes(dockerManager: DockerManager): Router {
         ports,
         totalServices: total,
         runningServices: running,
+        activeTenant: studioManager?.getActiveTenant() || null,
       });
     } catch (error: any) {
       logger.error('Error getting shared status:', error);
