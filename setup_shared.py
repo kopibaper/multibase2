@@ -142,10 +142,15 @@ SHARED_STUDIO_PROJECT=default
 SHARED_PUBLIC_URL=http://localhost:8000
 
 ############
-# Shared Kong
+# Shared Nginx Gateway
 ############
-SHARED_KONG_HTTP_PORT=8000
-SHARED_KONG_HTTPS_PORT=8443
+SHARED_GATEWAY_PORT=8000
+# Tenant ports pre-allocated for nginx port mapping (Windows/Docker Desktop)
+NGINX_PORT_1=4928
+NGINX_PORT_2=4351
+NGINX_PORT_3=4681
+NGINX_PORT_4=4100
+NGINX_PORT_5=4200
 
 ############
 # Shared Analytics / Logging
@@ -173,7 +178,7 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
         print(f"📋 Übersicht:")
         print(f"   PostgreSQL Port:  5432")
         print(f"   Studio Port:      3000")
-        print(f"   Kong HTTP Port:   8000")
+        print(f"   Gateway Port:     8000")
         print(f"   Analytics Port:   4000")
         print(f"   Pooler Port:      6543")
         print(f"   Dashboard User:   supabase")
@@ -194,10 +199,71 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
         result = subprocess.run(cmd, cwd=str(self.shared_dir))
         if result.returncode == 0:
             self.ensure_postgres_auth_users_compat()
+            self._regenerate_nginx_tenant_configs()
             print("✅ Shared Infrastructure gestartet!")
         else:
             print("❌ Fehler beim Starten der Shared Infrastructure")
         return result.returncode
+
+    def _regenerate_nginx_tenant_configs(self):
+        """Regenerate nginx gateway configs for all existing tenant projects."""
+        from pathlib import Path
+        import time
+
+        template_path = Path(__file__).parent / "templates" / "nginx" / "gateway.conf.template"
+        if not template_path.exists():
+            print("⚠️  Nginx-Template nicht gefunden, überspringe Config-Generierung")
+            return
+
+        tenants_dir = Path(__file__).parent / "shared" / "volumes" / "nginx" / "tenants"
+        tenants_dir.mkdir(parents=True, exist_ok=True)
+        template = template_path.read_text(encoding='utf-8')
+
+        projects_dir = Path(__file__).parent / "projects"
+        if not projects_dir.exists():
+            return
+
+        generated = []
+        for project_dir in sorted(projects_dir.iterdir()):
+            env_path = project_dir / ".env"
+            if not env_path.exists():
+                continue
+            tenant = project_dir.name
+            env = {}
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if '=' in line and not line.startswith('#'):
+                    k, _, v = line.partition('=')
+                    env[k.strip()] = v.strip()
+
+            gateway_port = env.get('GATEWAY_PORT') or env.get('KONG_HTTP_PORT', '8000')
+            anon_key = env.get('ANON_KEY', '')
+            service_key = env.get('SERVICE_ROLE_KEY', '')
+            if not anon_key or not service_key:
+                continue
+
+            config = template
+            config = config.replace('{{TENANT_NAME}}', tenant)
+            config = config.replace('{{TENANT_ID}}', tenant.replace('-', '_'))
+            config = config.replace('{{ANON_KEY}}', anon_key)
+            config = config.replace('{{SERVICE_ROLE_KEY}}', service_key)
+            config = config.replace('{{GATEWAY_PORT}}', gateway_port)
+            config = config.replace('{{TIMESTAMP}}', str(time.time()))
+            (tenants_dir / f'{tenant}.conf').write_text(config, encoding='utf-8')
+            generated.append(f"{tenant} (:{gateway_port})")
+
+        if generated:
+            print(f"🔧 Nginx-Configs generiert: {', '.join(generated)}")
+            # Reload nginx if running
+            import subprocess as sp
+            r = sp.run(['docker', 'exec', 'multibase-nginx-gateway', 'nginx', '-s', 'reload'],
+                       capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                print("✅ Nginx-Gateway neu geladen")
+            else:
+                print("   Nginx-Gateway noch nicht gestartet (wird beim nächsten Start geladen)")
+        else:
+            print("   Keine Tenant-Projekte gefunden, nginx-Configs übersprungen")
 
     def ensure_postgres_auth_users_compat(self):
         """Ensure postgres.auth.users has modern columns expected by Studio/pg-meta."""

@@ -59,7 +59,7 @@ export function createSharedRoutes(dockerManager: DockerManager, studioManager?:
         studio: parseInt(sharedEnv?.STUDIO_PORT || '3000', 10),
         analytics: parseInt(sharedEnv?.ANALYTICS_PORT || '4000', 10),
         pooler: parseInt(sharedEnv?.POOLER_PORT || '6543', 10),
-        kong: parseInt(sharedEnv?.KONG_HTTP_PORT || '8000', 10),
+        gateway: parseInt(sharedEnv?.SHARED_GATEWAY_PORT || sharedEnv?.KONG_HTTP_PORT || '8000', 10),
         meta: parseInt(sharedEnv?.META_PORT || '8080', 10),
       };
 

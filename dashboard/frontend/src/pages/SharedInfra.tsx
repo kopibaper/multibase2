@@ -6,6 +6,8 @@ import {
   useStopSharedInfra,
   useDeleteDatabase,
 } from '../hooks/useShared';
+import { useSystemMetrics } from '../hooks/useInstances';
+import GaugeChart from '../components/charts/GaugeChart';
 import {
   Loader2,
   AlertCircle,
@@ -21,14 +23,25 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  Network,
+  TrendingUp,
 } from 'lucide-react';
 
 export default function SharedInfra() {
   const { data: status, isLoading, error, refetch } = useSharedStatus();
   const { data: dbData } = useSharedDatabases();
+  const { data: systemMetrics } = useSystemMetrics();
   const startMutation = useStartSharedInfra();
   const stopMutation = useStopSharedInfra();
   const deleteMutation = useDeleteDatabase();
+
+  // Aggregate resource metrics from shared service containers
+  const runningServices = status?.services.filter((s) => s.status === 'running') ?? [];
+  const sharedTotalCpu = runningServices.reduce((sum, s) => sum + (s.cpu ?? 0), 0);
+  const sharedTotalMemoryMB = runningServices.reduce((sum, s) => sum + (s.memory ?? 0), 0);
+  const hostTotalMemoryMB = systemMetrics?.hostTotalMemory ?? 0;
+  const memoryPercent =
+    hostTotalMemoryMB > 0 ? Math.min((sharedTotalMemoryMB / hostTotalMemoryMB) * 100, 100) : 0;
   const [confirmStop, setConfirmStop] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -136,7 +149,7 @@ export default function SharedInfra() {
       {/* Main Content */}
       <main className='container mx-auto px-6 py-8'>
         {/* Stats Overview */}
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8'>
           <div className='glass-card p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -187,7 +200,71 @@ export default function SharedInfra() {
               </div>
             </div>
           </div>
+
+          <div className='glass-card p-6'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <p className='text-sm text-muted-foreground'>Nginx Gateway</p>
+                <p className='text-lg font-mono mt-1 text-foreground'>:{status?.ports?.gateway || '-'}</p>
+              </div>
+              <div className='w-12 h-12 bg-brand-500/20 rounded-xl flex items-center justify-center'>
+                <Network className='w-6 h-6 text-brand-400' />
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Resource Overview */}
+        {runningServices.length > 0 && (
+          <div className='bg-card border rounded-lg p-6 mb-8'>
+            <h2 className='text-xl font-semibold mb-6 flex items-center gap-2'>
+              <Activity className='w-5 h-5' />
+              Shared Stack Resources
+            </h2>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+              {/* CPU */}
+              <div className='flex flex-col items-center'>
+                <GaugeChart
+                  label='Stack CPU'
+                  value={Math.min(sharedTotalCpu, 100)}
+                  displayValue={`${sharedTotalCpu.toFixed(1)}%`}
+                  icon={Activity}
+                  color='cyan'
+                  size='lg'
+                />
+                <div className='mt-4 text-center'>
+                  <p className='text-sm text-muted-foreground'>
+                    Combined across {runningServices.length} running containers
+                  </p>
+                </div>
+              </div>
+
+              {/* RAM */}
+              <div className='flex flex-col items-center'>
+                <GaugeChart
+                  label='Stack Memory'
+                  value={memoryPercent}
+                  displayValue={
+                    hostTotalMemoryMB > 0
+                      ? `${(sharedTotalMemoryMB / 1024).toFixed(1)} / ${(hostTotalMemoryMB / 1024).toFixed(0)} GB`
+                      : `${(sharedTotalMemoryMB / 1024).toFixed(1)} GB`
+                  }
+                  icon={TrendingUp}
+                  color='pink'
+                  size='lg'
+                />
+                <div className='mt-4 text-center'>
+                  <p className='text-sm text-muted-foreground'>Container RAM usage</p>
+                  {hostTotalMemoryMB > 0 && (
+                    <p className='text-xs text-muted-foreground/70 mt-1'>
+                      {memoryPercent.toFixed(1)}% of host memory
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Services Grid */}
         <div className='bg-card border rounded-lg p-6 mb-8'>

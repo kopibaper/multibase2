@@ -27,7 +27,8 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
         health: instance.health,
         ports: instance.ports,
         services: instance.services,
-        kongUrl: `http://localhost:${instance.ports.kong_http}`,
+        gatewayUrl: `http://localhost:${instance.ports.gateway_port}`,
+        /** @deprecated */ kongUrl: `http://localhost:${instance.ports.gateway_port}`,
         studioUrl: `http://localhost:${instance.ports.studio}`,
         studioProxyUrl: `/api/proxy/${instanceName}/studio`,
       });
@@ -134,7 +135,7 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
   });
 
   /**
-   * Proxy to instance API (Kong Gateway)
+   * Proxy to instance API (Nginx Gateway)
    * Route: /api/proxy/:instanceName/api/*
    */
   router.use('/:instanceName/api', async (req: Request, res: Response, next: NextFunction) => {
@@ -152,7 +153,7 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
         });
       }
 
-      const targetUrl = `http://localhost:${instance.ports.kong_http}`;
+      const targetUrl = `http://localhost:${instance.ports.gateway_port}`;
 
       const proxyOptions: Options = {
         target: targetUrl,

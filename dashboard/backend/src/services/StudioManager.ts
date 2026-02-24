@@ -2,10 +2,9 @@
  * StudioManager - Manages tenant switching for the shared Studio.
  *
  * When a user clicks "Studio" for a tenant, this service:
- * 1. Generates a new Kong config with routes to that tenant's containers
- * 2. Writes it to shared/volumes/api/kong.yml
- * 3. Reloads Kong (no restart, ~1s)
- * 4. Restarts pg-meta with the tenant's database name (~2s)
+ * 1. Ensures a dedicated Studio + Meta container per tenant
+ * 2. Generates/updates the Nginx gateway config for the tenant
+ * 3. Reloads Nginx gateway (~50ms, zero-downtime)
  *
  * This makes the shared Studio fully functional for the selected tenant:
  * Auth, Storage, Functions, SQL Editor, RLS policies, etc.
@@ -18,6 +17,10 @@ import fs from 'fs';
 import net from 'net';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
+import {
+  generateAndWriteTenantConfig,
+  reloadNginxGateway,
+} from './NginxGatewayGenerator';
 import DockerManager from './DockerManager';
 
 const execAsync = promisify(exec);
@@ -77,7 +80,7 @@ export class StudioManager {
 
   /**
    * Activate a tenant for Studio access.
-   * This reconfigures Kong and restarts pg-meta.
+   * This configures Nginx gateway and ensures dedicated Studio+Meta.
    */
   async activateTenant(tenantName: string): Promise<ActiveTenant> {
     if (this.switching) {
@@ -111,9 +114,12 @@ export class StudioManager {
       await this.verifyTenantRunning(tenantName);
 
       // 3. Ensure dedicated Studio + Meta containers for this tenant
-      logger.info(`[Studio Switch] Step 1/1: Ensuring dedicated Studio for "${tenantName}"...`);
+      logger.info(`[Studio Switch] Step 1/2: Ensuring dedicated Studio for "${tenantName}"...`);
       const studioPort = await this.ensureTenantStudio(tenantName, tenantEnv, projectDb);
-      await this.ensureTenantKongMetaRoute(tenantName);
+
+      // 4. Ensure Nginx gateway config is up-to-date for this tenant
+      logger.info(`[Studio Switch] Step 2/2: Updating Nginx gateway config for "${tenantName}"...`);
+      await this.ensureTenantNginxRoute(tenantName);
 
       // 4. Update state
       this.activeTenant = {
@@ -237,8 +243,8 @@ export class StudioManager {
       `-e "POSTGRES_DB=${projectDb}"`,
       `-e "DEFAULT_ORGANIZATION_NAME=${studioOrg}"`,
       `-e "DEFAULT_PROJECT_NAME=${studioProject}"`,
-      `-e SUPABASE_URL=http://${tenantName}-kong:8000`,
-      `-e SUPABASE_PUBLIC_URL=${tenantEnv['SUPABASE_PUBLIC_URL'] || tenantEnv['API_EXTERNAL_URL'] || `http://localhost:${tenantEnv['KONG_HTTP_PORT'] || '8000'}`}`,
+      `-e SUPABASE_URL=http://multibase-nginx-gateway:${tenantEnv['GATEWAY_PORT'] || tenantEnv['KONG_HTTP_PORT'] || '8000'}`,
+      `-e SUPABASE_PUBLIC_URL=${tenantEnv['SUPABASE_PUBLIC_URL'] || tenantEnv['API_EXTERNAL_URL'] || `http://localhost:${tenantEnv['GATEWAY_PORT'] || tenantEnv['KONG_HTTP_PORT'] || '8000'}`}`,
       `-e "SUPABASE_ANON_KEY=${tenantEnv['ANON_KEY'] || ''}"`,
       `-e "SUPABASE_SERVICE_KEY=${tenantEnv['SERVICE_ROLE_KEY'] || ''}"`,
       `-e "AUTH_JWT_SECRET=${tenantEnv['JWT_SECRET'] || ''}"`,
@@ -257,47 +263,18 @@ export class StudioManager {
     return studioPort;
   }
 
-  private async ensureTenantKongMetaRoute(tenantName: string): Promise<void> {
-    const kongConfigPath = path.join(this.projectsDir, tenantName, 'volumes', 'api', 'kong.yml');
-    if (!fs.existsSync(kongConfigPath)) {
-      logger.warn(`Kong config not found for tenant "${tenantName}": ${kongConfigPath}`);
-      return;
-    }
-
-    const metaTarget = `http://multibase-meta-${tenantName}:8080`;
-    const functionsTarget = `http://${tenantName}-edge-functions:9000`;
-    const current = fs.readFileSync(kongConfigPath, 'utf-8');
-
-    let next = current.replace(
-      /(\-\s+name:\s+meta\s*\n\s*url:\s*)([^\n]+)/m,
-      `$1${metaTarget}`
-    );
-
-    next = next.replace(
-      /(\-\s+name:\s+functions\s*\n\s*url:\s*)([^\n]+)/m,
-      `$1${functionsTarget}`
-    );
-
-    if (next !== current) {
-      fs.writeFileSync(kongConfigPath, next, 'utf-8');
-      logger.info(
-        `Updated kong.yml routes for tenant "${tenantName}": meta -> ${metaTarget}, functions -> ${functionsTarget}`
-      );
-    }
-
-    await this.reloadTenantKong(tenantName);
-  }
-
-  private async reloadTenantKong(tenantName: string): Promise<void> {
-    const kongContainer = `${tenantName}-kong`;
+  /**
+   * Generate/update the Nginx gateway config for this tenant and reload.
+   * This replaces the old ensureTenantKongMetaRoute method.
+   */
+  private async ensureTenantNginxRoute(tenantName: string): Promise<void> {
     try {
-      await execAsync(`docker exec ${kongContainer} kong reload`, { timeout: 15000 });
-      logger.info(`Kong reloaded successfully for tenant "${tenantName}"`);
+      await generateAndWriteTenantConfig(tenantName, this.projectsDir, this.sharedDir);
+      await reloadNginxGateway();
+      logger.info(`Nginx gateway config updated and reloaded for tenant "${tenantName}"`);
     } catch (error: any) {
-      logger.warn(`Kong reload failed for tenant "${tenantName}", restarting container: ${error.message}`);
-      await execAsync(`docker restart ${kongContainer}`, { timeout: 30000 });
-      await this.waitForContainer(kongContainer, 20000);
-      logger.info(`Kong restarted successfully for tenant "${tenantName}"`);
+      logger.warn(`Failed to update Nginx gateway for tenant "${tenantName}": ${error.message}`);
+      // Non-fatal: Studio can still work, just the gateway routes might be outdated
     }
   }
 
@@ -334,34 +311,7 @@ export class StudioManager {
     throw new Error(`No available Studio port found in range ${startPort}-${maxPort}`);
   }
 
-  /**
-   * Reload Kong's declarative config without restarting the container.
-   * Kong reads the new kong.yml and applies it in-place.
-   */
-  private async reloadKong(): Promise<void> {
-    try {
-      // Kong declarative config reload by restarting the process inside the container
-      // For Kong in DB-less mode, we need to restart the Kong process to reload config
-      const { stdout, stderr } = await execAsync(
-        'docker exec multibase-kong kong reload',
-        { timeout: 15000 }
-      );
-      if (stdout) logger.debug(`Kong reload stdout: ${stdout}`);
-      if (stderr) logger.debug(`Kong reload stderr: ${stderr}`);
-      logger.info('Kong config reloaded successfully');
-    } catch (error: any) {
-      // If `kong reload` doesn't work with declarative config, restart the container
-      logger.warn('Kong reload failed, falling back to container restart:', error.message);
-      try {
-        await execAsync('docker restart multibase-kong', { timeout: 30000 });
-        // Wait for Kong to be healthy
-        await this.waitForContainer('multibase-kong', 20000);
-        logger.info('Kong container restarted successfully');
-      } catch (restartError) {
-        throw new Error(`Failed to reload/restart Kong: ${(restartError as Error).message}`);
-      }
-    }
-  }
+  // NOTE: reloadKong() removed – replaced by reloadNginxGateway() from NginxGatewayGenerator
 
   /**
    * Restart pg-meta with a different database name.
@@ -459,7 +409,7 @@ export class StudioManager {
   }
 
   /**
-   * Deactivate Studio (reset Kong to minimal config)
+   * Deactivate Studio (clear active tenant state)
    */
   async deactivate(): Promise<void> {
     if (!this.activeTenant) {
@@ -468,8 +418,5 @@ export class StudioManager {
 
     logger.info(`Deactivating Studio for tenant "${this.activeTenant.name}"`);
     this.activeTenant = null;
-
-    // Optionally restore minimal Kong config
-    // For now we just clear the active tenant state
   }
 }

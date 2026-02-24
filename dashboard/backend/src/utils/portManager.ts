@@ -49,7 +49,10 @@ export async function findAvailablePort(basePort: number, maxTries: number = 100
  * Calculate all required ports for a Supabase instance
  */
 export async function calculatePorts(basePort: number): Promise<{
+  gateway_port: number;
+  /** @deprecated Use gateway_port */
   kong_http: number;
+  /** @deprecated Use gateway_port */
   kong_https: number;
   studio: number;
   postgres: number;
@@ -58,9 +61,13 @@ export async function calculatePorts(basePort: number): Promise<{
 }> {
   logger.info(`Calculating ports starting from base port ${basePort}`);
 
+  const gatewayPort = await findAvailablePort(basePort);
+
   const ports = {
-    kong_http: await findAvailablePort(basePort),
-    kong_https: await findAvailablePort(basePort + 443),
+    gateway_port: gatewayPort,
+    // Backward compatibility aliases
+    kong_http: gatewayPort,
+    kong_https: gatewayPort + 443,
     studio: await findAvailablePort(basePort + 2000),
     postgres: await findAvailablePort(basePort + 1000),
     pooler: await findAvailablePort(basePort + 1001),

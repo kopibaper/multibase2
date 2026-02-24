@@ -18,8 +18,11 @@ export interface SupabaseInstance {
 }
 
 export interface PortMapping {
-  kong_http: number;
-  kong_https: number;
+  gateway_port: number;
+  /** @deprecated Use gateway_port instead */
+  kong_http?: number;
+  /** @deprecated Use gateway_port instead */
+  kong_https?: number;
   // Cloud-Version: Diese Ports sind optional (kommen aus Shared Infrastructure)
   studio?: number;
   postgres?: number;
@@ -250,6 +253,8 @@ export interface SharedPorts {
   studio?: number;
   analytics?: number;
   pooler?: number;
+  gateway?: number;
+  /** @deprecated Use gateway instead */
   kong?: number;
   meta?: number;
 }
@@ -263,9 +268,9 @@ export const SHARED_SERVICES = [
   'multibase-imgproxy',
   'multibase-meta',
   'multibase-pooler',
-  'multibase-kong',
+  'multibase-nginx-gateway',
 ] as const;
 
 export const TENANT_SERVICES = [
-  'kong', 'auth', 'rest', 'realtime', 'storage', 'edge-functions'
+  'auth', 'rest', 'realtime', 'storage', 'edge-functions'
 ] as const;

@@ -3,15 +3,16 @@
 Multibase Cloud Version - Lightweight Tenant Setup
 
 Creates a lightweight Supabase tenant project that uses the SHARED infrastructure
-(PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler).
+(PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler, Nginx Gateway).
 
-Per-tenant containers (6 statt 13):
-  - Kong (API Gateway)
+Per-tenant containers (5 statt 13):
   - Auth (GoTrue)
   - REST (PostgREST)
   - Realtime
   - Storage
   - Functions (Edge Runtime)
+
+API Gateway: Shared multibase-nginx-gateway container (replaces per-tenant Kong)
 
 Usage:
     Von supabase_manager.py aufgerufen:
@@ -145,8 +146,8 @@ class SupabaseProjectGenerator:
         # Write template files
         self._write_with_unix_newlines(self.project_dir / "docker-compose.yml", self.templates["docker_compose"])
         self._write_with_unix_newlines(self.project_dir / ".env", self.templates["env"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/api/kong.yml", self.templates["kong"])
-        self._create_docker_compose_override()
+        # Kong config no longer needed - using shared nginx-gateway
+        self._generate_nginx_gateway_config()
         (self.project_dir / "volumes/functions/main/index.ts").write_text(self.templates["function_main"])
         (self.project_dir / "reset.sh").write_text(self.templates["reset_script"])
         (self.project_dir / "README.md").write_text(self.templates["readme"])
@@ -194,16 +195,58 @@ class SupabaseProjectGenerator:
             print("Fixed Realtime healthcheck for Windows compatibility")
     
     def _create_docker_compose_override(self):
-        """Create docker-compose.override.yml to fix Kong YAML parsing."""
-        override_content = """services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
-    entrypoint: /docker-entrypoint.sh kong docker-start
-"""
-        override_path = self.project_dir / "docker-compose.override.yml"
-        override_path.write_text(override_content)
-        print(f"Created docker-compose.override.yml")
+        """Create docker-compose.override.yml - no longer needed for Kong."""
+        # Kong override is no longer needed since tenants use shared nginx-gateway
+        pass
+
+    def _generate_nginx_gateway_config(self):
+        """Generate Nginx gateway config for this tenant.
+        
+        Reads the template from templates/nginx/gateway.conf.template and
+        writes the tenant-specific config to shared/volumes/nginx/tenants/{tenant}.conf.
+        """
+        template_path = self.base_dir / "templates" / "nginx" / "gateway.conf.template"
+        if not template_path.exists():
+            print(f"WARNING: Nginx gateway template not found at {template_path}")
+            print("         Tenant will need manual Nginx config generation.")
+            return
+        
+        template_content = template_path.read_text()
+        
+        anon_key = self._extract_env_value("ANON_KEY")
+        service_key = self._extract_env_value("SERVICE_ROLE_KEY")
+        gateway_port = str(self.ports['gateway_port'])
+        tenant_id = self.project_name.replace('-', '_')
+        
+        config = template_content
+        config = config.replace('{{TENANT_NAME}}', self.project_name)
+        config = config.replace('{{TENANT_ID}}', tenant_id)
+        config = config.replace('{{ANON_KEY}}', anon_key)
+        config = config.replace('{{SERVICE_ROLE_KEY}}', service_key)
+        config = config.replace('{{GATEWAY_PORT}}', gateway_port)
+        config = config.replace('{{TIMESTAMP}}', str(Path(__file__).stat().st_mtime))
+        
+        # Write to shared volumes
+        nginx_tenants_dir = self.base_dir / "shared" / "volumes" / "nginx" / "tenants"
+        nginx_tenants_dir.mkdir(parents=True, exist_ok=True)
+        config_path = nginx_tenants_dir / f"{self.project_name}.conf"
+        self._write_with_unix_newlines(config_path, config)
+        print(f"Generated Nginx gateway config: {config_path}")
+        print(f"  Gateway port: {gateway_port}")
+        
+        # Try to reload nginx-gateway if running
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['docker', 'exec', 'multibase-nginx-gateway', 'nginx', '-s', 'reload'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                print("  Nginx gateway reloaded successfully")
+            else:
+                print(f"  Note: Nginx gateway not running yet (will apply on next start)")
+        except Exception:
+            print(f"  Note: Could not reload Nginx gateway (will apply on next start)")
 
     def _create_project_database(self):
         """Create the project database in the shared PostgreSQL cluster."""
@@ -255,20 +298,26 @@ class SupabaseProjectGenerator:
     def _calculate_ports(self):
         """Calculate ports for tenant-specific services only.
         
-        Cloud-Version: Nur noch 2 Ports pro Projekt (Kong HTTP + HTTPS).
+        Cloud-Version: Nur noch 1 Port pro Projekt (Gateway).
+        Kong wurde durch den shared Nginx-Gateway-Container ersetzt.
         DB, Studio, Analytics, Pooler laufen im Shared Stack.
         """
         if self.base_port is None:
             self.base_port = self._find_available_port(random.randint(3000, 9000))
         
         ports = {
-            "kong_http": self._find_available_port(self.base_port),
-            "kong_https": self._find_available_port(self.base_port + 443),
+            "gateway_port": self._find_available_port(self.base_port),
+            # Backward compatibility aliases
+            "kong_http": None,
+            "kong_https": None,
         }
+        # Set aliases for backward compat (some templates may still reference these)
+        ports["kong_http"] = ports["gateway_port"]
+        ports["kong_https"] = ports["gateway_port"] + 443
         
         print(f"Using base port: {self.base_port}")
-        print(f"Kong HTTP port: {ports['kong_http']}")
-        print(f"Kong HTTPS port: {ports['kong_https']}")
+        print(f"Gateway port: {ports['gateway_port']}")
+        print(f"[Cloud] Kong replaced by shared nginx-gateway container")
         print(f"[Cloud] DB, Studio, Analytics, Pooler -> Shared Infrastructure")
         
         return ports
@@ -277,49 +326,26 @@ class SupabaseProjectGenerator:
         """Initialize all template content."""
         self._init_docker_compose_template()
         self._init_env_template()
-        self._init_kong_template()
+        # Kong template no longer needed - replaced by shared nginx-gateway
         self._init_function_templates()
         self._init_misc_templates()
 
     def _init_docker_compose_template(self):
         """Initialize the LIGHTWEIGHT docker-compose.yml template.
         
-        Cloud-Version: Nur 6 Container statt 13.
-        Entfernt: db, vector, analytics, studio, meta, imgproxy, pooler
+        Cloud-Version: Nur 5 Container statt 13.
+        Entfernt: db, vector, analytics, studio, meta, imgproxy, pooler, kong
+        Kong wurde durch den shared multibase-nginx-gateway Container ersetzt.
         """
         self.templates["docker_compose"] = f"""
 # Multibase Cloud Version - Lightweight Tenant Stack
-# Verwendet Shared Infrastructure: DB, Studio, Analytics, Vector, imgproxy, Meta, Pooler
-# Container: kong, auth, rest, realtime, storage, functions (6 statt 13)
+# Verwendet Shared Infrastructure: DB, Studio, Analytics, Vector, imgproxy, Meta, Pooler, Nginx-Gateway
+# Container: auth, rest, realtime, storage, functions (5 statt 13)
+# API Gateway: shared multibase-nginx-gateway (Port {self.ports['gateway_port']})
 
 name: {self.project_name}
 
 services:
-  kong:
-    container_name: {self.project_name}-kong
-    image: kong:2.8.1
-    restart: unless-stopped
-    ports:
-      - "{self.ports['kong_http']}:8000/tcp"
-      - "{self.ports['kong_https']}:8443/tcp"
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
-      KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      SUPABASE_ANON_KEY: ${{ANON_KEY}}
-      SUPABASE_SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
-      DASHBOARD_USERNAME: ${{DASHBOARD_USERNAME}}
-      DASHBOARD_PASSWORD: ${{DASHBOARD_PASSWORD}}
-    entrypoint: bash -c 'eval "echo \\"$$(cat ~/temp.yml)\\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
-    networks:
-      - multibase-shared
-      - default
-
   auth:
     container_name: {self.project_name}-auth
     image: supabase/gotrue:v2.170.0
@@ -481,7 +507,7 @@ services:
       - ./volumes/functions:/home/deno/functions:Z
     environment:
       JWT_SECRET: ${{JWT_SECRET}}
-      SUPABASE_URL: http://{self.project_name}-kong:8000
+      SUPABASE_URL: http://multibase-nginx-gateway:{self.ports['gateway_port']}
       SUPABASE_ANON_KEY: ${{ANON_KEY}}
       SUPABASE_SERVICE_ROLE_KEY: ${{SERVICE_ROLE_KEY}}
       # Shared PostgreSQL
@@ -550,10 +576,12 @@ DASHBOARD_PASSWORD={self.project_name}
 SECRET_KEY_BASE={secret_key_base}
 
 ############
-# API Gateway
+# API Gateway (Nginx)
 ############
-KONG_HTTP_PORT={self.ports['kong_http']}
-KONG_HTTPS_PORT={self.ports['kong_https']}
+GATEWAY_PORT={self.ports['gateway_port']}
+# Backward compatibility
+KONG_HTTP_PORT={self.ports['gateway_port']}
+KONG_HTTPS_PORT={self.ports['gateway_port'] + 443}
 
 ############
 # API - Configuration for PostgREST
@@ -563,11 +591,11 @@ PGRST_DB_SCHEMAS=public,storage,graphql_public
 ############
 # Auth - Configuration for GoTrue
 ############
-SITE_URL=http://localhost:{self.ports['kong_http']}
+SITE_URL=http://localhost:{self.ports['gateway_port']}
 ADDITIONAL_REDIRECT_URLS=
 JWT_EXPIRY=3600
 DISABLE_SIGNUP=false
-API_EXTERNAL_URL=http://localhost:{self.ports['kong_http']}
+API_EXTERNAL_URL=http://localhost:{self.ports['gateway_port']}
 
 ## Mailer Config
 MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
@@ -602,250 +630,9 @@ LOGFLARE_API_KEY={logflare_key}
 IMGPROXY_ENABLE_WEBP_DETECTION=true
 """
 
-    def _init_kong_template(self):
-        """Initialize Kong API Gateway configuration for this tenant."""
-        anon_key = self._extract_env_value("ANON_KEY")
-        service_key = self._extract_env_value("SERVICE_ROLE_KEY")
-        dashboard_username = self._extract_env_value("DASHBOARD_USERNAME")
-        dashboard_password = self._extract_env_value("DASHBOARD_PASSWORD")
-        cors_origins_setting = self.cors_origins_config
-
-        self.templates["kong"] = f"""_format_version: '2.1'
-_transform: true
-
-consumers:
-  - username: DASHBOARD
-  - username: anon
-    keyauth_credentials:
-      - key: {anon_key}
-  - username: service_role
-    keyauth_credentials:
-      - key: {service_key}
-
-acls:
-  - consumer: anon
-    group: anon
-  - consumer: service_role
-    group: admin
-
-basicauth_credentials:
-  - consumer: DASHBOARD
-    username: {dashboard_username}
-    password: {dashboard_password}
-
-services:
-  # Auth Routes
-  - name: auth-v1
-    url: http://{self.project_name}-auth:9999/verify
-    routes:
-      - name: auth-v1-route
-        paths:
-          - /auth/v1/verify
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile, prefer, Range, Origin, Referer, Access-Control-Request-Headers, Access-Control-Request-Method]
-          exposed_headers: [Content-Length, Content-Range, accept-ranges, Content-Type, Content-Profile, Range-Unit]
-          credentials: true
-          max_age: 3600
-
-  - name: auth-v1-api
-    url: http://{self.project_name}-auth:9999
-    routes:
-      - name: auth-v1-api-route
-        paths:
-          - /auth/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile, prefer, Range, Origin, Referer, Access-Control-Request-Headers, Access-Control-Request-Method]
-          exposed_headers: [Content-Length, Content-Range, accept-ranges, Content-Type, Content-Profile, Range-Unit]
-          credentials: true
-          max_age: 3600
-
-  - name: auth-v1-admin
-    url: http://{self.project_name}-auth:9999/admin
-    routes:
-      - name: auth-v1-admin-route
-        paths:
-          - /auth/v1/admin
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile, prefer, Range, Origin, Referer, Access-Control-Request-Headers, Access-Control-Request-Method]
-          exposed_headers: [Content-Length, Content-Range, accept-ranges, Content-Type, Content-Profile, Range-Unit]
-          credentials: true
-          max_age: 3600
-      - name: key-auth
-        config:
-          hide_credentials: true
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-
-  # REST API
-  - name: rest
-    url: http://{self.project_name}-rest:3000
-    routes:
-      - name: rest-route
-        paths:
-          - /rest/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile, prefer, Range, Origin, Referer, Access-Control-Request-Headers, Access-Control-Request-Method]
-          exposed_headers: [Content-Length, Content-Range, accept-ranges, Content-Type, Content-Profile, Range-Unit]
-          credentials: true
-          max_age: 3600
-
-  # PostgREST Root
-  - name: postgrest
-    url: http://{self.project_name}-rest:3000
-    routes:
-      - name: postgrest-route
-        paths:
-          - /
-        strip_path: false
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-
-  # Realtime WebSocket
-  - name: realtime
-    url: http://{self.project_name}-realtime:4000/socket/
-    routes:
-      - name: realtime-route
-        paths:
-          - /realtime/v1
-        strip_path: true
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-
-  - name: realtime-api
-    url: http://{self.project_name}-realtime:4000
-    routes:
-      - name: realtime-api-route
-        paths:
-          - /api/tenants/realtime-dev
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, HEAD, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-
-  # Storage
-  - name: storage
-    url: http://{self.project_name}-storage:5000
-    routes:
-      - name: storage-route
-        paths:
-          - /storage/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-
-  # Meta (Shared) - ueber Shared Netzwerk erreichbar
-  - name: meta
-    url: http://multibase-meta:8080
-    routes:
-      - name: meta-route
-        paths:
-          - /pg
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-      - name: key-auth
-        config:
-          hide_credentials: true
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-
-  # Edge Functions
-  - name: functions
-    url: http://{self.project_name}-edge-functions:9000
-    routes:
-      - name: functions-route
-        paths:
-          - /functions/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile]
-          exposed_headers: [Content-Length, Content-Range]
-          credentials: true
-          max_age: 3600
-
-  # Analytics (Shared)
-  - name: analytics
-    url: http://multibase-analytics:4000
-    routes:
-      - name: analytics-route
-        paths:
-          - /analytics/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods: [GET, POST, PUT, DELETE, OPTIONS]
-          headers: [Accept, Authorization, Content-Type, apikey]
-          credentials: true
-          max_age: 3600
-"""
+    # NOTE: _init_kong_template() removed – Kong replaced by shared nginx-gateway.
+    # Kong config is no longer generated per-tenant.
+    # See _generate_nginx_gateway_config() for the replacement.
 
     def _extract_env_value(self, key):
         """Extract a value from the env template."""
@@ -903,8 +690,7 @@ echo "To restart: docker compose up -d"
 
 Dieses Projekt nutzt die **Shared Infrastructure** (multibase-shared).
 
-### Tenant-Container (6):
-- **Kong** - API Gateway (Port {self.ports['kong_http']})
+### Tenant-Container (5):
 - **Auth** - GoTrue Authentifizierung
 - **REST** - PostgREST API
 - **Realtime** - WebSocket Subscriptions
@@ -913,10 +699,10 @@ Dieses Projekt nutzt die **Shared Infrastructure** (multibase-shared).
 
 ### Shared Container (vom multibase-shared Stack):
 - PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler
+- **Nginx Gateway** - API Gateway (ersetzt per-Tenant Kong, ~20 MB statt ~1.7 GiB)
 
 ## Port Configuration
-- Kong HTTP API: {self.ports['kong_http']}
-- Kong HTTPS API: {self.ports['kong_https']}
+- API Gateway: {self.ports['gateway_port']} (via shared nginx-gateway)
 
 ## Quick Start
 ```bash
@@ -945,8 +731,8 @@ def main():
         )
         generator.run()
         print(f"\n=== Tenant '{args.project_name}' erfolgreich erstellt ===")
-        print(f"Container: 6 (statt 13 im Full-Stack)")
-        print(f"API Port:  {generator.ports['kong_http']}")
+        print(f"Container: 5 (statt 13 im Full-Stack, Kong durch shared Nginx ersetzt)")
+        print(f"Gateway Port: {generator.ports['gateway_port']} (via multibase-nginx-gateway)")
         print(f"DB:        project_{args.project_name.replace('-', '_')} (Shared Cluster)")
         print(f"\nStart mit: cd {args.project_name} && docker compose up -d")
         print(f"(Shared Infrastructure muss laufen: cd shared && docker compose up -d)")

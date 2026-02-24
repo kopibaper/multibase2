@@ -27,6 +27,11 @@ import {
 import { logger } from '../utils/logger';
 import DockerManager from './DockerManager';
 import { RedisCache } from './RedisCache';
+import {
+  generateAndWriteTenantConfig,
+  reloadNginxGateway,
+  removeNginxTenantConfig,
+} from './NginxGatewayGenerator';
 
 const execAsync = promisify(exec);
 
@@ -320,7 +325,7 @@ export class InstanceManager {
 
   /**
    * Read the shared JWT secret from shared/.env.shared.
-   * Cloud tenants must use the same JWT secret as shared Studio/Kong so that
+   * Cloud tenants must use the same JWT secret as shared infrastructure so that
    * tokens issued by the shared Studio validate inside tenant services.
    */
   private getSharedJwtSecret(): string | undefined {
@@ -510,7 +515,7 @@ export class InstanceManager {
         name,
         status: overallStatus,
         stackType,
-        basePort: ports.kong_http,
+        basePort: ports.gateway_port,
         ports,
         credentials,
         services,
@@ -760,7 +765,7 @@ server {
 
     # Storage endpoint - NO auth_request, Supabase validates SERVICE_ROLE_KEY itself
     location /storage/ {
-        proxy_pass http://127.0.0.1:${instance.ports.kong_http}/storage/;
+        proxy_pass http://127.0.0.1:${instance.ports.gateway_port}/storage/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -839,7 +844,7 @@ server {
         error_page 401 = @error401;
         error_page 403 = @error403;
 
-        proxy_pass http://127.0.0.1:${instance.ports.kong_http};
+        proxy_pass http://127.0.0.1:${instance.ports.gateway_port};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -1138,13 +1143,14 @@ server {
         const envContent = parseEnvFile(envPath);
         const stackType = this.detectStackType(envContent);
 
-        // Cloud tenants must share the same JWT secret as shared Studio/Kong
+        // Cloud tenants must share the same JWT secret as shared infrastructure
         const jwtSecretOverride = stackType === 'cloud' ? this.getSharedJwtSecret() : undefined;
         const newKeys = generateAllKeys(jwtSecretOverride);
 
-        // Update ports - Cloud instances only have kong ports
-        envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
-        envContent['KONG_HTTPS_PORT'] = newPorts.kong_https.toString();
+        // Update ports - Cloud instances only have gateway port
+        envContent['GATEWAY_PORT'] = newPorts.gateway_port.toString();
+        // Keep KONG_HTTP_PORT for backward compatibility during migration
+        envContent['KONG_HTTP_PORT'] = newPorts.gateway_port.toString();
         if (stackType === 'classic') {
           envContent['POSTGRES_PORT'] = newPorts.postgres?.toString() || '';
           envContent['POOLER_PORT'] = newPorts.pooler?.toString() || '';
@@ -1172,9 +1178,9 @@ server {
           : envContent['SITE_URL']?.split('://')[1]?.split(':')[0] || 'localhost';
 
         if (domain === 'localhost') {
-          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
-          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
-          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
+          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
+          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
           envContent['STUDIO_DEFAULT_ORGANIZATION'] = newName;
           envContent['STUDIO_DEFAULT_PROJECT'] = newName;
         }
@@ -1411,8 +1417,9 @@ server {
       PROJECT_NAME: projectName,
 
       // Ports
-      KONG_HTTP_PORT: `${ports.kong_http}`,
-      KONG_HTTPS_PORT: `${ports.kong_https}`,
+      GATEWAY_PORT: `${ports.gateway_port}`,
+      // Keep KONG_HTTP_PORT for backward compatibility during migration
+      KONG_HTTP_PORT: `${ports.gateway_port}`,
       STUDIO_PORT: `${ports.studio}`,
       POSTGRES_PORT: `${ports.postgres}`,
       POOLER_PORT: `${ports.pooler}`,
@@ -1547,31 +1554,31 @@ server {
   }
 
   /**
-   * Create Kong configuration
+   * Create Nginx gateway config for this tenant
+   * (replaces createKongConfig)
    */
-  private async createKongConfig(
+  private async createNginxGatewayConfig(
     projectPath: string,
     _apiUrl: string,
-    corsOrigins: string[]
+    _corsOrigins: string[]
   ): Promise<void> {
-    const templatePath = path.join(this.templatesPath, 'volumes/api/kong.yml');
-    const targetPath = path.join(projectPath, 'volumes/api/kong.yml');
+    const projectName = path.basename(projectPath);
+    const sharedDir = path.resolve(this.projectsPath, '..', 'shared');
 
-    if (!fs.existsSync(templatePath)) {
-      logger.warn('Kong template not found, skipping');
-      return;
+    try {
+      await generateAndWriteTenantConfig(projectName, this.projectsPath, sharedDir);
+      logger.info(`Nginx gateway config generated for ${projectName}`);
+
+      // Try to reload nginx-gateway if it's running
+      try {
+        await reloadNginxGateway();
+      } catch {
+        logger.debug('Nginx gateway not running yet, config will be applied on next start');
+      }
+    } catch (error: any) {
+      logger.warn(`Failed to create Nginx gateway config for ${projectName}: ${error.message}`);
+      // Non-fatal: tenant still works, gateway config can be regenerated later
     }
-
-    let content = fs.readFileSync(templatePath, 'utf8');
-
-    // Update CORS origins if specified
-    if (corsOrigins.length > 0) {
-      const originsStr = corsOrigins.join(',');
-      content = content.replace(/origins: .*/, `origins: ${originsStr}`);
-    }
-
-    fs.writeFileSync(targetPath, content, 'utf8');
-    logger.info('Created Kong configuration');
   }
 
   /**
@@ -1596,19 +1603,12 @@ server {
   }
 
   /**
-   * Create docker-compose.override.yml for Kong YAML parsing fix
+   * Create docker-compose.override.yml (no longer needed for Kong)
+   * Kept as no-op for backward compatibility.
    */
-  private async createDockerComposeOverride(projectPath: string): Promise<void> {
-    const overrideContent = `# Override for Kong YAML environment variable substitution
-services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
-`;
-
-    const targetPath = path.join(projectPath, 'docker-compose.override.yml');
-    fs.writeFileSync(targetPath, overrideContent, 'utf8');
-    logger.info('Created docker-compose.override.yml');
+  private async createDockerComposeOverride(_projectPath: string): Promise<void> {
+    // Kong override no longer needed since tenants use shared nginx-gateway
+    logger.debug('createDockerComposeOverride: no-op (Kong removed)');
   }
 
   /**

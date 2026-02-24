@@ -15,8 +15,8 @@ export function createStudioRoutes(studioManager: StudioManager): Router {
 
   /**
    * POST /api/studio/activate/:tenantName
-   * Switches the shared Studio + Kong + pg-meta to serve the specified tenant.
-   * Takes ~3-5 seconds (Kong reload + pg-meta restart).
+   * Switches the shared Studio + Nginx Gateway + pg-meta to serve the specified tenant.
+   * Takes ~3-5 seconds (Nginx reload + pg-meta restart).
    */
   router.post('/activate/:tenantName', async (req: Request, res: Response): Promise<any> => {
     try {

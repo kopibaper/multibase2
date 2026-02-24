@@ -62,8 +62,7 @@ function CredentialItem({ label, value, icon, isSecret = false }: CredentialItem
 
 export default function CredentialsTab({ instance }: CredentialsTabProps) {
   const portDisplayOrder: Array<{ key: keyof SupabaseInstance['ports']; label: string }> = [
-    { key: 'kong_http', label: 'kong http' },
-    { key: 'kong_https', label: 'kong https' },
+    { key: 'gateway_port', label: 'gateway' },
     { key: 'studio', label: 'studio' },
     { key: 'postgres', label: 'postgres' },
     { key: 'pooler', label: 'pooler' },

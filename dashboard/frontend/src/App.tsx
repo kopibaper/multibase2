@@ -3,7 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
+import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
+import WorkspacePage from './pages/WorkspacePage';
 import InstanceDetail from './pages/InstanceDetail';
 import SupabaseManager from './pages/SupabaseManager';
 import Alerts from './pages/Alerts';
@@ -53,6 +55,17 @@ function AppContent() {
         <Route path='/register' element={<Navigate to='/' replace />} />
         <Route path='/forgot-password' element={<Navigate to='/' replace />} />
         <Route path='/verify-email' element={<Navigate to='/' replace />} />
+
+        {/* Workspace Routes (slim layout) */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <WorkspaceLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path='/workspace' element={<WorkspacePage />} />
+        </Route>
 
         {/* Protected Routes with Dashboard Layout */}
         <Route

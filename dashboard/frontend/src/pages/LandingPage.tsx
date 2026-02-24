@@ -78,7 +78,16 @@ const LandingPage = () => {
               Setup Guide
             </a>
             {user ? (
-              <SupabaseButton onClick={() => navigate('/dashboard')}>Dashboard</SupabaseButton>
+              <>
+                <SupabaseButton onClick={() => navigate('/workspace')}>Workspace</SupabaseButton>
+                <SupabaseButton
+                  variant='ghost'
+                  onClick={() => navigate('/dashboard')}
+                  className='text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20'
+                >
+                  Dashboard
+                </SupabaseButton>
+              </>
             ) : (
               <>
                 <SupabaseButton variant='ghost' onClick={() => openAuth('login')} className='hidden sm:inline-flex'>
@@ -116,9 +125,9 @@ const LandingPage = () => {
             {user ? (
               <SupabaseButton
                 className='h-12 px-8 text-base bg-brand-500 hover:bg-brand-600 text-white'
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/workspace')}
               >
-                Go to Dashboard
+                Open Workspace
               </SupabaseButton>
             ) : (
               <SupabaseButton

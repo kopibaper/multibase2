@@ -19,8 +19,11 @@ export interface SupabaseInstance {
 }
 
 export interface PortMapping {
-  kong_http: number;
-  kong_https: number;
+  gateway_port: number;
+  /** @deprecated Use gateway_port */
+  kong_http?: number;
+  /** @deprecated Use gateway_port */
+  kong_https?: number;
   studio?: number;
   postgres?: number;
   pooler?: number;
@@ -233,6 +236,8 @@ export interface SharedPorts {
   studio?: number;
   analytics?: number;
   pooler?: number;
+  gateway?: number;
+  /** @deprecated Use gateway */
   kong?: number;
   meta?: number;
 }

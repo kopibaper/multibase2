@@ -1,0 +1,268 @@
+# ============================================================
+# Auto-generated Nginx gateway config for tenant: cloud-test-2
+# Replaces per-tenant Kong container
+# Generated at: 1771964238.9408605
+# ============================================================
+
+# --- API Key Validation ---
+map $http_apikey $apikey_valid_cloud_test_2 {
+    default         0;
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzcxNzcwNjQwLCJleHAiOjIwODcxMzA2NDB9.CcypBx-dy1NeKtl7qp3kSYzjKIieurrU9oZXKPPilFg"          1;
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzE3NzA2NDAsImV4cCI6MjA4NzEzMDY0MH0.PCpdMYHQp8BnP5GQ3TDFi_qzZQkhXJhQ5GhiZwtMGEA"  1;
+}
+
+# ACL: Is the key an admin key (service_role)?
+map $http_apikey $is_admin_cloud_test_2 {
+    default                 0;
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzE3NzA2NDAsImV4cCI6MjA4NzEzMDY0MH0.PCpdMYHQp8BnP5GQ3TDFi_qzZQkhXJhQ5GhiZwtMGEA"  1;
+}
+
+server {
+    listen 4351;
+    server_name _;
+    client_max_body_size 100M;
+
+    # Docker DNS resolver – defers hostname resolution to request time
+    # (prevents "host not found in upstream" at config load)
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    # ---- Upstream variables (resolved via Docker DNS at request time) ----
+    # NOTE: Realtime uses the "realtime-dev." prefix (Supabase naming convention)
+    set $up_auth       "cloud-test-2-auth:9999";
+    set $up_rest       "cloud-test-2-rest:3000";
+    set $up_realtime   "realtime-dev.cloud-test-2-realtime:4000";
+    set $up_storage    "cloud-test-2-storage:5000";
+    set $up_functions  "cloud-test-2-edge-functions:9000";
+    set $up_analytics  "multibase-analytics:4000";
+    set $up_meta       "multibase-meta-cloud-test-2:8080";
+
+    # --- Standard CORS Variables ---
+    set $cors_methods "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+    set $cors_headers "Accept, Authorization, Content-Type, X-Requested-With, apikey, x-supabase-api-version, x-client-info, accept-profile, content-profile, prefer, Range, Origin, Referer, Access-Control-Request-Headers, Access-Control-Request-Method";
+    set $cors_exposed "Content-Length, Content-Range, accept-ranges, Content-Type, Content-Profile, Range-Unit";
+
+    # ===== Health Check =====
+    location = /health {
+        access_log off;
+        return 200 '{"status":"ok","tenant":"cloud-test-2","gateway":"nginx"}';
+        add_header Content-Type application/json;
+    }
+
+    # ===== Auth – specific endpoints (no apikey required) =====
+    location = /auth/v1/verify {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^ /verify break;
+        proxy_pass http://$up_auth;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /auth/v1/callback {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^ /callback break;
+        proxy_pass http://$up_auth;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /auth/v1/authorize {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^ /authorize break;
+        proxy_pass http://$up_auth;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Auth Admin (service_role key required) =====
+    location /auth/v1/admin {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($is_admin_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request","hint":"service_role key required"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        rewrite ^/auth/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_auth;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Auth Routes (anon + admin) =====
+    location /auth/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($apikey_valid_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        rewrite ^/auth/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_auth;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== REST API (anon + admin) =====
+    location /rest/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($apikey_valid_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        proxy_set_header apikey "";
+        rewrite ^/rest/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_rest;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== PostgREST Root (for Studio SQL Editor) =====
+    location = / {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^ / break;
+        proxy_pass http://$up_rest;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== GraphQL (anon + admin) =====
+    location /graphql/v1 {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($apikey_valid_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        proxy_set_header apikey "";
+        proxy_set_header Content-Profile "graphql_public";
+        rewrite ^ /rpc/graphql break;
+        proxy_pass http://$up_rest;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Realtime WebSocket (anon + admin) =====
+    location /realtime/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($apikey_valid_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^/realtime/v1/(.*)$ /socket/$1 break;
+        proxy_pass http://$up_realtime;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # ===== Realtime REST API =====
+    location /realtime/v1/api {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($apikey_valid_cloud_test_2 = 0) {
+            return 401 '{"message":"No API key found in request"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^/realtime/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_realtime;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Storage (Storage validates JWT itself) =====
+    location /storage/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        rewrite ^/storage/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_storage;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Edge Functions =====
+    location /functions/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        rewrite ^/functions/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_functions;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Meta / pg (admin only) =====
+    location /pg/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        if ($is_admin_cloud_test_2 = 0) {
+            return 401 '{"message":"Unauthorized - admin only"}';
+        }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^/pg/(.*)$ /$1 break;
+        proxy_pass http://$up_meta;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Analytics =====
+    location /analytics/v1/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        rewrite ^/analytics/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_analytics;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
