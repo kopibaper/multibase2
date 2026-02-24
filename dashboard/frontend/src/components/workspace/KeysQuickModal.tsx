@@ -106,11 +106,7 @@ export default function KeysQuickModal({ instance, onClose }: KeysQuickModalProp
             value={creds?.service_role_key || ''}
             icon={<Shield className='w-3 h-3' />}
           />
-          <KeyField
-            label='JWT Secret'
-            value={creds?.jwt_secret || ''}
-            icon={<Lock className='w-3 h-3' />}
-          />
+          <KeyField label='JWT Secret' value={creds?.jwt_secret || ''} icon={<Lock className='w-3 h-3' />} />
           <KeyField
             label='Postgres Password'
             value={creds?.postgres_password || ''}
@@ -133,7 +129,9 @@ export default function KeysQuickModal({ instance, onClose }: KeysQuickModalProp
               <span className='text-green-400'>'{creds?.project_url || 'YOUR_URL'}'</span>,
               <br />
               {'  '}
-              <span className='text-green-400'>'{creds?.anon_key ? creds.anon_key.substring(0, 20) + '...' : 'YOUR_ANON_KEY'}'</span>
+              <span className='text-green-400'>
+                '{creds?.anon_key ? creds.anon_key.substring(0, 20) + '...' : 'YOUR_ANON_KEY'}'
+              </span>
               <br />)
             </div>
           </div>

@@ -40,8 +40,7 @@ export default function SharedInfra() {
   const sharedTotalCpu = runningServices.reduce((sum, s) => sum + (s.cpu ?? 0), 0);
   const sharedTotalMemoryMB = runningServices.reduce((sum, s) => sum + (s.memory ?? 0), 0);
   const hostTotalMemoryMB = systemMetrics?.hostTotalMemory ?? 0;
-  const memoryPercent =
-    hostTotalMemoryMB > 0 ? Math.min((sharedTotalMemoryMB / hostTotalMemoryMB) * 100, 100) : 0;
+  const memoryPercent = hostTotalMemoryMB > 0 ? Math.min((sharedTotalMemoryMB / hostTotalMemoryMB) * 100, 100) : 0;
   const [confirmStop, setConfirmStop] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -59,10 +58,11 @@ export default function SharedInfra() {
         <div className='text-center'>
           <AlertCircle className='w-12 h-12 text-destructive mx-auto mb-4' />
           <h2 className='text-xl font-semibold mb-2'>Shared Infrastructure unreachable</h2>
-          <p className='text-muted-foreground mb-4'>
-            {error instanceof Error ? error.message : 'Connection failed'}
-          </p>
-          <button onClick={() => refetch()} className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90'>
+          <p className='text-muted-foreground mb-4'>{error instanceof Error ? error.message : 'Connection failed'}</p>
+          <button
+            onClick={() => refetch()}
+            className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90'
+          >
             Retry
           </button>
         </div>
@@ -78,11 +78,7 @@ export default function SharedInfra() {
         : 'text-red-400';
 
   const StatusIcon =
-    status?.status === 'running'
-      ? CheckCircle2
-      : status?.status === 'degraded'
-        ? AlertTriangle
-        : XCircle;
+    status?.status === 'running' ? CheckCircle2 : status?.status === 'degraded' ? AlertTriangle : XCircle;
 
   return (
     <div className='min-h-screen'>
@@ -256,9 +252,7 @@ export default function SharedInfra() {
                 <div className='mt-4 text-center'>
                   <p className='text-sm text-muted-foreground'>Container RAM usage</p>
                   {hostTotalMemoryMB > 0 && (
-                    <p className='text-xs text-muted-foreground/70 mt-1'>
-                      {memoryPercent.toFixed(1)}% of host memory
-                    </p>
+                    <p className='text-xs text-muted-foreground/70 mt-1'>{memoryPercent.toFixed(1)}% of host memory</p>
                   )}
                 </div>
               </div>
@@ -288,9 +282,7 @@ export default function SharedInfra() {
                   }`}
                 >
                   <div className='flex items-center justify-between mb-2'>
-                    <span className='font-medium text-foreground'>
-                      {service.name.replace('multibase-', '')}
-                    </span>
+                    <span className='font-medium text-foreground'>{service.name.replace('multibase-', '')}</span>
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                         isRunning
@@ -300,7 +292,9 @@ export default function SharedInfra() {
                           : 'bg-red-500/20 text-red-400'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? (isHealthy ? 'bg-brand-400' : 'bg-yellow-400') : 'bg-red-400'}`} />
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${isRunning ? (isHealthy ? 'bg-brand-400' : 'bg-yellow-400') : 'bg-red-400'}`}
+                      />
                       {isRunning ? (isHealthy ? 'Healthy' : 'Running') : 'Stopped'}
                     </span>
                   </div>

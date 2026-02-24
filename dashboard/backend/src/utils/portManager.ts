@@ -28,7 +28,10 @@ export function isPortInUse(port: number, host: string = '127.0.0.1'): Promise<b
 /**
  * Find an available port starting from basePort
  */
-export async function findAvailablePort(basePort: number, maxTries: number = 1000): Promise<number> {
+export async function findAvailablePort(
+  basePort: number,
+  maxTries: number = 1000
+): Promise<number> {
   let port = basePort;
   let tries = 0;
 
@@ -42,7 +45,9 @@ export async function findAvailablePort(basePort: number, maxTries: number = 100
     tries++;
   }
 
-  throw new Error(`Could not find available port starting from ${basePort} after ${maxTries} attempts`);
+  throw new Error(
+    `Could not find available port starting from ${basePort} after ${maxTries} attempts`
+  );
 }
 
 /**
@@ -71,7 +76,7 @@ export async function calculatePorts(basePort: number): Promise<{
     studio: await findAvailablePort(basePort + 2000),
     postgres: await findAvailablePort(basePort + 1000),
     pooler: await findAvailablePort(basePort + 1001),
-    analytics: await findAvailablePort(basePort + 3000)
+    analytics: await findAvailablePort(basePort + 3000),
   };
 
   logger.info('Port allocation complete:', ports);

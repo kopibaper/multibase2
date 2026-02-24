@@ -1,6 +1,6 @@
 /**
  * Shared Infrastructure API Routes (Cloud-Version)
- * 
+ *
  * Endpoints for managing the shared infrastructure:
  * - GET  /api/shared/status    - Status of shared services
  * - POST /api/shared/start     - Start shared infrastructure
@@ -22,7 +22,10 @@ import { parseEnvFile } from '../utils/envParser';
 
 const execAsync = promisify(exec);
 
-export function createSharedRoutes(dockerManager: DockerManager, studioManager?: StudioManager): Router {
+export function createSharedRoutes(
+  dockerManager: DockerManager,
+  studioManager?: StudioManager
+): Router {
   const router = Router();
 
   const getSharedDir = () => {
@@ -48,7 +51,7 @@ export function createSharedRoutes(dockerManager: DockerManager, studioManager?:
       const services = await dockerManager.getSharedServiceStatus();
       const sharedEnv = getSharedEnv();
 
-      const running = services.filter(s => s.status === 'running').length;
+      const running = services.filter((s) => s.status === 'running').length;
       const total = services.length;
       let status: 'running' | 'stopped' | 'degraded' = 'stopped';
       if (running === total && total > 0) status = 'running';
@@ -59,7 +62,10 @@ export function createSharedRoutes(dockerManager: DockerManager, studioManager?:
         studio: parseInt(sharedEnv?.STUDIO_PORT || '3000', 10),
         analytics: parseInt(sharedEnv?.ANALYTICS_PORT || '4000', 10),
         pooler: parseInt(sharedEnv?.POOLER_PORT || '6543', 10),
-        gateway: parseInt(sharedEnv?.SHARED_GATEWAY_PORT || sharedEnv?.KONG_HTTP_PORT || '8000', 10),
+        gateway: parseInt(
+          sharedEnv?.SHARED_GATEWAY_PORT || sharedEnv?.KONG_HTTP_PORT || '8000',
+          10
+        ),
         meta: parseInt(sharedEnv?.META_PORT || '8080', 10),
       };
 
@@ -140,11 +146,13 @@ export function createSharedRoutes(dockerManager: DockerManager, studioManager?:
         `docker exec multibase-db psql -U postgres -t -c "${sql}"`
       );
 
-      const databases = stdout.trim().split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
-        .map(line => {
-          const [datname, sizeBytes] = line.split('|').map(s => s.trim());
+      const databases = stdout
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => {
+          const [datname, sizeBytes] = line.split('|').map((s) => s.trim());
           const bytes = parseInt(sizeBytes, 10) || 0;
           return {
             name: datname,
@@ -175,9 +183,7 @@ export function createSharedRoutes(dockerManager: DockerManager, studioManager?:
       }
 
       const dbName = `project_${projectName}`.replace(/-/g, '_');
-      await execAsync(
-        `docker exec multibase-db psql -U postgres -c "CREATE DATABASE ${dbName};"`
-      );
+      await execAsync(`docker exec multibase-db psql -U postgres -c "CREATE DATABASE ${dbName};"`);
 
       logger.info(`Created database: ${dbName}`);
       res.json({ success: true, database: dbName });

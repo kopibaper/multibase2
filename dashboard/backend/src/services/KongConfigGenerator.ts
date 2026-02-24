@@ -41,7 +41,8 @@ export function generateKongConfig(options: KongGeneratorOptions): string {
   const anonKey = sharedEnv['SHARED_ANON_KEY'] || tenantEnv['ANON_KEY'] || '';
   const serviceKey = sharedEnv['SHARED_SERVICE_ROLE_KEY'] || tenantEnv['SERVICE_ROLE_KEY'] || '';
   const dashboardUsername = sharedEnv['SHARED_DASHBOARD_USERNAME'] || 'supabase';
-  const dashboardPassword = sharedEnv['SHARED_DASHBOARD_PASSWORD'] || tenantEnv['DASHBOARD_PASSWORD'] || '';
+  const dashboardPassword =
+    sharedEnv['SHARED_DASHBOARD_PASSWORD'] || tenantEnv['DASHBOARD_PASSWORD'] || '';
 
   // Container name prefix = tenantName
   const authHost = `${tenantName}-auth`;

@@ -17,10 +17,7 @@ import fs from 'fs';
 import net from 'net';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
-import {
-  generateAndWriteTenantConfig,
-  reloadNginxGateway,
-} from './NginxGatewayGenerator';
+import { generateAndWriteTenantConfig, reloadNginxGateway } from './NginxGatewayGenerator';
 import DockerManager from './DockerManager';
 
 const execAsync = promisify(exec);
@@ -191,8 +188,10 @@ export class StudioManager {
     const sharedEnvPath = path.join(this.sharedDir, '.env.shared');
     const sharedEnv = fs.existsSync(sharedEnvPath) ? parseEnvFile(sharedEnvPath) : {};
 
-    const pgPassword = sharedEnv['SHARED_POSTGRES_PASSWORD'] || tenantEnv['POSTGRES_PASSWORD'] || '';
-    const logflareApiKey = sharedEnv['SHARED_LOGFLARE_API_KEY'] || sharedEnv['LOGFLARE_API_KEY'] || '';
+    const pgPassword =
+      sharedEnv['SHARED_POSTGRES_PASSWORD'] || tenantEnv['POSTGRES_PASSWORD'] || '';
+    const logflareApiKey =
+      sharedEnv['SHARED_LOGFLARE_API_KEY'] || sharedEnv['LOGFLARE_API_KEY'] || '';
     const studioOrg = sharedEnv['SHARED_STUDIO_ORG'] || 'Multibase';
     const studioProject = tenantName;
     const tenantFunctionsHostPath = path
@@ -367,12 +366,14 @@ export class StudioManager {
 
       // Check at least auth, rest, storage are running
       const requiredServices = ['auth', 'rest', 'storage'];
-      const containerNames = containers.map(c => c.Names[0]?.replace('/', '') || '');
+      const containerNames = containers.map((c) => c.Names[0]?.replace('/', '') || '');
 
       for (const service of requiredServices) {
-        const found = containerNames.some(name => name.includes(`${tenantName}-${service}`));
+        const found = containerNames.some((name) => name.includes(`${tenantName}-${service}`));
         if (!found) {
-          throw new Error(`Required service "${service}" is not running for tenant "${tenantName}"`);
+          throw new Error(
+            `Required service "${service}" is not running for tenant "${tenantName}"`
+          );
         }
       }
     } catch (error) {
@@ -396,13 +397,13 @@ export class StudioManager {
         const status = stdout.trim().replace(/'/g, '');
         if (status === 'running') {
           // Give it a moment to actually be ready
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
           return;
         }
       } catch {
         // Container might not exist yet
       }
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 
     throw new Error(`Container ${containerName} did not become ready within ${timeoutMs}ms`);

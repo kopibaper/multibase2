@@ -10,7 +10,7 @@ sources:
   docker_host:
     type: docker_logs
     exclude_containers:
-      - multibase-vector  # Vector sammelt nicht seine eigenen Logs
+      - multibase-vector # Vector sammelt nicht seine eigenen Logs
 
 transforms:
   # Schritt 1: Projekt-Erkennung aus Container-Name
@@ -201,79 +201,79 @@ sinks:
 
   # Analytics-Sinks (alle an Shared Analytics/Logflare)
   logflare_auth:
-    type: "http"
+    type: 'http'
     inputs:
       - auth_logs
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=gotrue.logs.prod&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=gotrue.logs.prod&api_key=${LOGFLARE_API_KEY}'
 
   logflare_realtime:
-    type: "http"
+    type: 'http'
     inputs:
       - realtime_logs
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=realtime.logs.prod&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=realtime.logs.prod&api_key=${LOGFLARE_API_KEY}'
 
   logflare_rest:
-    type: "http"
+    type: 'http'
     inputs:
       - rest_logs
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=postgREST.logs.prod&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=postgREST.logs.prod&api_key=${LOGFLARE_API_KEY}'
 
   logflare_db:
-    type: "http"
+    type: 'http'
     inputs:
       - db_logs
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-kong:8000/analytics/v1/api/logs?source_name=postgres.logs&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-kong:8000/analytics/v1/api/logs?source_name=postgres.logs&api_key=${LOGFLARE_API_KEY}'
 
   logflare_functions:
-    type: "http"
+    type: 'http'
     inputs:
       - router.functions
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=deno-relay-logs&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=deno-relay-logs&api_key=${LOGFLARE_API_KEY}'
 
   logflare_storage:
-    type: "http"
+    type: 'http'
     inputs:
       - storage_logs
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=storage.logs.prod.2&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=storage.logs.prod.2&api_key=${LOGFLARE_API_KEY}'
 
   logflare_kong:
-    type: "http"
+    type: 'http'
     inputs:
       - kong_logs
       - kong_err
     encoding:
-      codec: "json"
-    method: "post"
+      codec: 'json'
+    method: 'post'
     request:
       retry_max_duration_secs: 10
-    uri: "http://multibase-analytics:4000/api/logs?source_name=cloudflare.logs.prod&api_key=${LOGFLARE_API_KEY}"
+    uri: 'http://multibase-analytics:4000/api/logs?source_name=cloudflare.logs.prod&api_key=${LOGFLARE_API_KEY}'

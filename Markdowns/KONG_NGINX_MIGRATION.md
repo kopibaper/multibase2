@@ -6,13 +6,13 @@
 
 ## Result
 
-| Metric | Before (Kong) | After (Nginx) |
-|--------|---------------|---------------|
-| **Containers per tenant** | 6 (incl. Kong) | 5 (no Kong) |
-| **Gateway RAM total** | ~7 GiB (5× Kong) | ~20 MB (1× Nginx) |
-| **Config reload** | `kong reload` (~1s) | `nginx -s reload` (~50ms) |
-| **API key check** | key-auth plugin | `map` + header check |
-| **WebSocket** | Automatic | Explicit `upgrade` headers |
+| Metric                    | Before (Kong)       | After (Nginx)              |
+| ------------------------- | ------------------- | -------------------------- |
+| **Containers per tenant** | 6 (incl. Kong)      | 5 (no Kong)                |
+| **Gateway RAM total**     | ~7 GiB (5× Kong)    | ~20 MB (1× Nginx)          |
+| **Config reload**         | `kong reload` (~1s) | `nginx -s reload` (~50ms)  |
+| **API key check**         | key-auth plugin     | `map` + header check       |
+| **WebSocket**             | Automatic           | Explicit `upgrade` headers |
 
 ### Key Technical Decisions
 
@@ -36,42 +36,42 @@
 
 ### 1.1 Zwei Kong-Ebenen
 
-| Ebene | Container | Port | Zweck |
-|-------|-----------|------|-------|
-| **Shared Kong** | `multibase-kong` | 8000 | Gateway für Shared Studio (dynamisch umkonfiguriert bei Tenant-Switch) |
-| **Per-Tenant Kong** | `{tenant}-kong` | variabel (4928, 4351, 4681…) | API-Gateway pro Tenant für Client-Zugriffe |
+| Ebene               | Container        | Port                         | Zweck                                                                  |
+| ------------------- | ---------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| **Shared Kong**     | `multibase-kong` | 8000                         | Gateway für Shared Studio (dynamisch umkonfiguriert bei Tenant-Switch) |
+| **Per-Tenant Kong** | `{tenant}-kong`  | variabel (4928, 4351, 4681…) | API-Gateway pro Tenant für Client-Zugriffe                             |
 
 ### 1.2 Kong-Funktionen die ersetzt werden müssen
 
-| Funktion | Plugin | Beschreibung | Schwierigkeit |
-|----------|--------|--------------|---------------|
-| **Path-Routing** | — (services/routes) | `/auth/v1/` → auth:9999, `/rest/v1/` → rest:3000, etc. | ✅ Trivial in Nginx |
-| **Path-Stripping** | `strip_path: true` | `/auth/v1/verify` → `/verify` an Backend | ✅ Trivial in Nginx |
-| **API-Key-Validierung** | `key-auth` | `apikey`-Header muss ANON_KEY oder SERVICE_ROLE_KEY entsprechen | ✅ Einfach (statischer String-Vergleich) |
-| **ACL-Gruppen** | `acl` | Manche Routen nur `admin` (service_role), andere `anon`+`admin` | ✅ Einfach (Header-Check) |
-| **CORS** | `cors` | Origins, Methods, Headers, Credentials | ✅ Standard Nginx |
-| **WebSocket-Upgrade** | — | Realtime `/realtime/v1/` → ws://realtime:4000 | ✅ Standard Nginx |
-| **Basic-Auth** | `basic-auth` | Dashboard-Zugang (nur Shared Kong) | ⚠️ Entfällt bei Tenant-Kong |
-| **Request-Transform** | `request-transformer` | GraphQL: `Content-Profile: graphql_public` Header | ✅ `proxy_set_header` |
+| Funktion                | Plugin                | Beschreibung                                                    | Schwierigkeit                            |
+| ----------------------- | --------------------- | --------------------------------------------------------------- | ---------------------------------------- |
+| **Path-Routing**        | — (services/routes)   | `/auth/v1/` → auth:9999, `/rest/v1/` → rest:3000, etc.          | ✅ Trivial in Nginx                      |
+| **Path-Stripping**      | `strip_path: true`    | `/auth/v1/verify` → `/verify` an Backend                        | ✅ Trivial in Nginx                      |
+| **API-Key-Validierung** | `key-auth`            | `apikey`-Header muss ANON_KEY oder SERVICE_ROLE_KEY entsprechen | ✅ Einfach (statischer String-Vergleich) |
+| **ACL-Gruppen**         | `acl`                 | Manche Routen nur `admin` (service_role), andere `anon`+`admin` | ✅ Einfach (Header-Check)                |
+| **CORS**                | `cors`                | Origins, Methods, Headers, Credentials                          | ✅ Standard Nginx                        |
+| **WebSocket-Upgrade**   | —                     | Realtime `/realtime/v1/` → ws://realtime:4000                   | ✅ Standard Nginx                        |
+| **Basic-Auth**          | `basic-auth`          | Dashboard-Zugang (nur Shared Kong)                              | ⚠️ Entfällt bei Tenant-Kong              |
+| **Request-Transform**   | `request-transformer` | GraphQL: `Content-Profile: graphql_public` Header               | ✅ `proxy_set_header`                    |
 
 **Kernaussage:** Kong macht hier **nichts**, was Nginx nicht kann. Die `key-auth`-Validierung ist nur ein **statischer String-Vergleich** (kein JWT-Decoding) – der `apikey`-Header wird gegen die bekannten Keys verglichen.
 
 ### 1.3 Service-Routing-Tabelle (pro Tenant)
 
-| Pfad | Backend-Service | Port | Auth benötigt | ACL |
-|------|-----------------|------|---------------|-----|
-| `/auth/v1/verify` | `{tenant}-auth` | 9999 | ❌ offen | — |
-| `/auth/v1/callback` | `{tenant}-auth` | 9999 | ❌ offen | — |
-| `/auth/v1/authorize` | `{tenant}-auth` | 9999 | ❌ offen | — |
-| `/auth/v1/` | `{tenant}-auth` | 9999 | ✅ key-auth | anon+admin |
-| `/auth/v1/admin` | `{tenant}-auth` | 9999 | ✅ key-auth | admin only |
-| `/rest/v1/` | `{tenant}-rest` | 3000 | ✅ key-auth | anon+admin |
-| `/graphql/v1` | `{tenant}-rest` | 3000 | ✅ key-auth | anon+admin |
-| `/realtime/v1/` | `{tenant}-realtime` | 4000 | ✅ key-auth | anon+admin |
-| `/storage/v1/` | `{tenant}-storage` | 5000 | ❌ offen | — |
-| `/functions/v1/` | `{tenant}-edge-functions` | 9000 | ❌ offen | — |
-| `/pg/` | `multibase-meta-{tenant}` | 8080 | ✅ key-auth | admin only |
-| `/analytics/v1/` | `multibase-analytics` | 4000 | ❌ offen | — |
+| Pfad                 | Backend-Service           | Port | Auth benötigt | ACL        |
+| -------------------- | ------------------------- | ---- | ------------- | ---------- |
+| `/auth/v1/verify`    | `{tenant}-auth`           | 9999 | ❌ offen      | —          |
+| `/auth/v1/callback`  | `{tenant}-auth`           | 9999 | ❌ offen      | —          |
+| `/auth/v1/authorize` | `{tenant}-auth`           | 9999 | ❌ offen      | —          |
+| `/auth/v1/`          | `{tenant}-auth`           | 9999 | ✅ key-auth   | anon+admin |
+| `/auth/v1/admin`     | `{tenant}-auth`           | 9999 | ✅ key-auth   | admin only |
+| `/rest/v1/`          | `{tenant}-rest`           | 3000 | ✅ key-auth   | anon+admin |
+| `/graphql/v1`        | `{tenant}-rest`           | 3000 | ✅ key-auth   | anon+admin |
+| `/realtime/v1/`      | `{tenant}-realtime`       | 4000 | ✅ key-auth   | anon+admin |
+| `/storage/v1/`       | `{tenant}-storage`        | 5000 | ❌ offen      | —          |
+| `/functions/v1/`     | `{tenant}-edge-functions` | 9000 | ❌ offen      | —          |
+| `/pg/`               | `multibase-meta-{tenant}` | 8080 | ✅ key-auth   | admin only |
+| `/analytics/v1/`     | `multibase-analytics`     | 4000 | ❌ offen      | —          |
 
 ---
 
@@ -105,12 +105,14 @@ Ein einzelner Nginx-Container (`multibase-nginx-gateway`) im `multibase-shared`-
 ```
 
 **Vorteile:**
+
 - ~20 MB RAM statt ~1.7 GiB pro Kong-Instanz
 - Dynamische Konfiguration per Template (wie bisher bei Kong)
 - Funktioniert lokal auf Windows UND in Produktion
 - Nginx kann als Reverse-Proxy direkt Docker-DNS nutzen (Container-Namen)
 
 **Nachteile:**
+
 - Neue Komponente (Nginx-Config-Generator statt KongConfigGenerator)
 - Alle Tenants teilen sich einen Prozess (bei Fehlkonfiguration betroffen)
 
@@ -451,6 +453,7 @@ export async function reloadNginxGateway(): Promise<void> {
 **Wichtiger Unterschied zu Kong:** Kong verwendet pro Tenant einen eigenen Container mit eigenem Port. Der Shared Nginx kann **alle Tenants gleichzeitig** bedienen – über **verschiedene `server_name`** oder **verschiedene Ports**:
 
 #### Variante A: Port-basiert (wie aktuell, einfachste Migration)
+
 ```nginx
 # Jeder Tenant bekommt einen eigenen Port (wie Kong vorher)
 # cloud-test → Port 4928
@@ -466,6 +469,7 @@ server {
 ```
 
 #### Variante B: Host-basiert (Produktion, zukunftssicher)
+
 ```nginx
 # Produktion: über Subdomains
 server {
@@ -487,24 +491,24 @@ server {
 **Datei:** `shared/docker-compose.shared.yml` – neuer Service:
 
 ```yaml
-  nginx-gateway:
-    container_name: multibase-nginx-gateway
-    image: nginx:alpine          # ~20 MB statt ~1.7 GiB (Kong)
-    restart: unless-stopped
-    ports:
-      # Dynamisch: Ports aller aktiven Tenants
-      # Werden per docker-compose.override.yml oder dynamisch konfiguriert
-      - "8000:8000"              # Shared (bisher multibase-kong)
-    volumes:
-      - ./volumes/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./volumes/nginx/tenants:/etc/nginx/conf.d/tenants:ro
-    networks:
-      - multibase-shared
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+nginx-gateway:
+  container_name: multibase-nginx-gateway
+  image: nginx:alpine # ~20 MB statt ~1.7 GiB (Kong)
+  restart: unless-stopped
+  ports:
+    # Dynamisch: Ports aller aktiven Tenants
+    # Werden per docker-compose.override.yml oder dynamisch konfiguriert
+    - '8000:8000' # Shared (bisher multibase-kong)
+  volumes:
+    - ./volumes/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    - ./volumes/nginx/tenants:/etc/nginx/conf.d/tenants:ro
+  networks:
+    - multibase-shared
+  healthcheck:
+    test: ['CMD', 'nginx', '-t']
+    interval: 10s
+    timeout: 5s
+    retries: 3
 ```
 
 #### 4.2 Per-Tenant Docker-Compose: Kong entfernen
@@ -522,6 +526,7 @@ Kong-Port-Mapping entfällt. Stattdessen wird in der Nginx-Config ein `listen`-P
 #### 4.3 Dynamische Port-Zuordnung
 
 Der `NginxGatewayGenerator` schreibt pro Tenant eine Config-Datei:
+
 ```
 shared/volumes/nginx/tenants/cloud-test.conf     → listen 4928
 shared/volumes/nginx/tenants/cloud-test-2.conf   → listen 4351
@@ -531,6 +536,7 @@ shared/volumes/nginx/tenants/cloud-test-3.conf   → listen 4681
 Nach dem Schreiben: `docker exec multibase-nginx-gateway nginx -s reload` (~50ms, kein Downtime).
 
 **Port-Bindung:** Da Nginx dynamisch Ports annehmen muss, gibt es zwei Optionen:
+
 1. `--network host` (Linux) – Nginx bindet direkt an Host-Ports
 2. Dynamisches Port-Mapping über Docker API / docker-compose override
 
@@ -540,17 +546,17 @@ Nach dem Schreiben: `docker exec multibase-nginx-gateway nginx -s reload` (~50ms
 
 #### 5.1 Betroffene Dateien
 
-| Datei | Änderung |
-|-------|----------|
-| `KongConfigGenerator.ts` | → Wird zu `NginxGatewayGenerator.ts` (oder Wrapper) |
-| `StudioManager.ts` | `ensureTenantKongMetaRoute()` → `ensureTenantNginxRoute()`, `reloadTenantKong()` → `reloadNginxGateway()`, `SUPABASE_URL` env → Nginx statt Kong |
-| `InstanceManager.ts` | `createKongConfig()` → `createNginxConfig()`, Kong aus docker-compose entfernen |
-| `supabase_setup.py` | Kong-Service aus Template entfernen, Nginx-Config generieren stattdessen |
-| `envParser.ts` | `kong_http` / `kong_https` → `gateway_port` |
-| `portManager.ts` | Nur noch 1 Port statt 2 (kein HTTPS auf Container-Ebene) |
-| `types/index.ts` | `kong_http`/`kong_https` → `gateway_port` |
-| `shared.ts` (routes) | `kong`-Port-Referenz aktualisieren |
-| Nginx-Configs (`nginx/sites-enabled/`) | `proxy_pass http://127.0.0.1:{kong_port}` → `proxy_pass http://127.0.0.1:{gateway_port}` (gleich, nur anderer Container dahinter) |
+| Datei                                  | Änderung                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `KongConfigGenerator.ts`               | → Wird zu `NginxGatewayGenerator.ts` (oder Wrapper)                                                                                              |
+| `StudioManager.ts`                     | `ensureTenantKongMetaRoute()` → `ensureTenantNginxRoute()`, `reloadTenantKong()` → `reloadNginxGateway()`, `SUPABASE_URL` env → Nginx statt Kong |
+| `InstanceManager.ts`                   | `createKongConfig()` → `createNginxConfig()`, Kong aus docker-compose entfernen                                                                  |
+| `supabase_setup.py`                    | Kong-Service aus Template entfernen, Nginx-Config generieren stattdessen                                                                         |
+| `envParser.ts`                         | `kong_http` / `kong_https` → `gateway_port`                                                                                                      |
+| `portManager.ts`                       | Nur noch 1 Port statt 2 (kein HTTPS auf Container-Ebene)                                                                                         |
+| `types/index.ts`                       | `kong_http`/`kong_https` → `gateway_port`                                                                                                        |
+| `shared.ts` (routes)                   | `kong`-Port-Referenz aktualisieren                                                                                                               |
+| Nginx-Configs (`nginx/sites-enabled/`) | `proxy_pass http://127.0.0.1:{kong_port}` → `proxy_pass http://127.0.0.1:{gateway_port}` (gleich, nur anderer Container dahinter)                |
 
 #### 5.2 StudioManager Changes (Beispiel)
 
@@ -581,20 +587,21 @@ private async ensureTenantNginxRoute(tenantName) {
 
 ### Aktuelle Situation (Linux/Nginx)
 
-| Aspekt | Status | Details |
-|--------|--------|---------|
-| System-Nginx vorhanden | ✅ Ja | Configs in `nginx/sites-enabled/` |
-| Per-Tenant API-Configs | ✅ Ja | `cloud-test-2.conf` etc. mit Subdomain-Routing |
-| Auth-Subrequest | ✅ Ja | `auth_request /auth-check` → Dashboard Backend |
-| WebSocket-Support | ✅ Ja | `proxy_set_header Upgrade/Connection` |
-| CORS | ❌ Fehlt | Aktuell macht Kong CORS, nicht Nginx |
-| API Key Validierung | ❌ Fehlt | Aktuell macht Kong key-auth |
-| Path-Stripping | ❌ Fehlt | Aktuell macht Kong strip_path |
-| Multi-Service Routing | ❌ Fehlt | Aktuell routet Nginx pauschal an Kong Port |
+| Aspekt                 | Status   | Details                                        |
+| ---------------------- | -------- | ---------------------------------------------- |
+| System-Nginx vorhanden | ✅ Ja    | Configs in `nginx/sites-enabled/`              |
+| Per-Tenant API-Configs | ✅ Ja    | `cloud-test-2.conf` etc. mit Subdomain-Routing |
+| Auth-Subrequest        | ✅ Ja    | `auth_request /auth-check` → Dashboard Backend |
+| WebSocket-Support      | ✅ Ja    | `proxy_set_header Upgrade/Connection`          |
+| CORS                   | ❌ Fehlt | Aktuell macht Kong CORS, nicht Nginx           |
+| API Key Validierung    | ❌ Fehlt | Aktuell macht Kong key-auth                    |
+| Path-Stripping         | ❌ Fehlt | Aktuell macht Kong strip_path                  |
+| Multi-Service Routing  | ❌ Fehlt | Aktuell routet Nginx pauschal an Kong Port     |
 
 ### Was in Produktion geändert werden muss
 
 **Aktuell:**
+
 ```
 Client → System-Nginx (cloud-test-2-api.backend.tyto-design.de)
        → proxy_pass http://127.0.0.1:4351  (= cloud-test-2-kong:8000)
@@ -602,6 +609,7 @@ Client → System-Nginx (cloud-test-2-api.backend.tyto-design.de)
 ```
 
 **Nachher:**
+
 ```
 Client → System-Nginx (cloud-test-2-api.backend.tyto-design.de)
        → proxy_pass http://127.0.0.1:4351  (= multibase-nginx-gateway:4351)
@@ -627,7 +635,7 @@ mkdir -p shared/volumes/nginx/tenants
 # 2. Haupt-nginx.conf erstellen
 # (siehe templates/nginx/nginx.conf)
 
-# 3. Gateway Container starten  
+# 3. Gateway Container starten
 docker run -d `
   --name multibase-nginx-gateway `
   --network multibase-shared `
@@ -703,17 +711,20 @@ foreach ($ep in $endpoints) {
 ## 6. Migrations-Strategie (Zero-Downtime)
 
 ### Phase A: Parallel betreiben (1 Woche)
+
 1. Nginx-Gateway Container deployen
 2. Configs für alle Tenants generieren
 3. Kong läuft weiter, Nginx auf Test-Ports
 4. Automatisierte Tests gegen beide
 
 ### Phase B: Kong-Traffic umleiten
+
 1. System-Nginx zeigt auf Nginx-Gateway statt Kong
 2. Kong läuft noch als Fallback
 3. Monitoring für 48h
 
 ### Phase C: Kong entfernen
+
 1. Kong-Container stoppen
 2. docker-compose Files bereinigen
 3. Kong-Code entfernen / deprecated markieren
@@ -723,54 +734,56 @@ foreach ($ep in $endpoints) {
 
 ## 7. Risiken & Mitigationen
 
-| Risiko | Wahrscheinlichkeit | Mitigation |
-|--------|---------------------|------------|
-| Nginx `if` ist "evil" (bekanntes Nginx-Thema) | Mittel | `map`-Direktiven + error_page statt `if` wo möglich |
-| Port-Bindung bei dynamischen Tenants | Mittel | `--network host` oder Docker port publish API |
-| CORS-Unterschiede zwischen Kong und Nginx | Niedrig | Vergleichstests in Phase A |
-| Realtime WebSocket-Handshake Fehler | Niedrig | Dedizierter Location-Block mit upgrade Headers |
-| `hide_credentials` Verhalten | Niedrig | `proxy_set_header apikey ""` in Nginx |
+| Risiko                                        | Wahrscheinlichkeit | Mitigation                                          |
+| --------------------------------------------- | ------------------ | --------------------------------------------------- |
+| Nginx `if` ist "evil" (bekanntes Nginx-Thema) | Mittel             | `map`-Direktiven + error_page statt `if` wo möglich |
+| Port-Bindung bei dynamischen Tenants          | Mittel             | `--network host` oder Docker port publish API       |
+| CORS-Unterschiede zwischen Kong und Nginx     | Niedrig            | Vergleichstests in Phase A                          |
+| Realtime WebSocket-Handshake Fehler           | Niedrig            | Dedizierter Location-Block mit upgrade Headers      |
+| `hide_credentials` Verhalten                  | Niedrig            | `proxy_set_header apikey ""` in Nginx               |
 
 ---
 
 ## 8. Dateien die erstellt/geändert werden
 
 ### Neue Dateien
-| Datei | Beschreibung |
-|-------|-------------|
-| `templates/nginx/gateway.conf.template` | Nginx Gateway Template pro Tenant |
-| `templates/nginx/nginx.conf` | Haupt-nginx.conf für den Gateway Container |
-| `dashboard/backend/src/services/NginxGatewayGenerator.ts` | Config Generator (ersetzt Kong Generator) |
-| `shared/volumes/nginx/nginx.conf` | Generierte Haupt-Config (Runtime) |
-| `shared/volumes/nginx/tenants/*.conf` | Generierte per-Tenant Configs (Runtime) |
+
+| Datei                                                     | Beschreibung                               |
+| --------------------------------------------------------- | ------------------------------------------ |
+| `templates/nginx/gateway.conf.template`                   | Nginx Gateway Template pro Tenant          |
+| `templates/nginx/nginx.conf`                              | Haupt-nginx.conf für den Gateway Container |
+| `dashboard/backend/src/services/NginxGatewayGenerator.ts` | Config Generator (ersetzt Kong Generator)  |
+| `shared/volumes/nginx/nginx.conf`                         | Generierte Haupt-Config (Runtime)          |
+| `shared/volumes/nginx/tenants/*.conf`                     | Generierte per-Tenant Configs (Runtime)    |
 
 ### Geänderte Dateien
-| Datei | Änderung |
-|-------|----------|
-| `shared/docker-compose.shared.yml` | + nginx-gateway Service, - kong Service (optional behalten) |
-| `dashboard/backend/src/services/StudioManager.ts` | Kong-Referenzen → Nginx-Referenzen |
-| `dashboard/backend/src/services/InstanceManager.ts` | Kong aus docker-compose entfernen |
-| `supabase_setup.py` | Kong-Service entfernen, Nginx-Config generieren |
-| `dashboard/backend/src/types/index.ts` | Port-Typen anpassen |
-| `dashboard/backend/src/utils/envParser.ts` | Kong-Port → Gateway-Port |
-| `dashboard/backend/src/utils/portManager.ts` | Nur 1 Port statt 2 |
-| `nginx/sites-enabled/*.conf` (Produktion) | Kommentar: Port zeigt jetzt auf Nginx statt Kong |
+
+| Datei                                               | Änderung                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `shared/docker-compose.shared.yml`                  | + nginx-gateway Service, - kong Service (optional behalten) |
+| `dashboard/backend/src/services/StudioManager.ts`   | Kong-Referenzen → Nginx-Referenzen                          |
+| `dashboard/backend/src/services/InstanceManager.ts` | Kong aus docker-compose entfernen                           |
+| `supabase_setup.py`                                 | Kong-Service entfernen, Nginx-Config generieren             |
+| `dashboard/backend/src/types/index.ts`              | Port-Typen anpassen                                         |
+| `dashboard/backend/src/utils/envParser.ts`          | Kong-Port → Gateway-Port                                    |
+| `dashboard/backend/src/utils/portManager.ts`        | Nur 1 Port statt 2                                          |
+| `nginx/sites-enabled/*.conf` (Produktion)           | Kommentar: Port zeigt jetzt auf Nginx statt Kong            |
 
 ---
 
 ## 9. Zusammenfassung
 
-| Aspekt | Vorher (Kong) | Nachher (Nginx) |
-|--------|---------------|-----------------|
-| **Container pro Tenant** | 6 (inkl. Kong) | 5 (ohne Kong) |
-| **RAM pro Tenant** | ~2.2 GiB | ~0.5 GiB (Kong-Anteil weg) |
-| **Gateway RAM gesamt** | ~7 GiB (5× Kong) | ~20 MB (1× Nginx) |
-| **Config Reload** | `kong reload` (~1s) | `nginx -s reload` (~50ms) |
-| **Config Format** | YAML (deklarativ) | Nginx conf (Template) |
-| **API Key Check** | key-auth Plugin | `map` + Header-Check |
-| **CORS** | cors Plugin | `add_header` Direktiven |
-| **WebSocket** | Automatisch | Explizit `upgrade` Header |
-| **Produktiv-Impact** | Kong-Port erreichbar | Gleicher Port, Nginx dahinter |
+| Aspekt                   | Vorher (Kong)        | Nachher (Nginx)               |
+| ------------------------ | -------------------- | ----------------------------- |
+| **Container pro Tenant** | 6 (inkl. Kong)       | 5 (ohne Kong)                 |
+| **RAM pro Tenant**       | ~2.2 GiB             | ~0.5 GiB (Kong-Anteil weg)    |
+| **Gateway RAM gesamt**   | ~7 GiB (5× Kong)     | ~20 MB (1× Nginx)             |
+| **Config Reload**        | `kong reload` (~1s)  | `nginx -s reload` (~50ms)     |
+| **Config Format**        | YAML (deklarativ)    | Nginx conf (Template)         |
+| **API Key Check**        | key-auth Plugin      | `map` + Header-Check          |
+| **CORS**                 | cors Plugin          | `add_header` Direktiven       |
+| **WebSocket**            | Automatisch          | Explizit `upgrade` Header     |
+| **Produktiv-Impact**     | Kong-Port erreichbar | Gleicher Port, Nginx dahinter |
 
 **Geschätzte Einsparung: ~7 GiB RAM** bei aktuellem Setup (5 Kong-Instanzen → 1 Nginx).
 

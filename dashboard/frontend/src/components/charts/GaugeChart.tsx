@@ -186,9 +186,7 @@ export default function GaugeChart({
               )}
               {parts ? (
                 <>
-                  <span className={`text-2xl font-bold ${colors.text} tabular-nums leading-tight`}>
-                    {parts[0]}
-                  </span>
+                  <span className={`text-2xl font-bold ${colors.text} tabular-nums leading-tight`}>{parts[0]}</span>
                   <div className='w-8 h-px bg-muted-foreground/25 my-0.5' />
                   <span className='text-xs font-medium text-muted-foreground tabular-nums leading-tight'>
                     {parts[1]}

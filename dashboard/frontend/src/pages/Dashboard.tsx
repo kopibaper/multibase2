@@ -9,7 +9,19 @@ import InstanceCard from '../components/InstanceCard';
 import BulkActionBar from '../components/BulkActionBar';
 import CreateInstanceModal from '../components/CreateInstanceModal';
 import GaugeChart from '../components/charts/GaugeChart';
-import { Loader2, Plus, AlertCircle, Bell, Activity, TrendingUp, Cloud, CheckCircle2, XCircle, AlertTriangle, HardDrive } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  AlertCircle,
+  Bell,
+  Activity,
+  TrendingUp,
+  Cloud,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  HardDrive,
+} from 'lucide-react';
 
 export default function Dashboard() {
   const { data: instances, isLoading, error, refetch } = useInstances();
@@ -148,10 +160,7 @@ export default function Dashboard() {
 
         {/* Shared Infrastructure Card */}
         {sharedStatus && (
-          <Link
-            to='/shared'
-            className='block mb-8 glass-card p-4 hover:bg-white/5 transition-colors group'
-          >
+          <Link to='/shared' className='block mb-8 glass-card p-4 hover:bg-white/5 transition-colors group'>
             <div className='flex items-center justify-between'>
               <div className='flex items-center gap-4'>
                 <div className='w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center'>
@@ -196,7 +205,13 @@ export default function Dashboard() {
             <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
               {/* Total CPU Gauge */}
               <div className='flex flex-col items-center'>
-                <GaugeChart label='Total CPU Usage' value={systemMetrics.totalCpu} icon={Activity} color='cyan' size='lg' />
+                <GaugeChart
+                  label='Total CPU Usage'
+                  value={systemMetrics.totalCpu}
+                  icon={Activity}
+                  color='cyan'
+                  size='lg'
+                />
                 <div className='mt-4 text-center'>
                   <p className='text-sm text-muted-foreground'>
                     Across {systemMetrics?.runningCount ?? 0} running instance

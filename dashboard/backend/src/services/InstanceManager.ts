@@ -90,7 +90,10 @@ export class InstanceManager {
     return { host: 'localhost', port: sharedPort, database: projectDb, password: sharedPassword };
   }
 
-  private getDbConnectionCandidates(envConfig: Record<string, string>, stackType: StackType): {
+  private getDbConnectionCandidates(
+    envConfig: Record<string, string>,
+    stackType: StackType
+  ): {
     host: string;
     port: number;
     database: string;
@@ -99,11 +102,9 @@ export class InstanceManager {
   } {
     if (stackType === 'cloud') {
       const sharedDb = this.getSharedDbConfig(envConfig);
-      const users = [
-        envConfig['POSTGRES_USER'] || '',
-        'supabase_admin',
-        'postgres',
-      ].filter((value, index, arr) => value && arr.indexOf(value) === index);
+      const users = [envConfig['POSTGRES_USER'] || '', 'supabase_admin', 'postgres'].filter(
+        (value, index, arr) => value && arr.indexOf(value) === index
+      );
 
       return {
         host: sharedDb.host,
@@ -162,7 +163,17 @@ export class InstanceManager {
     options?: { csv?: boolean; tuplesOnly?: boolean }
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      const args = ['exec', 'multibase-db', 'psql', '-U', 'supabase_admin', '-d', database, '-v', 'ON_ERROR_STOP=1'];
+      const args = [
+        'exec',
+        'multibase-db',
+        'psql',
+        '-U',
+        'supabase_admin',
+        '-d',
+        database,
+        '-v',
+        'ON_ERROR_STOP=1',
+      ];
 
       if (options?.csv) {
         args.push('--csv');
@@ -334,7 +345,9 @@ export class InstanceManager {
       const secret = parseEnvFile(sharedEnvPath)['SHARED_JWT_SECRET'];
       if (secret) return secret;
     }
-    logger.warn('SHARED_JWT_SECRET not found in shared/.env.shared – cloud tenant gets an isolated JWT secret');
+    logger.warn(
+      'SHARED_JWT_SECRET not found in shared/.env.shared – cloud tenant gets an isolated JWT secret'
+    );
     return undefined;
   }
 
@@ -344,9 +357,7 @@ export class InstanceManager {
   async isSharedInfraRunning(): Promise<boolean> {
     try {
       const containers = await this.dockerManager.listAllContainers();
-      return containers.some((c: any) =>
-        c.Names?.some((n: string) => n.includes('multibase-db'))
-      );
+      return containers.some((c: any) => c.Names?.some((n: string) => n.includes('multibase-db')));
     } catch {
       return false;
     }
@@ -729,9 +740,10 @@ export class InstanceManager {
       const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
 
       // Cloud-Version: Studio Proxy zeigt auf Shared Studio
-      const studioPort = instance.stackType === 'cloud'
-        ? (process.env.SHARED_STUDIO_PORT || '3000')
-        : (instance.ports.studio || '3000');
+      const studioPort =
+        instance.stackType === 'cloud'
+          ? process.env.SHARED_STUDIO_PORT || '3000'
+          : instance.ports.studio || '3000';
 
       const configContent = `# Auto-generated config for ${instance.name} with authentication
 server {

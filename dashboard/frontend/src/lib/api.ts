@@ -620,8 +620,7 @@ export const sharedApi = {
   stop: (): Promise<{ success: boolean; message: string }> =>
     fetchApi('/api/shared/stop', { method: 'POST' }),
 
-  getDatabases: (): Promise<SharedDatabasesResponse> =>
-    fetchApi('/api/shared/databases'),
+  getDatabases: (): Promise<SharedDatabasesResponse> => fetchApi('/api/shared/databases'),
 
   createDatabase: (projectName: string): Promise<{ success: boolean; database: string }> =>
     fetchApi('/api/shared/databases', {

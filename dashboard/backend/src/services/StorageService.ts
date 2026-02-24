@@ -7,10 +7,7 @@ export class StorageService {
 
   private resolveApiUrl(config: Record<string, string>): string {
     const directUrl =
-      config.SUPABASE_PUBLIC_URL ||
-      config.API_EXTERNAL_URL ||
-      config.API_EXTERNAL_URL_FINAL ||
-      '';
+      config.SUPABASE_PUBLIC_URL || config.API_EXTERNAL_URL || config.API_EXTERNAL_URL_FINAL || '';
 
     if (directUrl) {
       return directUrl.replace(/\/+$/, '');

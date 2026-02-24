@@ -10,20 +10,20 @@
 
 **Shared Studio funktioniert nur teilweise.** Das zentrale Studio (`multibase-studio:3000`) verbindet sich über den Shared Kong (`multibase-kong:8000`), der aber nur 2 Routes hat:
 
-| Route | Ziel | Funktion |
-|-------|------|----------|
-| `/pg` | `multibase-meta:8080` | SQL Editor, Table Editor ✅ |
-| `/analytics/v1` | `multibase-analytics:4000` | Logs ✅ |
+| Route           | Ziel                       | Funktion                    |
+| --------------- | -------------------------- | --------------------------- |
+| `/pg`           | `multibase-meta:8080`      | SQL Editor, Table Editor ✅ |
+| `/analytics/v1` | `multibase-analytics:4000` | Logs ✅                     |
 
 **Fehlende Routes im Shared Kong:**
 
-| Route | Dienst | Studio-Feature |
-|-------|--------|----------------|
-| `/auth/v1` | `{tenant}-auth:9999` | Auth User Management ❌ |
-| `/rest/v1` | `{tenant}-rest:3000` | API Docs, Table Data ❌ |
-| `/storage/v1` | `{tenant}-storage:5000` | Storage Browser ❌ |
-| `/functions/v1` | `{tenant}-edge-functions:9000` | Edge Functions UI ❌ |
-| `/realtime/v1` | `{tenant}-realtime:4000` | Realtime Inspector ❌ |
+| Route           | Dienst                         | Studio-Feature          |
+| --------------- | ------------------------------ | ----------------------- |
+| `/auth/v1`      | `{tenant}-auth:9999`           | Auth User Management ❌ |
+| `/rest/v1`      | `{tenant}-rest:3000`           | API Docs, Table Data ❌ |
+| `/storage/v1`   | `{tenant}-storage:5000`        | Storage Browser ❌      |
+| `/functions/v1` | `{tenant}-edge-functions:9000` | Edge Functions UI ❌    |
+| `/realtime/v1`  | `{tenant}-realtime:4000`       | Realtime Inspector ❌   |
 
 ### 1.2 pg-meta Problem
 
@@ -31,13 +31,13 @@
 
 ### 1.3 Kong RAM-Verbrauch (gemessen)
 
-| Container | RAM |
-|---|---|
-| `multibase-kong` (Shared) | **1.642 GB** |
-| `cloud-test-kong` | **1.638 GB** |
-| `cloud-test-2-kong` | **1.660 GB** |
-| `cloud-test-3-kong` | **1.015 GB** |
-| **Summe 4× Kong** | **~5.9 GB (66% des Gesamt-RAM!)** |
+| Container                 | RAM                               |
+| ------------------------- | --------------------------------- |
+| `multibase-kong` (Shared) | **1.642 GB**                      |
+| `cloud-test-kong`         | **1.638 GB**                      |
+| `cloud-test-2-kong`       | **1.660 GB**                      |
+| `cloud-test-3-kong`       | **1.015 GB**                      |
+| **Summe 4× Kong**         | **~5.9 GB (66% des Gesamt-RAM!)** |
 
 Zum Vergleich: Alle 3 Auth-Container zusammen = **37 MB**.
 
@@ -113,18 +113,18 @@ Zum Vergleich: Alle 3 Auth-Container zusammen = **37 MB**.
 
 ### 2.3 RAM-Vergleich
 
-| | Aktuell (3 Tenants) | Ziel (3 Tenants) | Einsparung |
-|---|---|---|---|
-| Shared Kong | 1.642 GB | ~10 MB (nginx) | **-1.63 GB** |
-| 3× Tenant Kong | 4.313 GB | ~15 MB (3×nginx) | **-4.30 GB** |
-| Shared Stack (Rest) | 1.884 GB | 1.884 GB | 0 |
-| 3× Tenant Services | 1.384 GB | 1.290 GB | -94 MB |
-| **Gesamt** | **~9.2 GB** | **~3.2 GB** | **-6.0 GB (65%)** |
+|                     | Aktuell (3 Tenants) | Ziel (3 Tenants) | Einsparung        |
+| ------------------- | ------------------- | ---------------- | ----------------- |
+| Shared Kong         | 1.642 GB            | ~10 MB (nginx)   | **-1.63 GB**      |
+| 3× Tenant Kong      | 4.313 GB            | ~15 MB (3×nginx) | **-4.30 GB**      |
+| Shared Stack (Rest) | 1.884 GB            | 1.884 GB         | 0                 |
+| 3× Tenant Services  | 1.384 GB            | 1.290 GB         | -94 MB            |
+| **Gesamt**          | **~9.2 GB**         | **~3.2 GB**      | **-6.0 GB (65%)** |
 
 Bei 10 Tenants:
 
-| | Aktuell | Ziel | Einsparung |
-|---|---|---|---|
+|            | Aktuell  | Ziel    | Einsparung         |
+| ---------- | -------- | ------- | ------------------ |
 | **Gesamt** | ~20.5 GB | ~5.8 GB | **-14.7 GB (72%)** |
 
 ---
@@ -154,13 +154,13 @@ POST /api/studio/activate/:tenantName
 
 **Dateien zu erstellen/ändern:**
 
-| Datei | Aktion |
-|---|---|
-| `dashboard/backend/src/routes/studio.ts` | **Neu** - Studio-Aktivierungs-Route |
-| `dashboard/backend/src/services/StudioManager.ts` | **Neu** - Tenant-Switching-Logik |
-| `dashboard/backend/src/services/KongConfigGenerator.ts` | **Neu** - Dynamische Kong-Config |
-| `shared/docker-compose.shared.yml` | **Ändern** - Kong entrypoint für Config-Reload |
-| `shared/volumes/api/kong.yml` | Wird **dynamisch generiert** (nicht mehr statisch) |
+| Datei                                                   | Aktion                                             |
+| ------------------------------------------------------- | -------------------------------------------------- |
+| `dashboard/backend/src/routes/studio.ts`                | **Neu** - Studio-Aktivierungs-Route                |
+| `dashboard/backend/src/services/StudioManager.ts`       | **Neu** - Tenant-Switching-Logik                   |
+| `dashboard/backend/src/services/KongConfigGenerator.ts` | **Neu** - Dynamische Kong-Config                   |
+| `shared/docker-compose.shared.yml`                      | **Ändern** - Kong entrypoint für Config-Reload     |
+| `shared/volumes/api/kong.yml`                           | Wird **dynamisch generiert** (nicht mehr statisch) |
 
 #### 1.2 Dynamische Shared-Kong-Konfiguration
 
@@ -175,49 +175,49 @@ services:
     routes:
       - name: auth-v1-route
         paths: [/auth/v1/verify]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   - name: auth-v1-api
     url: http://{TENANT_NAME}-auth:9999
     routes:
       - name: auth-v1-api-route
         paths: [/auth/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   - name: auth-v1-admin
     url: http://{TENANT_NAME}-auth:9999/admin
     routes:
       - name: auth-v1-admin-route
         paths: [/auth/v1/admin]
-    plugins: [{cors_plugin}, {key_auth}, {acl_admin}]
+    plugins: [{ cors_plugin }, { key_auth }, { acl_admin }]
 
   - name: rest
     url: http://{TENANT_NAME}-rest:3000
     routes:
       - name: rest-route
         paths: [/rest/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   - name: storage
     url: http://{TENANT_NAME}-storage:5000
     routes:
       - name: storage-route
         paths: [/storage/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   - name: realtime
     url: http://{TENANT_NAME}-realtime:4000/socket/
     routes:
       - name: realtime-route
         paths: [/realtime/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   - name: functions
     url: http://{TENANT_NAME}-edge-functions:9000
     routes:
       - name: functions-route
         paths: [/functions/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 
   # === Shared Routes (immer gleich) ===
   - name: meta
@@ -225,14 +225,14 @@ services:
     routes:
       - name: meta-route
         paths: [/pg]
-    plugins: [{cors_plugin}, {key_auth}, {acl_admin}]
+    plugins: [{ cors_plugin }, { key_auth }, { acl_admin }]
 
   - name: analytics
     url: http://multibase-analytics:4000
     routes:
       - name: analytics-route
         paths: [/analytics/v1]
-    plugins: [{cors_plugin}]
+    plugins: [{ cors_plugin }]
 ```
 
 **Wichtig:** Alle Tenant-Container sind bereits im `multibase-shared` Netzwerk. Ko Netzwerk-Änderungen nötig!
@@ -255,6 +255,7 @@ async switchPgMeta(tenantName: string, projectDb: string): Promise<void> {
 ```
 
 **Alternative (eleganter):** Docker Compose Environment-Override:
+
 ```bash
 docker compose -f shared/docker-compose.shared.yml up -d meta \
   -e PG_META_DB_NAME=project_cloud_test
@@ -292,6 +293,7 @@ const handleOpenStudio = async () => {
 **Ziel:** ~6 GB RAM-Einsparung durch Ersetzen aller Kong-Instanzen mit nginx.
 
 **Warum das funktioniert:**
+
 - Kong-Plugins (key-auth, ACL) sind für unser Setup **redundant** - die Supabase-Services (PostgREST, GoTrue, Storage) validieren JWTs selbst
 - Kong wird nur als Reverse-Proxy genutzt → nginx kann das genauso, mit ~5 MB statt ~1.6 GB
 - CORS kann nginx nativ
@@ -426,7 +428,7 @@ gateway:
   image: nginx:alpine
   restart: unless-stopped
   ports:
-    - "${KONG_HTTP_PORT}:8000/tcp"
+    - '${KONG_HTTP_PORT}:8000/tcp'
   volumes:
     - ./volumes/api/nginx.conf:/etc/nginx/conf.d/default.conf:ro
   networks:
@@ -438,13 +440,13 @@ gateway:
 
 Supabase JS Client sendet `apikey` Header. PostgREST/GoTrue/Storage validieren JWT selbst:
 
-| Service | JWT-Validierung | apikey-Header benötigt? |
-|---------|----------------|------------------------|
-| PostgREST | ✅ `PGRST_JWT_SECRET` | Nein (JWT in `Authorization`) |
-| GoTrue | ✅ Eigene Auth-Logik | Nein |
-| Storage | ✅ `PGRST_JWT_SECRET` | Nein |
-| Realtime | ✅ `API_JWT_SECRET` | Nein |
-| Edge Functions | ✅ `JWT_SECRET` | Nein |
+| Service        | JWT-Validierung       | apikey-Header benötigt?       |
+| -------------- | --------------------- | ----------------------------- |
+| PostgREST      | ✅ `PGRST_JWT_SECRET` | Nein (JWT in `Authorization`) |
+| GoTrue         | ✅ Eigene Auth-Logik  | Nein                          |
+| Storage        | ✅ `PGRST_JWT_SECRET` | Nein                          |
+| Realtime       | ✅ `API_JWT_SECRET`   | Nein                          |
+| Edge Functions | ✅ `JWT_SECRET`       | Nein                          |
 
 **Fazit:** Kong's key-auth/ACL Plugins sind für die API-Communication nicht notwendig. Die Services validieren JWTs eigenständig. nginx als reiner Reverse-Proxy reicht aus.
 
@@ -473,9 +475,9 @@ analytics:
   deploy:
     resources:
       limits:
-        memory: 512M  # Reduziert von 1G auf 512M
+        memory: 512M # Reduziert von 1G auf 512M
       reservations:
-        memory: 256M  # Reduziert von 512M auf 256M
+        memory: 256M # Reduziert von 512M auf 256M
 ```
 
 #### 3.2 Pooler (Supavisor) Tuning
@@ -483,8 +485,8 @@ analytics:
 Aktuell 256 MB. Parameter optimieren:
 
 ```yaml
-POOLER_DEFAULT_POOL_SIZE: 20    # Reduziert von 50
-POOLER_MAX_CLIENT_CONN: 200     # Reduziert von 500
+POOLER_DEFAULT_POOL_SIZE: 20 # Reduziert von 50
+POOLER_MAX_CLIENT_CONN: 200 # Reduziert von 500
 ```
 
 #### 3.3 Lazy-Loading von Tenant-Services
@@ -539,57 +541,58 @@ Phase 3: Optimierungen              ┌─────────────�
 
 ### Phase 1 - Neue Dateien
 
-| Datei | Beschreibung |
-|---|---|
-| `dashboard/backend/src/routes/studio.ts` | Express Router für Studio-Aktivierung |
-| `dashboard/backend/src/services/StudioManager.ts` | Tenant-Switch Logik (Kong reload, pg-meta restart) |
-| `dashboard/backend/src/services/KongConfigGenerator.ts` | Generiert kong.yml dynamisch für aktiven Tenant |
-| `shared/volumes/api/kong.yml.template` | Template für dynamische Kong-Config |
+| Datei                                                   | Beschreibung                                       |
+| ------------------------------------------------------- | -------------------------------------------------- |
+| `dashboard/backend/src/routes/studio.ts`                | Express Router für Studio-Aktivierung              |
+| `dashboard/backend/src/services/StudioManager.ts`       | Tenant-Switch Logik (Kong reload, pg-meta restart) |
+| `dashboard/backend/src/services/KongConfigGenerator.ts` | Generiert kong.yml dynamisch für aktiven Tenant    |
+| `shared/volumes/api/kong.yml.template`                  | Template für dynamische Kong-Config                |
 
 ### Phase 1 - Zu ändernde Dateien
 
-| Datei | Änderung |
-|---|---|
-| `dashboard/backend/src/server.ts` | Studio-Route registrieren |
-| `dashboard/backend/src/routes/shared.ts` | Active-Tenant-Status zurückgeben |
-| `dashboard/frontend/src/components/InstanceCard.tsx` | Studio-Button mit Tenant-Activation |
-| `shared/docker-compose.shared.yml` | Kong Volume Mount writable (für Config-Reload) |
+| Datei                                                | Änderung                                       |
+| ---------------------------------------------------- | ---------------------------------------------- |
+| `dashboard/backend/src/server.ts`                    | Studio-Route registrieren                      |
+| `dashboard/backend/src/routes/shared.ts`             | Active-Tenant-Status zurückgeben               |
+| `dashboard/frontend/src/components/InstanceCard.tsx` | Studio-Button mit Tenant-Activation            |
+| `shared/docker-compose.shared.yml`                   | Kong Volume Mount writable (für Config-Reload) |
 
 ### Phase 2 - Neue Dateien
 
-| Datei | Beschreibung |
-|---|---|
-| `templates/cloud/nginx.conf.template` | nginx Template für Per-Tenant Gateway |
-| `shared/volumes/api/nginx.conf.template` | nginx Template für Shared Gateway |
-| `dashboard/backend/src/services/NginxConfigGenerator.ts` | Generiert nginx.conf für Tenants |
+| Datei                                                    | Beschreibung                          |
+| -------------------------------------------------------- | ------------------------------------- |
+| `templates/cloud/nginx.conf.template`                    | nginx Template für Per-Tenant Gateway |
+| `shared/volumes/api/nginx.conf.template`                 | nginx Template für Shared Gateway     |
+| `dashboard/backend/src/services/NginxConfigGenerator.ts` | Generiert nginx.conf für Tenants      |
 
 ### Phase 2 - Zu ändernde Dateien
 
-| Datei | Änderung |
-|---|---|
-| `shared/docker-compose.shared.yml` | Kong → nginx Service |
-| `templates/cloud/docker-compose.yml` (falls vorhanden) | Kong → nginx |
-| `supabase_setup.py` | nginx statt Kong im Tenant-Stack |
-| `dashboard/backend/src/services/InstanceManager.ts` | Kong-Referenzen → nginx |
-| `dashboard/backend/src/types/index.ts` | Service-Types anpassen |
+| Datei                                                  | Änderung                         |
+| ------------------------------------------------------ | -------------------------------- |
+| `shared/docker-compose.shared.yml`                     | Kong → nginx Service             |
+| `templates/cloud/docker-compose.yml` (falls vorhanden) | Kong → nginx                     |
+| `supabase_setup.py`                                    | nginx statt Kong im Tenant-Stack |
+| `dashboard/backend/src/services/InstanceManager.ts`    | Kong-Referenzen → nginx          |
+| `dashboard/backend/src/types/index.ts`                 | Service-Types anpassen           |
 
 ---
 
 ## 6. Risiken & Mitigierung
 
-| Risiko | Wahrscheinlichkeit | Mitigierung |
-|---|---|---|
-| Kong-Plugins werden doch gebraucht | Niedrig | Services validieren JWTs selbst. Fallback: Kong behalten |
-| pg-meta Restart zu langsam | Niedrig | Gemessen ~2s. Alternative: pg-meta per Tenant (~30 MB) |
-| Studio cached alten Tenant | Mittel | Frontend: Force-Reload bei Tenant-Switch |
-| nginx WebSocket Kompatibilität | Niedrig | Gut dokumentiert, Standard-Config |
-| Concurrent Studio Users | Mittel | Lock-Mechanismus: nur 1 aktiver Tenant für Studio |
+| Risiko                             | Wahrscheinlichkeit | Mitigierung                                              |
+| ---------------------------------- | ------------------ | -------------------------------------------------------- |
+| Kong-Plugins werden doch gebraucht | Niedrig            | Services validieren JWTs selbst. Fallback: Kong behalten |
+| pg-meta Restart zu langsam         | Niedrig            | Gemessen ~2s. Alternative: pg-meta per Tenant (~30 MB)   |
+| Studio cached alten Tenant         | Mittel             | Frontend: Force-Reload bei Tenant-Switch                 |
+| nginx WebSocket Kompatibilität     | Niedrig            | Gut dokumentiert, Standard-Config                        |
+| Concurrent Studio Users            | Mittel             | Lock-Mechanismus: nur 1 aktiver Tenant für Studio        |
 
 ---
 
 ## 7. Testing-Checkliste
 
 ### Phase 1 Smoke Tests:
+
 - [ ] `POST /api/studio/activate/cloud-test` → 200 OK
 - [ ] Studio öffnen → Auth User Management funktioniert
 - [ ] Studio öffnen → Storage Browser funktioniert
@@ -601,6 +604,7 @@ Phase 3: Optimierungen              ┌─────────────�
 - [ ] Supabase JS Client → API-Zugriff funktioniert weiterhin
 
 ### Phase 2 Smoke Tests:
+
 - [ ] nginx Shared Gateway erreichbar auf Port 8000
 - [ ] nginx Per-Tenant erreichbar auf Tenant-Port
 - [ ] Supabase JS Client `createClient()` funktioniert
@@ -615,13 +619,13 @@ Phase 3: Optimierungen              ┌─────────────�
 
 ## 8. Zusammenfassung
 
-| Metrik | Aktuell | Nach Phase 1 | Nach Phase 2 |
-|---|---|---|---|
-| Studio-Funktionalität | ~30% (nur SQL) | **100%** | 100% |
-| RAM (3 Tenants) | ~9.2 GB | ~9.2 GB | **~3.2 GB** |
-| RAM (10 Tenants) | ~20.5 GB | ~20.5 GB | **~5.8 GB** |
-| RAM pro neuer Tenant | ~1.8 GB | ~1.8 GB | **~435 MB** |
-| Tenant-Wechsel Studio | Nicht möglich | **~3-5 Sek** | ~3-5 Sek |
-| Per-Tenant Container | 6 | 6 | 6 (nginx statt Kong) |
+| Metrik                | Aktuell        | Nach Phase 1 | Nach Phase 2         |
+| --------------------- | -------------- | ------------ | -------------------- |
+| Studio-Funktionalität | ~30% (nur SQL) | **100%**     | 100%                 |
+| RAM (3 Tenants)       | ~9.2 GB        | ~9.2 GB      | **~3.2 GB**          |
+| RAM (10 Tenants)      | ~20.5 GB       | ~20.5 GB     | **~5.8 GB**          |
+| RAM pro neuer Tenant  | ~1.8 GB        | ~1.8 GB      | **~435 MB**          |
+| Tenant-Wechsel Studio | Nicht möglich  | **~3-5 Sek** | ~3-5 Sek             |
+| Per-Tenant Container  | 6              | 6            | 6 (nginx statt Kong) |
 
 **Phase 1 löst das Funktionalitätsproblem. Phase 2 löst das Ressourcenproblem.**

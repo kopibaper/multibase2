@@ -49,9 +49,7 @@ export function generateNginxGatewayConfig(options: NginxGatewayOptions): string
   }
 
   if (!templateContent) {
-    throw new Error(
-      `Nginx gateway template not found. Searched: ${possiblePaths.join(', ')}`
-    );
+    throw new Error(`Nginx gateway template not found. Searched: ${possiblePaths.join(', ')}`);
   }
 
   // Create a safe identifier for map variable names (no hyphens allowed in nginx vars)
@@ -86,8 +84,12 @@ export async function generateAndWriteTenantConfig(
   const sharedEnv = fs.existsSync(sharedEnvPath) ? parseEnvFile(sharedEnvPath) : {};
 
   const anonKey = tenantEnv['ANON_KEY'] || sharedEnv['SHARED_ANON_KEY'] || '';
-  const serviceRoleKey = tenantEnv['SERVICE_ROLE_KEY'] || sharedEnv['SHARED_SERVICE_ROLE_KEY'] || '';
-  const gatewayPort = parseInt(tenantEnv['GATEWAY_PORT'] || tenantEnv['KONG_HTTP_PORT'] || '8000', 10);
+  const serviceRoleKey =
+    tenantEnv['SERVICE_ROLE_KEY'] || sharedEnv['SHARED_SERVICE_ROLE_KEY'] || '';
+  const gatewayPort = parseInt(
+    tenantEnv['GATEWAY_PORT'] || tenantEnv['KONG_HTTP_PORT'] || '8000',
+    10
+  );
 
   const config = generateNginxGatewayConfig({
     tenantName,
@@ -145,10 +147,9 @@ export async function removeNginxTenantConfig(
 export async function reloadNginxGateway(): Promise<void> {
   try {
     // First validate the config
-    const { stderr: testStderr } = await execAsync(
-      'docker exec multibase-nginx-gateway nginx -t',
-      { timeout: 10000 }
-    );
+    const { stderr: testStderr } = await execAsync('docker exec multibase-nginx-gateway nginx -t', {
+      timeout: 10000,
+    });
     if (testStderr && !testStderr.includes('successful')) {
       logger.warn(`Nginx config test output: ${testStderr}`);
     }

@@ -17,7 +17,7 @@ services:
     image: supabase/postgres:15.8.1.060
     restart: unless-stopped
     ports:
-      - "${SHARED_PG_PORT:-5432}:5432"
+      - '${SHARED_PG_PORT:-5432}:5432'
     volumes:
       # DB Init Scripts (Supabase-Basis)
       - ./volumes/db/init/97-_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
@@ -52,9 +52,12 @@ services:
     command:
       [
         'postgres',
-        '-c', 'config_file=/etc/postgresql/postgresql.conf',
-        '-c', 'max_connections=500',
-        '-c', 'log_min_messages=warning',
+        '-c',
+        'config_file=/etc/postgresql/postgresql.conf',
+        '-c',
+        'max_connections=500',
+        '-c',
+        'log_min_messages=warning',
       ]
     networks:
       - multibase-shared
@@ -67,9 +70,9 @@ services:
     image: ${SHARED_STUDIO_IMAGE:-supabase/studio:latest}
     restart: unless-stopped
     ports:
-      - "${SHARED_STUDIO_PORT:-3000}:3000"
+      - '${SHARED_STUDIO_PORT:-3000}:3000'
     healthcheck:
-      test: ["CMD-SHELL", "echo ok"]
+      test: ['CMD-SHELL', 'echo ok']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -107,14 +110,14 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "${SHARED_GATEWAY_PORT:-8000}:8000/tcp"
+      - '${SHARED_GATEWAY_PORT:-8000}:8000/tcp'
       # Tenant-Ports (Windows/Docker Desktop: muss explizit gemappt werden)
       # Neue Tenants hier eintragen ODER shared/.env.shared NGINX_EXTRA_PORTS verwenden
-      - "${NGINX_PORT_1:-4928}:${NGINX_PORT_1:-4928}/tcp"
-      - "${NGINX_PORT_2:-4351}:${NGINX_PORT_2:-4351}/tcp"
-      - "${NGINX_PORT_3:-4681}:${NGINX_PORT_3:-4681}/tcp"
-      - "${NGINX_PORT_4:-4100}:${NGINX_PORT_4:-4100}/tcp"
-      - "${NGINX_PORT_5:-4200}:${NGINX_PORT_5:-4200}/tcp"
+      - '${NGINX_PORT_1:-4928}:${NGINX_PORT_1:-4928}/tcp'
+      - '${NGINX_PORT_2:-4351}:${NGINX_PORT_2:-4351}/tcp'
+      - '${NGINX_PORT_3:-4681}:${NGINX_PORT_3:-4681}/tcp'
+      - '${NGINX_PORT_4:-4100}:${NGINX_PORT_4:-4100}/tcp'
+      - '${NGINX_PORT_5:-4200}:${NGINX_PORT_5:-4200}/tcp'
     volumes:
       - ./volumes/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./volumes/nginx/tenants:/etc/nginx/conf.d/tenants:ro
@@ -122,7 +125,7 @@ services:
       analytics:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:8080/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -169,7 +172,7 @@ services:
     image: supabase/logflare:1.12.0
     restart: unless-stopped
     ports:
-      - "${SHARED_ANALYTICS_PORT:-4000}:4000"
+      - '${SHARED_ANALYTICS_PORT:-4000}:4000'
     deploy:
       resources:
         limits:
@@ -213,7 +216,15 @@ services:
       - ./config/vector.yml:/etc/vector/vector.yml:ro,z
       - /var/run/docker.sock:/var/run/docker.sock:ro,z
     healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://multibase-vector:9001/health']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://multibase-vector:9001/health',
+        ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -277,11 +288,12 @@ services:
     image: supabase/supavisor:2.4.14
     restart: unless-stopped
     ports:
-      - "${SHARED_POOLER_PORT:-6543}:6543"
+      - '${SHARED_POOLER_PORT:-6543}:6543'
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
     healthcheck:
-      test: ['CMD', 'curl', '-sSfL', '--head', '-o', '/dev/null', 'http://127.0.0.1:4000/api/health']
+      test:
+        ['CMD', 'curl', '-sSfL', '--head', '-o', '/dev/null', 'http://127.0.0.1:4000/api/health']
       interval: 10s
       timeout: 5s
       retries: 5

@@ -41,7 +41,12 @@ export class FunctionService {
 
   private sanitizeFunctionName(name: string): string {
     const normalized = name.trim();
-    if (!normalized || normalized.includes('..') || normalized.includes('\\') || normalized.includes('/')) {
+    if (
+      !normalized ||
+      normalized.includes('..') ||
+      normalized.includes('\\') ||
+      normalized.includes('/')
+    ) {
       throw new Error('Invalid function name');
     }
 

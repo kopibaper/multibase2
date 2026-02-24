@@ -108,10 +108,16 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
           },
           proxyRes: (proxyRes: IncomingMessage, _req: IncomingMessage, _res: ServerResponse) => {
             logger.debug(`Proxy response status: ${proxyRes.statusCode}`);
-            
+
             // Rewrite Location header for redirects
             const location = proxyRes.headers['location'];
-            if (location && (proxyRes.statusCode === 301 || proxyRes.statusCode === 302 || proxyRes.statusCode === 307 || proxyRes.statusCode === 308)) {
+            if (
+              location &&
+              (proxyRes.statusCode === 301 ||
+                proxyRes.statusCode === 302 ||
+                proxyRes.statusCode === 307 ||
+                proxyRes.statusCode === 308)
+            ) {
               // If Location is a relative path, prepend the proxy path
               if (location.startsWith('/')) {
                 const newLocation = `/api/proxy/${instanceName}/studio${location}`;

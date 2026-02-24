@@ -87,41 +87,44 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
     await stopMutation.mutateAsync(instance.name);
   };
 
-  const handleOpenStudio = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleOpenStudio = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (!isCloudInstance) {
-      // Classic stack: open Studio directly
-      const url = instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`;
-      window.open(url, '_blank');
-      return;
-    }
-
-    // Cloud stack: activate tenant first, then open shared Studio
-    setStudioActivating(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(err.message || `HTTP ${res.status}`);
+      if (!isCloudInstance) {
+        // Classic stack: open Studio directly
+        const url = instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`;
+        window.open(url, '_blank');
+        return;
       }
-      const data = await res.json();
-      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
-    } catch (err: any) {
-      console.error('Studio activation failed:', err);
-      alert(`Studio activation failed: ${err.message}`);
-    } finally {
-      setStudioActivating(false);
-    }
-  }, [instance, isCloudInstance]);
+
+      // Cloud stack: activate tenant first, then open shared Studio
+      setStudioActivating(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+          throw new Error(err.message || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      } catch (err: any) {
+        console.error('Studio activation failed:', err);
+        alert(`Studio activation failed: ${err.message}`);
+      } finally {
+        setStudioActivating(false);
+      }
+    },
+    [instance, isCloudInstance]
+  );
 
   const handleCardClick = () => {
     navigate(`/instances/${instance.name}`);
@@ -258,7 +261,11 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                 onClick={handleOpenStudio}
                 disabled={studioActivating}
                 className='flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-md hover:bg-violet-500/20 transition-colors text-sm font-medium disabled:opacity-50'
-                title={isCloudInstance ? `Activate & Open Studio for ${instance.name}` : `Open Studio (Port ${instance.ports.studio})`}
+                title={
+                  isCloudInstance
+                    ? `Activate & Open Studio for ${instance.name}`
+                    : `Open Studio (Port ${instance.ports.studio})`
+                }
               >
                 <ExternalLink className='w-4 h-4' />
                 {studioActivating ? 'Activating...' : 'Studio'}

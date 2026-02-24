@@ -55,41 +55,37 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleOpenStudio = useCallback(
-    async (instance: SupabaseInstance) => {
-      const isCloud = instance.stackType === 'cloud';
+  const handleOpenStudio = useCallback(async (instance: SupabaseInstance) => {
+    const isCloud = instance.stackType === 'cloud';
 
-      if (!isCloud) {
-        const url =
-          instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`;
-        window.open(url, '_blank');
-        return;
-      }
+    if (!isCloud) {
+      const url = instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports.studio}`;
+      window.open(url, '_blank');
+      return;
+    }
 
-      setStudioActivating(instance.name);
-      try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ message: 'Unknown error' }));
-          throw new Error(err.message || `HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
-      } catch (err: any) {
-        console.error('Studio activation failed:', err);
-      } finally {
-        setStudioActivating(null);
+    setStudioActivating(instance.name);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(err.message || `HTTP ${res.status}`);
       }
-    },
-    []
-  );
+      const data = await res.json();
+      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+    } catch (err: any) {
+      console.error('Studio activation failed:', err);
+    } finally {
+      setStudioActivating(null);
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -147,9 +143,7 @@ export default function WorkspacePage() {
                   <div className='flex-1 min-w-0'>
                     <div className='flex items-center gap-2'>
                       <span className='text-sm font-medium text-foreground truncate'>{instance.name}</span>
-                      {instance.stackType === 'cloud' && (
-                        <Cloud className='w-3 h-3 text-brand-400 flex-shrink-0' />
-                      )}
+                      {instance.stackType === 'cloud' && <Cloud className='w-3 h-3 text-brand-400 flex-shrink-0' />}
                     </div>
                     <p className='text-xs text-muted-foreground truncate'>
                       {instance.status === 'running' || instance.status === 'healthy'
@@ -313,7 +307,9 @@ export default function WorkspacePage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <span className='flex items-center gap-1.5'><Code className='w-3.5 h-3.5' /> Manager</span>
+                  <span className='flex items-center gap-1.5'>
+                    <Code className='w-3.5 h-3.5' /> Manager
+                  </span>
                 </button>
                 <button
                   onClick={() => setActiveTab('smtp')}
@@ -365,10 +361,7 @@ export default function WorkspacePage() {
                     </h3>
                     <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
                       {selected.services?.map((svc) => (
-                        <div
-                          key={svc.name}
-                          className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'
-                        >
+                        <div key={svc.name} className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'>
                           <div
                             className={`w-2 h-2 rounded-full flex-shrink-0 ${
                               svc.status === 'running' || svc.health === 'healthy'
@@ -380,9 +373,7 @@ export default function WorkspacePage() {
                           />
                           <span className='truncate text-muted-foreground'>{svc.name}</span>
                         </div>
-                      )) || (
-                        <p className='text-sm text-muted-foreground col-span-3'>No service data available</p>
-                      )}
+                      )) || <p className='text-sm text-muted-foreground col-span-3'>No service data available</p>}
                     </div>
                   </div>
 
@@ -424,9 +415,7 @@ export default function WorkspacePage() {
       </div>
 
       {/* Keys Modal */}
-      {keysModalInstance && (
-        <KeysQuickModal instance={keysModalInstance} onClose={() => setKeysModalInstance(null)} />
-      )}
+      {keysModalInstance && <KeysQuickModal instance={keysModalInstance} onClose={() => setKeysModalInstance(null)} />}
     </div>
   );
 }

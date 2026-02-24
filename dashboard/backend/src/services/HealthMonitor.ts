@@ -89,9 +89,7 @@ export class HealthMonitor extends EventEmitter {
   async checkSharedInfraHealth(): Promise<SharedInfraStatus> {
     try {
       const sharedContainers = await this.dockerManager.listSharedContainers();
-      const runningCount = sharedContainers.filter(
-        (c) => c.State === 'running'
-      ).length;
+      const runningCount = sharedContainers.filter((c) => c.State === 'running').length;
       const totalExpected = SHARED_SERVICES.length;
 
       let status: SharedInfraStatus['status'] = 'stopped';

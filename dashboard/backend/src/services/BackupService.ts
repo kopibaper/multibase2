@@ -398,14 +398,14 @@ export class BackupService {
     const extractedDirs = await fs.readdir(extractPath);
 
     // Check for cloud tenant DB dump (.sql file)
-    const sqlDump = extractedDirs.find(f => f.endsWith('.sql'));
+    const sqlDump = extractedDirs.find((f) => f.endsWith('.sql'));
     if (sqlDump) {
       const sqlPath = path.join(extractPath, sqlDump);
       await this.restoreCloudTenantDb(instanceId, sqlPath);
     }
 
     // Restore project files
-    const projectDir = extractedDirs.find(f => !f.endsWith('.sql'));
+    const projectDir = extractedDirs.find((f) => !f.endsWith('.sql'));
     if (projectDir) {
       const src = path.join(extractPath, projectDir);
       await this.copyRecursive(src, projectsDest);

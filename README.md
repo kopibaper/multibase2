@@ -48,7 +48,7 @@ Instances run as standard Docker Compose stacks.
 - **Services**: A standard classic stack includes 7-9 containers per project. Cloud tenants run 5 containers:
 
   **Classic Stack:** `kong`, `db`, `auth`, `rest`, `realtime`, `storage`, `meta`, `analytics`, `functions`
-  
+
   **Cloud Stack:** `auth`, `rest`, `realtime`, `storage`, `functions` (+ 8 shared services)
 
 ---
@@ -59,15 +59,15 @@ Starting with v1.3, Multibase supports a **Shared Infrastructure** mode inspired
 
 ### Shared Services (8 Containers, fixed)
 
-| Service | Container | Purpose |
-|---------|-----------|---------|
-| **PostgreSQL** | `multibase-db` | Single cluster with per-project databases |
-| **Studio** | `multibase-studio` | Shared dashboard, switches between tenants |
-| **Analytics** | `multibase-analytics` | Centralized Logflare instance |
-| **Vector** | `multibase-vector` | Multi-tenant log collector |
-| **imgproxy** | `multibase-imgproxy` | Shared image proxy |
-| **Pooler** | `multibase-pooler` | Shared Supavisor connection pooler |
-| **Meta** | `multibase-meta` | Shared postgres-meta for Studio |
+| Service           | Container                 | Purpose                                                     |
+| ----------------- | ------------------------- | ----------------------------------------------------------- |
+| **PostgreSQL**    | `multibase-db`            | Single cluster with per-project databases                   |
+| **Studio**        | `multibase-studio`        | Shared dashboard, switches between tenants                  |
+| **Analytics**     | `multibase-analytics`     | Centralized Logflare instance                               |
+| **Vector**        | `multibase-vector`        | Multi-tenant log collector                                  |
+| **imgproxy**      | `multibase-imgproxy`      | Shared image proxy                                          |
+| **Pooler**        | `multibase-pooler`        | Shared Supavisor connection pooler                          |
+| **Meta**          | `multibase-meta`          | Shared postgres-meta for Studio                             |
 | **Nginx Gateway** | `multibase-nginx-gateway` | Single API gateway replacing all per-tenant Kong containers |
 
 ### Per-Tenant Services (5 Containers each)
@@ -76,11 +76,11 @@ Each project runs only its unique, stateful services: `auth`, `rest`, `realtime`
 
 ### Resource Savings
 
-| Metric | Classic (10 Projects) | Cloud (10 Projects) | Saving |
-|--------|----------------------|---------------------|--------|
-| **Containers** | 130 | 58 | **-55%** |
-| **RAM (idle)** | ~20 GB | ~5 GB | **-75%** |
-| **PostgreSQL instances** | 10 | 1 | **-90%** |
+| Metric                   | Classic (10 Projects) | Cloud (10 Projects) | Saving   |
+| ------------------------ | --------------------- | ------------------- | -------- |
+| **Containers**           | 130                   | 58                  | **-55%** |
+| **RAM (idle)**           | ~20 GB                | ~5 GB               | **-75%** |
+| **PostgreSQL instances** | 10                    | 1                   | **-90%** |
 
 ### Nginx Gateway (replaces Kong)
 
@@ -154,17 +154,17 @@ A complete reference of all technical documentation available in this repository
 
 ### 🗺️ Features & Roadmap (`/Markdowns`)
 
-| Document                                              | Description                                             | Status       |
-| :---------------------------------------------------- | :------------------------------------------------------ | :----------- |
-| [**Feature Guide v1.0**](Markdowns/README.md)         | Complete manual for the current production version.     | ✅ Active    |
-| [**Features v1.1**](Markdowns/Readme1_1_feature.md)   | User Mgmt, Alerts, Backups, Security, Templates, SMTP.  | ✅ Released  |
-| [**Features v1.2**](Markdowns/Readme1_2_Feature.md)   | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
-| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)   | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | 🚧 Active   |
-| [**Cloud Architecture**](Markdowns/CLOUD_ARCHITECTURE.md) | Shared Infra design & implementation log (Phase 0-8). | 📐 Reference |
-| [**Kong→Nginx Migration**](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status.  | ✅ Done      |
-| [**AI Chat Agent**](Markdowns/AIchat.md)               | Deep-dive: AI assistant with 30+ tools & multi-provider. | 🤖 Tech      |
-| [**Version Overview**](Markdowns/VERSION_OVERVIEW.md) | High-level summary of the update strategy.              | ℹ️ Info      |
-| [**Scripts Reference**](Markdowns/SCRIPTS.md)         | Guide to the maintenance scripts in the root directory. | 🔧 Tech      |
+| Document                                                      | Description                                              | Status       |
+| :------------------------------------------------------------ | :------------------------------------------------------- | :----------- |
+| [**Feature Guide v1.0**](Markdowns/README.md)                 | Complete manual for the current production version.      | ✅ Active    |
+| [**Features v1.1**](Markdowns/Readme1_1_feature.md)           | User Mgmt, Alerts, Backups, Security, Templates, SMTP.   | ✅ Released  |
+| [**Features v1.2**](Markdowns/Readme1_2_Feature.md)           | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
+| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)           | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | 🚧 Active    |
+| [**Cloud Architecture**](Markdowns/CLOUD_ARCHITECTURE.md)     | Shared Infra design & implementation log (Phase 0-8).    | 📐 Reference |
+| [**Kong→Nginx Migration**](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status.         | ✅ Done      |
+| [**AI Chat Agent**](Markdowns/AIchat.md)                      | Deep-dive: AI assistant with 30+ tools & multi-provider. | 🤖 Tech      |
+| [**Version Overview**](Markdowns/VERSION_OVERVIEW.md)         | High-level summary of the update strategy.               | ℹ️ Info      |
+| [**Scripts Reference**](Markdowns/SCRIPTS.md)                 | Guide to the maintenance scripts in the root directory.  | 🔧 Tech      |
 
 ### 🛠️ Deployment & Operations (`/deployment`, `/docs`)
 

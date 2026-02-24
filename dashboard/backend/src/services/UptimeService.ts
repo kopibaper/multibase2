@@ -8,7 +8,9 @@ export class UptimeService {
     private instanceManager: InstanceManager
   ) {}
 
-  private async ensureInstanceRecord(instanceName: string): Promise<{ id: string; status: string }> {
+  private async ensureInstanceRecord(
+    instanceName: string
+  ): Promise<{ id: string; status: string }> {
     const config = (await this.instanceManager.listInstanceConfigs()).find(
       (instance) => instance.name === instanceName
     );

@@ -117,9 +117,17 @@ export function extractPorts(envConfig: EnvConfig): PortMapping {
   const analyticsPort = extractOptionalPort(envConfig.ANALYTICS_PORT, 'ANALYTICS_PORT');
 
   const ports: PortMapping = {
-    gateway_port: extractPort(envConfig.GATEWAY_PORT || envConfig.KONG_HTTP_PORT, '8000', 'GATEWAY_PORT'),
+    gateway_port: extractPort(
+      envConfig.GATEWAY_PORT || envConfig.KONG_HTTP_PORT,
+      '8000',
+      'GATEWAY_PORT'
+    ),
     // Backward compatibility
-    kong_http: extractPort(envConfig.GATEWAY_PORT || envConfig.KONG_HTTP_PORT, '8000', 'GATEWAY_PORT'),
+    kong_http: extractPort(
+      envConfig.GATEWAY_PORT || envConfig.KONG_HTTP_PORT,
+      '8000',
+      'GATEWAY_PORT'
+    ),
   };
 
   if (studioPort !== undefined) ports.studio = studioPort;

@@ -12,7 +12,11 @@ function getHostDiskInfo(): { totalMB: number; usedMB: number } | null {
       const out = execSync(
         `powershell -Command "$d = Get-PSDrive ${drive}; Write-Output (($d.Used + $d.Free).ToString()); Write-Output $d.Used.ToString()"`,
         { timeout: 4000 }
-      ).toString().replace(/\r/g, '').trim().split('\n');
+      )
+        .toString()
+        .replace(/\r/g, '')
+        .trim()
+        .split('\n');
       const totalMB = Math.round(parseInt(out[0]) / 1024 / 1024);
       const usedMB = Math.round(parseInt(out[1]) / 1024 / 1024);
       if (!isNaN(totalMB) && !isNaN(usedMB)) return { totalMB, usedMB };
@@ -103,7 +107,7 @@ export function createMetricsRoutes(
       const { service, since, limit, hours } = req.query;
 
       let sinceDate: Date | undefined;
-      
+
       // Support both 'hours' and 'since' parameters
       if (hours) {
         const hoursNum = parseFloat(hours as string);

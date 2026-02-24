@@ -271,6 +271,4 @@ export const SHARED_SERVICES = [
   'multibase-nginx-gateway',
 ] as const;
 
-export const TENANT_SERVICES = [
-  'auth', 'rest', 'realtime', 'storage', 'edge-functions'
-] as const;
+export const TENANT_SERVICES = ['auth', 'rest', 'realtime', 'storage', 'edge-functions'] as const;
