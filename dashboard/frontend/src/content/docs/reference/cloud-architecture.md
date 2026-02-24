@@ -3,106 +3,157 @@ title: Cloud Architecture
 description: Shared Infrastructure implementation log and architecture reference
 ---
 
-# ☁️ Cloud Architecture - Implementation Log
+# ☁️ Cloud Architecture
 
-**Status:** ✅ Complete (all 8 phases implemented)  
+**Status:** ✅ Complete  
 **Branch:** `cloud-version`
+
+> Multibase Cloud replaces the classic "full-stack per tenant" model with a shared infrastructure approach — 8 shared services + 5 lightweight containers per tenant.
 
 ---
 
 ## Architecture Overview
 
-Multibase Cloud replaces the classic "full-stack per tenant" model with a **shared infrastructure** approach:
+**Status:** ✅ Implemented
 
-| Layer | Containers | Scope |
-|-------|-----------|-------|
-| **Shared Services** | 8 | One set for all tenants |
-| **Per-Tenant Services** | 5 | Lightweight, tenant-specific |
+### Description
+
+Instead of running 12+ containers per project, tenants now share 8 infrastructure services and only spin up 5 tenant-specific containers. This reduces total container count by ~45% and RAM usage by ~7 GiB for 5 tenants.
 
 ### Shared Services (8 containers)
 
-| Service | Container | Port | Purpose |
-|---------|-----------|------|---------|
-| PostgreSQL | `multibase-db` | 5432 | Shared database with per-tenant schemas |
-| Studio | `multibase-studio` | 3100 | Supabase Dashboard UI |
-| Analytics | `multibase-analytics` | 4000 | Logflare-based log analytics |
-| Vector | `multibase-vector` | — | Log collection & routing |
-| imgproxy | `multibase-imgproxy` | 5001 | Image transformation |
-| Pooler | `multibase-pooler` | 5432 | Supavisor connection pooling |
-| Meta | `multibase-meta` | 8080 | PostgreSQL metadata API |
-| Nginx Gateway | `multibase-nginx-gateway` | 8000 | Reverse proxy for all tenants |
+- **PostgreSQL** (`multibase-db`, Port 5432)
+  - Shared database with per-tenant schemas
+- **Studio** (`multibase-studio`, Port 3100)
+  - Supabase Dashboard UI
+- **Analytics** (`multibase-analytics`, Port 4000)
+  - Logflare-based log analytics
+- **Vector** (`multibase-vector`)
+  - Log collection & routing
+- **imgproxy** (`multibase-imgproxy`, Port 5001)
+  - Image transformation service
+- **Pooler** (`multibase-pooler`, Port 5432)
+  - Supavisor connection pooling
+- **Meta** (`multibase-meta`, Port 8080)
+  - PostgreSQL metadata API
+- **Nginx Gateway** (`multibase-nginx-gateway`, Port 8000)
+  - Reverse proxy for all tenants
 
 ### Per-Tenant Services (5 containers each)
 
-| Service | Container Pattern | Purpose |
-|---------|------------------|---------|
-| Auth (GoTrue) | `{tenant}-auth` | Authentication & JWT |
-| REST (PostgREST) | `{tenant}-rest` | Auto-generated REST API |
-| Realtime | `{tenant}-realtime` | WebSocket subscriptions |
-| Storage | `{tenant}-storage` | File storage API |
-| Edge Functions | `{tenant}-edge-functions` | Deno-based serverless |
+- **Auth / GoTrue** (`{tenant}-auth`)
+  - Authentication & JWT token management
+- **REST / PostgREST** (`{tenant}-rest`)
+  - Auto-generated REST API
+- **Realtime** (`{tenant}-realtime`)
+  - WebSocket subscriptions
+- **Storage** (`{tenant}-storage`)
+  - File storage API
+- **Edge Functions** (`{tenant}-edge-functions`)
+  - Deno-based serverless functions
 
 ---
 
-## Resource Comparison
+## 📊 Resource Savings
 
-| Metric | Classic (5 tenants) | Cloud (5 tenants) | Savings |
-|--------|--------------------|--------------------|---------|
-| Containers | 60+ | 33 | −45% |
-| RAM | ~15 GiB | ~8 GiB | ~7 GiB |
-| Per-Tenant Overhead | ~2.5 GiB | ~0.5 GiB | −80% |
+**Status:** ✅ Verified
 
----
+### Description
 
-## Implementation Phases
+Comparison between classic deployment (all containers per tenant) and cloud deployment (shared + lightweight).
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 0 | Planning & Architecture | ✅ Done |
-| 1 | Shared DB + Studio | ✅ Done |
-| 2 | Shared Analytics, Vector, imgproxy | ✅ Done |
-| 3 | Shared Pooler (Supavisor) + Meta | ✅ Done |
-| 4 | Lightweight Tenant Template | ✅ Done |
-| 5 | Nginx Gateway (replaces Kong) | ✅ Done |
-| 6 | setup_shared.py Orchestration | ✅ Done |
-| 7 | Dashboard Integration | ✅ Done |
-| 8 | Resource Monitoring | ✅ Done |
+### Comparison (5 tenants)
 
----
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `shared/docker-compose.shared.yml` | 8 shared service definitions |
-| `templates/docker-compose.yml.j2` | Lightweight 5-container tenant template |
-| `setup_shared.py` | Orchestration: start/stop/create/delete + nginx config generation |
-| `nginx/sites-enabled/*.conf` | Auto-generated per-tenant nginx routing configs |
-| `dashboard/backend/src/services/SharedInfraManager.ts` | Backend service for shared container management |
-| `dashboard/frontend/src/pages/SharedInfra.tsx` | SharedInfra dashboard with GaugeCharts |
+- **Total Containers**
+  - Classic: 60+
+  - Cloud: 33
+  - Savings: −45%
+- **Total RAM**
+  - Classic: ~15 GiB
+  - Cloud: ~8 GiB
+  - Savings: ~7 GiB
+- **Per-Tenant Overhead**
+  - Classic: ~2.5 GiB
+  - Cloud: ~0.5 GiB
+  - Savings: −80%
 
 ---
 
-## How It Works
+## 🔧 Implementation Phases
+
+**Status:** ✅ All 8 phases complete
+
+### Description
+
+The cloud architecture was built incrementally across 8 phases.
+
+### Phases
+
+- [x] **Phase 0** — Planning & Architecture
+- [x] **Phase 1** — Shared DB + Studio
+- [x] **Phase 2** — Shared Analytics, Vector, imgproxy
+- [x] **Phase 3** — Shared Pooler (Supavisor) + Meta
+- [x] **Phase 4** — Lightweight Tenant Template
+- [x] **Phase 5** — Nginx Gateway (replaces Kong)
+- [x] **Phase 6** — `setup_shared.py` Orchestration
+- [x] **Phase 7** — Dashboard Integration
+- [x] **Phase 8** — Resource Monitoring
+
+---
+
+## 📁 Key Files
+
+**Status:** ✅ Reference
+
+### Description
+
+Important files that implement the cloud architecture.
+
+### Infrastructure
+
+- **`shared/docker-compose.shared.yml`**
+  - Defines all 8 shared service containers
+- **`templates/docker-compose.yml.j2`**
+  - Jinja2 template for lightweight 5-container tenants
+- **`nginx/sites-enabled/*.conf`**
+  - Auto-generated per-tenant nginx routing configs
+
+### Orchestration
+
+- **`setup_shared.py`**
+  - Main CLI: start, stop, create, delete
+  - Generates nginx configs and manages shared stack
+
+### Dashboard
+
+- **`dashboard/backend/src/services/SharedInfraManager.ts`**
+  - Backend service for shared container management
+- **`dashboard/frontend/src/pages/SharedInfra.tsx`**
+  - SharedInfra dashboard page with GaugeCharts
+
+---
+
+## 🚀 How It Works
 
 ### Tenant Creation
 
-```
-setup_shared.py create <tenant-name>
+```bash
+python setup_shared.py create <tenant-name>
 ```
 
-1. Generates `.env` from template with unique ports + JWT secrets
-2. Renders `docker-compose.yml` from Jinja2 template (5 containers only)
-3. Generates nginx config in `nginx/sites-enabled/{tenant}.conf`
-4. Reloads nginx gateway (`docker exec multibase-nginx-gateway nginx -s reload`)
-5. Starts tenant containers
+**What it does:**
+
+1. ✅ Generates `.env` from template with unique ports + JWT secrets
+2. ✅ Renders `docker-compose.yml` from Jinja2 template (5 containers only)
+3. ✅ Generates nginx config in `nginx/sites-enabled/{tenant}.conf`
+4. ✅ Reloads nginx gateway via `docker exec multibase-nginx-gateway nginx -s reload`
+5. ✅ Starts tenant containers
 
 ### Nginx Gateway Routing
 
 Each tenant gets a generated nginx config with deferred DNS resolution:
 
 ```nginx
-# Deferred DNS resolution for Docker networking
 resolver 127.0.0.11 valid=10s;
 
 server {
@@ -117,6 +168,18 @@ server {
 }
 ```
 
+> See [Kong → Nginx Migration](/setup/reference/kong-nginx-migration) for full config details and technical decisions.
+
 ---
+
+## Next Steps
+
+Planned additions to the cloud architecture:
+
+- [ ] 🏢 Multi-Tenancy/Teams — Organization support with isolated instances
+- [ ] 💰 Cost Tracking — Per-tenant resource usage and billing
+- [ ] 💾 S3 Storage — Backup offloading to S3-compatible storage
+
+See [Version 1.3 Roadmap](/setup/features/roadmap-1.3) for all planned features.
 
 [← Back to Version Overview](/setup/general/versions)
