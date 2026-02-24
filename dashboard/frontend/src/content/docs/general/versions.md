@@ -69,18 +69,27 @@
 
 ---
 
-## Version 1.3 - Planned
+## Version 1.3 - In Progress
 
-**Planned Release:** Q4 2026  
-**Status:** 💡 Planning Phase
+**Release:** February 2026 (ongoing)  
+**Status:** 🚧 Active Development
 
 [📄 See Full Roadmap →](/setup/features/roadmap-1.3)
+
+### Completed Features
+
+- [x] 🤖 **AI Chat Agent** - Multi-provider LLM assistant with 30+ tools
+- [x] ☁️ **Cloud Architecture** - Shared Infrastructure (8 shared + 5 per-tenant containers)
+- [x] 🔀 **Kong → Nginx Migration** - Single Nginx gateway replacing all per-tenant Kong (~7 GiB RAM saved)
+- [x] 🖥️ **Workspace Page** - Unified project management (Studio, Keys, SMTP, Manager)
+- [x] 📊 **SharedInfra Dashboard** - Resource monitoring with GaugeCharts for CPU/RAM
 
 ### Planned Features
 
 - [ ] 🏢 Multi-Tenancy/Teams - Organization support
 - [ ] 💰 Cost Tracking & Billing - Usage-based billing
-- [ ] GDPR/Compliance Features - Data privacy tools
+- [ ] 🔒 GDPR/Compliance Features - Data privacy tools
+- [ ] 💾 S3 Storage Integration
 
 ---
 
@@ -90,12 +99,21 @@
 v1.0 (Dec 2025)  ████████████████████████ 100% Released
 v1.1 (Jan 2026)  ████████████████████████ 100% Released
 v1.2 (Feb 2026)  ████████████████████████ 100% Released
-v1.3 (Q4 2026)   ░░░░░░░░░░░░░░░░░░░░░░░░   0% Planning
+v1.3 (Feb 2026)  ████████████████░░░░░░░░  65% Active
 ```
 
 ---
 
 ## Version History
+
+### v1.3.0 (February 2026)
+
+- [x] AI Chat Agent (multi-provider, 30+ tools, SSE streaming)
+- [x] Cloud Architecture: Shared Infrastructure (8 containers)
+- [x] Kong→Nginx Migration (~7 GiB RAM saved)
+- [x] Workspace Page (Studio, Keys, SMTP, Manager)
+- [x] SharedInfra Dashboard (GaugeCharts, 8 services)
+- [x] Nginx Gateway auto-config via `setup_shared.py`
 
 ### v1.2.0 (February 2026)
 
@@ -143,7 +161,9 @@ v1.3 (Q4 2026)   ░░░░░░░░░░░░░░░░░░░░░
 
 - [v1.1 Feature Details](/setup/features/roadmap-1.1) - v1.1 Specifications
 - [v1.2 Released Features](/setup/features/roadmap-1.2) - v1.2 Overview
-- [v1.3 Feature Roadmap](/setup/features/roadmap-1.3) - Future Planning
+- [v1.3 Feature Roadmap](/setup/features/roadmap-1.3) - Cloud, Nginx, Workspace, AI Chat
+- [Cloud Architecture](/setup/reference/cloud-architecture) - Shared Infrastructure Implementation Log
+- [Kong→Nginx Migration](/setup/reference/kong-nginx-migration) - Migration Reference & Howto
 
 ---
 

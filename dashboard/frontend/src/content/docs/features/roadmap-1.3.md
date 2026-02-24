@@ -1,14 +1,104 @@
 ---
-title: Version 1.3 - Future Roadmap
-description: Planned features for the next major release
+title: Version 1.3 - Cloud Architecture & AI
+description: Cloud Infrastructure, Kong→Nginx Migration, Workspace, AI Chat Agent
 ---
 
 # Version 1.3 - Feature Roadmap
 
-**Planned Release:** Q4 2026  
-**Status:** 💡 Planning Phase
+**Release:** February 2026 (ongoing)  
+**Status:** 🚧 Active Development
 
-> These features are planned for the next major release.
+> Core cloud features completed. Additional modules (Teams, Billing, GDPR) planned.
+
+---
+
+## ☁️ Shared Cloud Infrastructure ✅
+
+**Priority:** High  
+**Effort:** Completed
+
+### Description
+
+Centralized shared services architecture that eliminates per-tenant duplicates. Instead of 12+ containers per project, tenants now run only 5 containers while sharing 8 infrastructure services.
+
+### Implemented Features
+
+- **8 Shared Services**: PostgreSQL, Studio, Analytics, Vector, imgproxy, Pooler (Supavisor), Meta, Nginx Gateway
+- **5 Per-Tenant Services**: Auth (GoTrue), REST (PostgREST), Realtime, Storage, Edge Functions
+- **Resource Savings**: ~7 GiB RAM saved for 5 tenants vs. classic deploy
+- **Automatic Bootstrapping**: `setup_shared.py start` provisions shared stack + generates nginx config
+- **SharedInfra Dashboard**: Web UI showing all 8 services with start/stop/restart controls
+- **Resource Monitoring**: Aggregated CPU & RAM GaugeCharts for the entire shared stack
+
+> 📖 [Cloud Architecture Implementation Log](/setup/reference/cloud-architecture)
+
+---
+
+## 🔀 Kong → Nginx Gateway Migration ✅
+
+**Priority:** High  
+**Effort:** Completed
+
+### Description
+
+Replaced all per-tenant Kong API gateways with a single shared Nginx reverse proxy. The gateway handles routing for all tenants via dynamic upstream resolution.
+
+### Implemented Features
+
+- **Single Gateway**: One Nginx container replaces N Kong containers
+- **Dynamic Routing**: `set $upstream` + `resolver 127.0.0.11` for deferred DNS
+- **Auto-Config Generation**: `setup_shared.py` generates nginx conf per tenant on start/create
+- **Health Checks**: Built-in upstream health monitoring
+- **Backward Compatible**: Same API URLs, same port layout (`:8000` gateway)
+- **RAM Savings**: ~1.4 GiB per tenant (Kong removed entirely)
+
+> 📖 [Kong→Nginx Migration Reference](/setup/reference/kong-nginx-migration)
+
+---
+
+## 🖥️ Workspace Page ✅
+
+**Priority:** High  
+**Effort:** Completed
+
+### Description
+
+Unified project management interface combining all project-level operations in a single view with sidebar navigation.
+
+### Implemented Features
+
+- **Project Sidebar**: Searchable project list with status indicators
+- **Studio Integration**: One-click Supabase Studio activation per project
+- **API Keys Modal**: Quick-access to project JWT, anon/service keys
+- **SMTP Settings**: Per-project email configuration panel
+- **Manager Tab**: Instance lifecycle controls (start, stop, restart, delete)
+
+---
+
+## 🤖 AI Chat Agent ✅
+
+**Priority:** High  
+**Effort:** Completed
+
+### Description
+
+Integrated AI assistant for natural-language infrastructure management. Supports multi-provider LLMs with tool calling to operate all Supabase instances directly from the chat panel.
+
+### Implemented Features
+
+- **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, OpenRouter (incl. Llama, Mistral, DeepSeek)
+- **30+ Tools**: Instance CRUD, backups, storage, SQL execution, logs, metrics, templates, alerts
+- **Destructive Action Confirmation**: Dangerous operations require explicit user approval
+- **Session Management**: Persistent chat history per user with multiple sessions
+- **SSE Streaming**: Real-time response streaming via Server-Sent Events
+- **Encrypted Key Storage**: User API keys encrypted at rest (AES-256-GCM)
+- **Rate Limiting**: 50 messages/hour per user
+
+---
+
+## Planned Features
+
+The following features are planned for future v1.3 releases.
 
 ---
 

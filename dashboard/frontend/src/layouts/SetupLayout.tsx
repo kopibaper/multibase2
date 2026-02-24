@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Book, Code, Layers, FileText } from 'lucide-react';
+import { Book, Code, Layers, FileText, Cloud, Network } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
@@ -117,6 +117,12 @@ export default function SetupLayout({}: SetupLayoutProps) {
             </SidebarLink>
             <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText}>
               v1.3 Roadmap
+            </SidebarLink>
+            <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud}>
+              Cloud Architecture
+            </SidebarLink>
+            <SidebarLink to='/setup/reference/kong-nginx-migration' icon={Network}>
+              Kong→Nginx Migration
             </SidebarLink>
             <SidebarLink to='/setup/reference/scripts' icon={Code}>
               Scripts Guide
