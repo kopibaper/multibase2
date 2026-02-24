@@ -1,6 +1,30 @@
-# Plan: Kong durch Shared Nginx ersetzen
+# Kong → Nginx Gateway Migration
 
-## Übersicht
+> **Status:** ✅ Complete (February 2026)
+>
+> This document was the planning reference for replacing all per-tenant Kong API gateways with a single shared Nginx container. It now serves as a **post-migration reference** for future developers.
+
+## Result
+
+| Metric | Before (Kong) | After (Nginx) |
+|--------|---------------|---------------|
+| **Containers per tenant** | 6 (incl. Kong) | 5 (no Kong) |
+| **Gateway RAM total** | ~7 GiB (5× Kong) | ~20 MB (1× Nginx) |
+| **Config reload** | `kong reload` (~1s) | `nginx -s reload` (~50ms) |
+| **API key check** | key-auth plugin | `map` + header check |
+| **WebSocket** | Automatic | Explicit `upgrade` headers |
+
+### Key Technical Decisions
+
+1. **Docker DNS deferred resolution:** `set $var "hostname:port"; proxy_pass http://$var;` with `resolver 127.0.0.11` — prevents "host not found in upstream" at config load time
+2. **`map_hash_bucket_size 512`** — JWT tokens (~300+ chars) exceed the default 128 bucket size
+3. **Realtime container naming:** Supabase uses `realtime-dev.{tenant}-realtime` prefix, not `{tenant}-realtime`
+4. **Health check on alpine:** Must use `127.0.0.1`, not `localhost` (IPv6 resolution issue)
+5. **Windows Docker Desktop:** No `--network host` support → explicit port mappings via `NGINX_PORT_1-5`
+
+---
+
+## Overview
 
 **Ziel:** Die per-Tenant Kong-Container (`{tenant}-kong`) eliminieren und deren Funktionalität in einen **einzigen Shared-Nginx-Container** (lokal) bzw. den **bestehenden System-Nginx** (Produktion) verlagern.
 
@@ -749,3 +773,37 @@ foreach ($ep in $endpoints) {
 | **Produktiv-Impact** | Kong-Port erreichbar | Gleicher Port, Nginx dahinter |
 
 **Geschätzte Einsparung: ~7 GiB RAM** bei aktuellem Setup (5 Kong-Instanzen → 1 Nginx).
+
+---
+
+## 10. Post-Migration Notes (for future developers)
+
+### How nginx configs are generated
+
+1. **On `setup_shared.py start`:** The `_regenerate_nginx_tenant_configs()` method iterates all `projects/*/` dirs, reads each `.env`, substitutes `templates/nginx/gateway.conf.template`, and writes to `shared/volumes/nginx/tenants/{tenant}.conf`. Then reloads nginx.
+2. **On `supabase_setup.py` (new tenant creation):** The setup script generates the nginx config inline during project creation.
+3. **From Dashboard Backend:** `NginxGatewayGenerator.ts` can generate and reload configs programmatically.
+
+### Common operations
+
+```bash
+# Manually reload nginx after config change
+docker exec multibase-nginx-gateway nginx -s reload
+
+# Test nginx config validity
+docker exec multibase-nginx-gateway nginx -t
+
+# View current tenant configs
+ls shared/volumes/nginx/tenants/
+
+# Regenerate all tenant configs
+python setup_shared.py start
+```
+
+### Backward compatibility
+
+- `gateway_port` is the canonical field; `kong_http`/`kong_https` are kept as optional deprecated aliases
+- `SHARED_GATEWAY_PORT` env var replaces `SHARED_KONG_HTTP_PORT` (fallback reads both)
+- Existing `.env.shared` files from before the migration still work via fallback logic
+
+[Back to Version Overview](./VERSION_OVERVIEW.md)

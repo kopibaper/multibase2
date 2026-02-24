@@ -1,69 +1,61 @@
-# Multibase Cloud Version – Architektur-Plan
+# Multibase Cloud Architecture – Implementation Log
 
-## Implementierungs-Fortschritt
+> **Status:** ✅ Fully implemented on branch `cloud-version` (February 2026)
+>
+> This document started as a planning document and now serves as a **reference for future developers** explaining the Cloud Architecture decisions and what was built.
+
+## Implementation Summary
+
+All phases (0–8) have been completed. The shared infrastructure replaces the old "1 project = 13 containers" model with a hybrid architecture: 8 shared containers + 5 lightweight containers per tenant.
 
 | Phase | Status | Details |
 |---|---|---|
-| **Phase 0** | ✅ FERTIG | Branch, Verzeichnisstruktur, Plan-Dokument |
-| **Phase 1.1** | ✅ FERTIG | `shared/docker-compose.shared.yml` (9 Services) |
-| **Phase 1.2** | ✅ FERTIG | DB-Init-Scripts (7 SQL-Dateien in `shared/volumes/db/init/`) |
-| **Phase 1.3** | ✅ FERTIG | `supabase_setup.py` komplett umgeschrieben (6 statt 13 Container) |
-| **Phase 1.4** | ✅ FERTIG | `supabase_manager.py` angepasst (shared-start/stop/status + Tenant-Mgmt) |
-| **Phase 2.1** | ✅ FERTIG | Shared Vector (multi-tenant Log-Routing in `shared/volumes/logs/vector.yml`) |
-| **Phase 2.2** | ✅ FERTIG | Shared Analytics, Studio, Meta, imgproxy (in docker-compose.shared.yml) |
-| **Phase 2.3** | ✅ FERTIG | Per-Projekt Analytics/Vector entfernt (in supabase_setup.py) |
-| **Phase 3** | ✅ FERTIG | Shared Studio, Meta, imgproxy, Pooler (in docker-compose.shared.yml) |
-| **Phase 4** | ✅ FERTIG | Lightweight Tenant Template (6 Container pro Projekt) |
-| **Phase 5** | ✅ FERTIG | Dashboard Backend (10 Dateien, +779 Zeilen) |
-| **Phase 6** | ✅ FERTIG | Dashboard Frontend (9 Dateien, +550 Zeilen) |
-| **Phase 7** | ✅ FERTIG | Nginx & Routing (shared-infra.conf, cloud-aware Studio Proxy) |
-| **Phase 8** | ⬜ OPTIONAL | Erweiterte Optimierungen (Shared Kong, Realtime, Auth) |
+| **Phase 0** | ✅ Done | Branch, directory structure, planning |
+| **Phase 1.1** | ✅ Done | `shared/docker-compose.shared.yml` (8 services incl. nginx-gateway) |
+| **Phase 1.2** | ✅ Done | DB init scripts (7 SQL files in `shared/volumes/db/init/`) |
+| **Phase 1.3** | ✅ Done | `supabase_setup.py` rewritten (5 containers per tenant, no Kong/DB) |
+| **Phase 1.4** | ✅ Done | `supabase_manager.py` adapted (shared-start/stop/status + tenant mgmt) |
+| **Phase 2.1** | ✅ Done | Shared Vector (multi-tenant log routing) |
+| **Phase 2.2** | ✅ Done | Shared Analytics, Studio, Meta, imgproxy |
+| **Phase 2.3** | ✅ Done | Per-project Analytics/Vector removed |
+| **Phase 3** | ✅ Done | Shared Studio, Meta, imgproxy, Pooler |
+| **Phase 4** | ✅ Done | Lightweight Tenant Template (5 containers per project) |
+| **Phase 5** | ✅ Done | Dashboard Backend (shared routes, cloud-aware services) |
+| **Phase 6** | ✅ Done | Dashboard Frontend (SharedInfra page, Workspace page, GaugeCharts) |
+| **Phase 7** | ✅ Done | Nginx Gateway replacing all Kong containers |
+| **Phase 8** | ✅ Done | Kong→Nginx migration complete, StudioManager, per-tenant configs auto-generated |
 
-### Erstellte Dateien (Cloud-Version)
+### Key Files Created/Modified
 
-**Shared Infrastructure (Phase 0-4):**
-- `shared/docker-compose.shared.yml` - 9 Shared Services
-- `shared/.env.shared` - Template-Konfiguration
-- `shared/volumes/db/init/97-_supabase.sql` - Supabase-Basis-Schema
-- `shared/volumes/db/init/98-webhooks.sql` - Webhook-Schema
-- `shared/volumes/db/init/99-realtime.sql` - Realtime-Schema
-- `shared/volumes/db/init/99-logs.sql` - Analytics-Schema
-- `shared/volumes/db/init/99-pooler.sql` - Pooler-Schema
-- `shared/volumes/db/init/99-jwt.sql` - JWT-Einstellungen
-- `shared/volumes/db/init/99-roles.sql` - Rollen-Passwörter
-- `shared/volumes/logs/vector.yml` - Multi-Tenant Log-Config
-- `shared/volumes/pooler/pooler.exs` - Pooler-Config
-- `shared/volumes/api/kong.yml` - Shared Kong-Config
-- `setup_shared.py` - Shared Infrastructure Manager (CLI)
-- `supabase_setup.py` - **UMGESCHRIEBEN** (Lightweight 6-Container Template)
-- `supabase_manager.py` - **AKTUALISIERT** (Shared + Tenant Befehle)
-- `supabase_setup_original.py` - Backup der Original-Version
+**Shared Infrastructure:**
+- `shared/docker-compose.shared.yml` – 8 Shared Services (DB, Studio, Analytics, Vector, imgproxy, Pooler, Meta, Nginx-Gateway)
+- `shared/.env.shared` – Shared config (`SHARED_GATEWAY_PORT`, `NGINX_PORT_1-5`, etc.)
+- `shared/volumes/db/init/*.sql` – DB init scripts (supabase, webhooks, realtime, logs, pooler, jwt, roles)
+- `shared/volumes/logs/vector.yml` – Multi-tenant log config
+- `shared/volumes/nginx/nginx.conf` – Nginx main config (`map_hash_bucket_size 512` for JWT tokens)
+- `shared/volumes/nginx/tenants/*.conf` – Auto-generated per-tenant gateway configs
+- `templates/nginx/gateway.conf.template` – Template with Docker DNS deferred resolution
+- `setup_shared.py` – Shared Infrastructure Manager (auto-generates nginx configs on `start`)
+- `supabase_setup.py` – Rewritten: 5-container tenant template (no Kong, no DB)
 
-**Dashboard Backend (Phase 5):**
-- `dashboard/backend/src/routes/shared.ts` - **NEU** Shared API Route (status, start, stop, databases CRUD)
-- `dashboard/backend/src/types/index.ts` - StackType, SharedInfraStatus, SHARED_SERVICES Konstanten
-- `dashboard/backend/src/services/InstanceManager.ts` - detectStackType, cloud-aware DB Routing, Shared Studio
-- `dashboard/backend/src/services/DockerManager.ts` - listSharedContainers, getSharedServiceStatus
-- `dashboard/backend/src/services/MigrationService.ts` - Cloud-aware Shared PostgreSQL
-- `dashboard/backend/src/services/UptimeService.ts` - Kong-basierter Health Check für Cloud
-- `dashboard/backend/src/services/HealthMonitor.ts` - checkSharedInfraHealth, Events/Alerts
-- `dashboard/backend/src/services/MetricsCollector.ts` - collectSharedInfraMetrics
-- `dashboard/backend/src/services/BackupService.ts` - pg_dump/restore für Cloud-Tenant DBs
-- `dashboard/backend/src/server.ts` - Shared Route registriert
+**Dashboard Backend:**
+- `src/routes/shared.ts` – Shared API (status, start, stop, databases)
+- `src/routes/studio.ts` – Studio activation per tenant
+- `src/services/NginxGatewayGenerator.ts` – Dynamic nginx config generation
+- `src/services/StudioManager.ts` – Dedicated Studio/Meta per tenant, 5-min idle cleanup
+- `src/services/InstanceManager.ts` – Cloud-aware, uses `gateway_port`
+- `src/services/DockerManager.ts` – `listSharedContainers`, `getSharedServiceStatus`
+- `src/types/index.ts` – `SHARED_SERVICES` (8 entries), `TENANT_SERVICES`, `gateway_port`
+- `src/utils/envParser.ts` – Reads `GATEWAY_PORT` with fallback from `KONG_HTTP_PORT`
+- `src/utils/portManager.ts` – `gateway_port` + backward-compatible aliases
 
-**Dashboard Frontend (Phase 6):**
-- `dashboard/frontend/src/pages/SharedInfra.tsx` - **NEU** Shared Infrastructure Management
-- `dashboard/frontend/src/hooks/useShared.ts` - **NEU** React Query Hooks
-- `dashboard/frontend/src/lib/api.ts` - sharedApi Namespace
-- `dashboard/frontend/src/types/index.ts` - SharedInfraStatus, SharedDatabase Interfaces
-- `dashboard/frontend/src/pages/Dashboard.tsx` - Shared Infra Status-Karte
-- `dashboard/frontend/src/pages/InstanceDetail.tsx` - Cloud-Badge
-- `dashboard/frontend/src/components/InstanceCard.tsx` - Cloud-Icon
-- `dashboard/frontend/src/components/Sidebar.tsx` - Shared Infra Navigation
-- `dashboard/frontend/src/App.tsx` - /shared Route
-
-**Nginx (Phase 7):**
-- `nginx/sites-enabled/shared-infra.conf` - **NEU** Shared Studio/Analytics/Meta Routing
+**Dashboard Frontend:**
+- `src/pages/SharedInfra.tsx` – Shared Infrastructure management (8 services, GaugeCharts for CPU/RAM)
+- `src/pages/WorkspacePage.tsx` – Unified project workspace (Studio, Keys, SMTP, Manager)
+- `src/pages/Dashboard.tsx` – Shared Infra status card, System Overview GaugeCharts
+- `src/components/workspace/` – KeysQuickModal, WorkspaceSmtpPanel, WorkspaceManagerPanel
+- `src/hooks/useShared.ts` – React Query hooks for shared API
+- `src/lib/api.ts` – `sharedApi` namespace
 
 ---
 
