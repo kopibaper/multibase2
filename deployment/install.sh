@@ -814,10 +814,14 @@ run_db_migrations() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
-    # Export DATABASE_URL from .env for prisma
-    local db_url
-    db_url=$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || echo 'file:./data/multibase.db')
-    DATABASE_URL="$db_url" sudo -u "$INSTALL_USER" -E npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    # Prisma reads DATABASE_URL from .env automatically when run in the project directory.
+    # Do NOT extract and re-pass DATABASE_URL manually – grep/cut leaves literal quotes in
+    # the value (e.g. "file:./data/multibase.db") which causes Prisma P1003 errors.
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+        echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
+        tail -20 "$LOG_FILE" >&2
+        exit 1
+    fi
     step_ok "Database migrations applied"
 }
 
@@ -1587,9 +1591,12 @@ run_update() {
     step_ok "Backend built"
 
     step "Running database migrations..."
-    local db_url
-    db_url=$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || echo 'file:./data/multibase.db')
-    DATABASE_URL="$db_url" sudo -u "$INSTALL_USER" -E npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    # Prisma reads DATABASE_URL from .env automatically – do not extract manually.
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+        echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
+        tail -20 "$LOG_FILE" >&2
+        exit 1
+    fi
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
