@@ -237,7 +237,13 @@ wizard_deployment_mode() {
     echo ""
 
     local choice=""
-    prompt choice "Choice" "1"
+    local default_choice="1"
+    case "$DEPLOY_MODE" in
+        single)         default_choice="1" ;;
+        split-frontend) default_choice="2" ;;
+        split-backend)  default_choice="3" ;;
+    esac
+    prompt choice "Choice" "$default_choice"
 
     case "$choice" in
         1) DEPLOY_MODE="single" ;;
@@ -256,29 +262,29 @@ wizard_domains() {
 
     case "$DEPLOY_MODE" in
         single)
-            prompt FRONTEND_DOMAIN "Frontend domain (e.g. dashboard.example.com)" ""
+            prompt FRONTEND_DOMAIN "Frontend domain (e.g. dashboard.example.com)" "${FRONTEND_DOMAIN:-}"
             [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
             echo ""
-            prompt BACKEND_DOMAIN "Backend domain (e.g. api.example.com)" ""
+            prompt BACKEND_DOMAIN "Backend domain (e.g. api.example.com)" "${BACKEND_DOMAIN:-}"
             [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
             BACKEND_URL="https://${BACKEND_DOMAIN}"
             FRONTEND_URL="https://${FRONTEND_DOMAIN}"
             ;;
         split-frontend)
-            prompt FRONTEND_DOMAIN "Frontend domain (this server)" ""
+            prompt FRONTEND_DOMAIN "Frontend domain (this server)" "${FRONTEND_DOMAIN:-}"
             [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
             echo ""
-            prompt BACKEND_URL "Backend URL (remote server, incl. https://)" ""
+            prompt BACKEND_URL "Backend URL (remote server, incl. https://)" "${BACKEND_URL:-}"
             [ -z "$BACKEND_URL" ] && error_exit "Backend URL is required"
             # Extract domain from URL
             BACKEND_DOMAIN=$(echo "$BACKEND_URL" | sed 's|https\?://||' | sed 's|/.*||')
             FRONTEND_URL="https://${FRONTEND_DOMAIN}"
             ;;
         split-backend)
-            prompt BACKEND_DOMAIN "Backend domain (this server)" ""
+            prompt BACKEND_DOMAIN "Backend domain (this server)" "${BACKEND_DOMAIN:-}"
             [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
             echo ""
-            prompt FRONTEND_URL "Frontend URL (remote server, for CORS)" ""
+            prompt FRONTEND_URL "Frontend URL (remote server, for CORS)" "${FRONTEND_URL:-}"
             [ -z "$FRONTEND_URL" ] && error_exit "Frontend URL is required"
             BACKEND_URL="https://${BACKEND_DOMAIN}"
             # Extract domain from URL
@@ -299,10 +305,20 @@ wizard_admin() {
     separator
     echo ""
 
-    prompt ADMIN_USER "Username" "admin"
-    prompt ADMIN_EMAIL "Email" ""
+    prompt ADMIN_USER "Username" "${ADMIN_USER:-admin}"
+    prompt ADMIN_EMAIL "Email" "${ADMIN_EMAIL:-}"
     [ -z "$ADMIN_EMAIL" ] && error_exit "Admin email is required"
-    prompt_password ADMIN_PASS "Password"
+
+    if [ "$ADMIN_PASS" = "__existing__" ]; then
+        echo -e "  ${DIM}Password: keeping existing (leave blank to auto-generate new one)${NC}"
+        local _newpass=""
+        echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
+        read -rs _newpass < /dev/tty
+        echo ""
+        [ -n "$_newpass" ] && ADMIN_PASS="$_newpass" || ADMIN_PASS=""
+    else
+        prompt_password ADMIN_PASS "Password"
+    fi
 }
 
 wizard_ssl() {
@@ -312,7 +328,7 @@ wizard_ssl() {
     separator
     echo ""
 
-    prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "y"
+    prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "${SSL_ENABLED:-y}"
 
     if [ "$SSL_ENABLED" = "y" ]; then
         prompt SSL_EMAIL "Email for Let's Encrypt" "${ADMIN_EMAIL:-}"
@@ -322,7 +338,8 @@ wizard_ssl() {
         echo -e "  ${DIM}Wildcard certs (*.domain.com) cover all subdomains automatically${NC}"
         echo -e "  ${DIM}but require a manual DNS TXT record during issuance (DNS-01 challenge).${NC}"
         local _wildcard="n"
-        prompt_yn _wildcard "Use wildcard certificate (*.domain.com)?" "n"
+        [ "$SSL_TYPE" = "wildcard" ] && _wildcard="y"
+        prompt_yn _wildcard "Use wildcard certificate (*.domain.com)?" "$_wildcard"
         [ "$_wildcard" = "y" ] && SSL_TYPE="wildcard" || SSL_TYPE="per-tenant"
     fi
 }
@@ -334,7 +351,7 @@ wizard_extras() {
     separator
     echo ""
 
-    prompt_yn UFW_ENABLED "Configure UFW firewall?" "y"
+    prompt_yn UFW_ENABLED "Configure UFW firewall?" "${UFW_ENABLED:-y}"
 
     local total_ram
     total_ram=$(free -m | awk '/^Mem:/{print $2}')
@@ -399,7 +416,58 @@ wizard_confirm() {
     fi
 }
 
+# =============================================================================
+# Load Existing Config (re-run detection)
+# =============================================================================
+
+load_existing_config() {
+    local env_file="$INSTALL_DIR/dashboard/backend/.env"
+    [ ! -f "$env_file" ] && return
+
+    local _get
+    _get() { grep -m1 "^${1}=" "$env_file" 2>/dev/null | cut -d= -f2- || true; }
+
+    local prev_mode prev_admin prev_email prev_ssl prev_ufw
+    prev_mode=$(_get INSTALLER_DEPLOY_MODE)
+    prev_admin=$(_get INSTALLER_ADMIN_USER)
+    prev_email=$(_get INSTALLER_ADMIN_EMAIL)
+    prev_ssl=$(_get INSTALLER_SSL_ENABLED)
+    prev_ufw=$(_get INSTALLER_UFW_ENABLED)
+
+    [ -z "$prev_mode" ] && return
+
+    echo ""
+    echo -e "  ${YELLOW}Previous installation detected — loading saved settings:${NC}"
+    echo -e "  ${DIM}Mode: ${prev_mode}  |  Admin: ${prev_admin} (${prev_email})  |  SSL: ${prev_ssl}${NC}"
+    echo -e "  ${DIM}Press Enter to keep each value, or type a new one.${NC}"
+    echo ""
+
+    # Pre-fill variables as defaults for wizard
+    [ -n "$prev_mode" ]  && DEPLOY_MODE="$prev_mode"
+    [ -n "$prev_admin" ] && ADMIN_USER="$prev_admin"
+    [ -n "$prev_email" ] && ADMIN_EMAIL="$prev_email"
+    [ -n "$prev_ssl" ]   && SSL_ENABLED="$prev_ssl"
+    [ -n "$prev_ufw" ]   && UFW_ENABLED="$prev_ufw"
+    # Load domains
+    local prev_frontend prev_backend prev_ssl_email prev_ssl_type prev_backend_url prev_frontend_url
+    prev_frontend=$(_get FRONTEND_DOMAIN)
+    prev_backend=$(_get BACKEND_DOMAIN)
+    prev_ssl_email=$(_get SSL_EMAIL)
+    prev_ssl_type=$(_get SSL_TYPE)
+    prev_backend_url=$(_get BACKEND_URL)
+    prev_frontend_url=$(_get CORS_ORIGIN)
+    [ -n "$prev_frontend" ]     && FRONTEND_DOMAIN="$prev_frontend"
+    [ -n "$prev_backend" ]      && BACKEND_DOMAIN="$prev_backend"
+    [ -n "$prev_ssl_email" ]    && SSL_EMAIL="$prev_ssl_email"
+    [ -n "$prev_ssl_type" ]     && SSL_TYPE="$prev_ssl_type"
+    [ -n "$prev_backend_url" ]  && BACKEND_URL="$prev_backend_url"
+    [ -n "$prev_frontend_url" ] && FRONTEND_URL="$prev_frontend_url"
+    # Mark password as already set so wizard can skip
+    ADMIN_PASS="__existing__"
+}
+
 run_wizard() {
+    load_existing_config
     wizard_deployment_mode
     wizard_domains
     wizard_admin
@@ -739,6 +807,13 @@ ALERT_CHECK_INTERVAL=60000
 
 # Session
 SESSION_SECRET=${session_secret}
+
+# Installer metadata (used for re-run detection)
+INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
+INSTALLER_ADMIN_USER=${ADMIN_USER}
+INSTALLER_ADMIN_EMAIL=${ADMIN_EMAIL}
+INSTALLER_SSL_ENABLED=${SSL_ENABLED}
+INSTALLER_UFW_ENABLED=${UFW_ENABLED}
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/.env"
         step_ok "Backend .env created"
@@ -1186,6 +1261,13 @@ setup_firewall_swap() {
 
 create_admin() {
     if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    # If password is empty, user kept existing credentials → skip creation
+    # (the Node script also checks for existing users, but this avoids hashing empty passwords)
+    if [ -z "$ADMIN_PASS" ]; then
+        step_skip "Admin account (keeping existing credentials)"
         return
     fi
 
