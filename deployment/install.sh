@@ -357,11 +357,18 @@ wizard_ssl() {
         [ -z "$SSL_EMAIL" ] && error_exit "SSL email is required"
 
         echo ""
-        echo -e "  ${DIM}Wildcard certs (*.domain.com) cover all subdomains automatically${NC}"
-        echo -e "  ${DIM}but require a manual DNS TXT record during issuance (DNS-01 challenge).${NC}"
+        echo -e "  ${BOLD}Certificate type:${NC}"
+        echo -e "  ${GREEN}[per-domain]${NC} Fully automatic — certbot proves ownership via HTTP."
+        echo -e "              No manual steps. Works with any DNS provider. ${BOLD}(recommended)${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[wildcard]${NC}   Covers *.domain.com automatically, but ${BOLD}requires a manual step:${NC}"
+        echo -e "              The installer will PAUSE and ask you to add a DNS TXT record"
+        echo -e "              at your DNS provider (Hetzner, Cloudflare, etc.), then press Enter."
+        echo -e "              ${DIM}DNS propagation can take up to 60 seconds.${NC}"
+        echo ""
         local _wildcard="n"
         [ "$SSL_TYPE" = "wildcard" ] && _wildcard="y"
-        prompt_yn _wildcard "Use wildcard certificate (*.domain.com)?" "$_wildcard"
+        prompt_yn _wildcard "Use wildcard certificate? (manual DNS step required)" "$_wildcard"
         [ "$_wildcard" = "y" ] && SSL_TYPE="wildcard" || SSL_TYPE="per-tenant"
     fi
 }
