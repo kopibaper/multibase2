@@ -1017,11 +1017,52 @@ setup_shared_infra() {
             "${shared_dir}/.env.shared"
     fi
 
-    # 3. Start shared stack (PostgreSQL, Studio, Analytics, Nginx-Gateway, ...)
+    local compose_file="${shared_dir}/docker-compose.shared.yml"
+    local env_file="${shared_dir}/.env.shared"
+
+    # 3. Pull images — show per-image progress (first install ~8 GB, can take 10–20 min)
+    echo ""
+    echo -e "        ${DIM}[1/2] Pulling Docker images (first install ~8 GB, may take 10–20 min)...${NC}"
+    local images
+    images=$(docker compose --file "$compose_file" --env-file "$env_file" \
+        --project-name multibase-shared config --images 2>/dev/null || true)
+    for img in $images; do
+        if docker image inspect "$img" &>/dev/null; then
+            echo -e "        ${GREEN}✓${NC} ${DIM}${img} (already cached)${NC}"
+            log "  Image cached: $img"
+        else
+            echo -e "        ${YELLOW}↓${NC} ${DIM}Pulling ${img}...${NC}"
+            if docker pull "$img" >> "$LOG_FILE" 2>&1; then
+                echo -e "        ${GREEN}✓${NC} ${DIM}${img} pulled${NC}"
+                log "  Image pulled: $img"
+            else
+                echo -e "        ${RED}✗${NC} ${DIM}Failed to pull ${img}${NC}"
+                log "  ERROR pulling image: $img"
+            fi
+        fi
+    done
+    echo ""
+
+    # 4. Start shared stack and show per-container status
+    echo -e "        ${DIM}[2/2] Starting containers...${NC}"
     sudo -u "$INSTALL_USER" "$python" "${INSTALL_DIR}/setup_shared.py" start >> "$LOG_FILE" 2>&1
+    # Print status of each container
+    docker compose --file "$compose_file" --env-file "$env_file" \
+        --project-name multibase-shared ps \
+        --format "table {{.Name}}\t{{.Status}}" 2>/dev/null | tail -n +2 | \
+        while IFS=$'\t' read -r name status; do
+            if echo "$status" | grep -qi "up\|running\|healthy"; then
+                echo -e "        ${GREEN}✓${NC} ${DIM}${name} — ${status}${NC}"
+            elif echo "$status" | grep -qi "starting\|health"; then
+                echo -e "        ${YELLOW}⏳${NC} ${DIM}${name} — ${status}${NC}"
+            else
+                echo -e "        ${RED}✗${NC} ${DIM}${name} — ${status}${NC}"
+            fi
+        done
+    echo ""
     step_ok "Shared stack started"
 
-    # 4. Wait for PostgreSQL to be ready (max 60 s)
+    # 5. Wait for PostgreSQL to be ready (max 60 s)
     step "Waiting for PostgreSQL to be ready..."
     local retries=0
     until docker exec multibase-db pg_isready -U postgres -q 2>/dev/null; do
