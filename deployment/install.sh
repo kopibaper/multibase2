@@ -94,6 +94,28 @@ error_exit() {
     exit 1
 }
 
+# Read from /dev/tty if available, otherwise fall back to stdin.
+# Usage: tty_read [-s] VAR [DEFAULT]
+tty_read() {
+    local _silent=0
+    if [ "${1:-}" = "-s" ]; then _silent=1; shift; fi
+    local _var="$1"
+    local _default="${2:-}"
+    local _val=""
+    if [ -c /dev/tty ] && { true < /dev/tty; } 2>/dev/null; then
+        if [ "$_silent" = "1" ]; then
+            IFS= read -rs _val < /dev/tty || true
+        else
+            IFS= read -r _val < /dev/tty || true
+        fi
+    else
+        # No TTY available – use default silently
+        _val=""
+    fi
+    _val="${_val:-$_default}"
+    eval "$_var=\$_val"
+}
+
 prompt() {
     local var_name="$1"
     local prompt_text="$2"
@@ -106,8 +128,7 @@ prompt() {
         echo -ne "  ${prompt_text}: "
     fi
 
-    read -r value < /dev/tty
-    value="${value:-$default}"
+    tty_read value "$default"
     eval "$var_name='$value'"
 }
 
@@ -117,7 +138,7 @@ prompt_password() {
     local value=""
 
     echo -ne "  ${prompt_text} ${DIM}(Enter for auto-generated)${NC}: "
-    read -rs value < /dev/tty
+    tty_read -s value ""
     echo ""
 
     if [ -z "$value" ]; then
@@ -134,8 +155,7 @@ prompt_yn() {
     local value=""
 
     echo -ne "  ${prompt_text} (y/n) ${DIM}[${default}]${NC}: "
-    read -r value < /dev/tty
-    value="${value:-$default}"
+    tty_read value "$default"
     value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
     eval "$var_name='$value'"
 }
@@ -167,7 +187,7 @@ preflight_checks() {
     if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
         echo -e "${YELLOW}WARNING: This script is designed for Ubuntu/Debian. Your OS: ${ID}${NC}"
         echo -ne "  Continue anyway? (y/n) [n]: "
-        read -r cont < /dev/tty
+        tty_read cont "n"
         if [ "$cont" != "y" ]; then
             exit 0
         fi
@@ -213,7 +233,7 @@ show_banner() {
     echo -e "  on your server."
     echo ""
     echo -ne "  Press ${BOLD}Enter${NC} to continue..."
-    read -r < /dev/tty || true
+    tty_read _ack ""
 }
 
 # =============================================================================
@@ -315,7 +335,7 @@ wizard_admin() {
         echo -e "  ${DIM}Password: keeping existing (leave blank to auto-generate new one)${NC}"
         local _newpass=""
         echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
-        read -rs _newpass < /dev/tty
+        tty_read -s _newpass ""
         echo ""
         [ -n "$_newpass" ] && ADMIN_PASS="$_newpass" || ADMIN_PASS=""
     else
