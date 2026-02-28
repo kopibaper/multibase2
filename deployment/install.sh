@@ -16,6 +16,7 @@ set -euo pipefail
 INSTALL_DIR="/opt/multibase"
 INSTALL_USER="multibase"
 REPO_URL="https://github.com/skipper159/multibase2.git"
+REPO_BRANCH="${REPO_BRANCH:-cloud-version}"
 LOG_FILE="/var/log/multibase-install.log"
 NODE_MAJOR=20
 REDIS_CONTAINER="multibase-redis"
@@ -559,13 +560,13 @@ clone_repo() {
     if [ -d "$INSTALL_DIR/.git" ]; then
         step_ok "Repository already exists, pulling latest..."
         cd "$INSTALL_DIR"
-        sudo -u "$INSTALL_USER" git pull >> "$LOG_FILE" 2>&1
+        sudo -u "$INSTALL_USER" git pull origin "$REPO_BRANCH" >> "$LOG_FILE" 2>&1
         step_ok "Repository updated"
     else
         # Clone into a temp dir first, then move contents
         local tmp_dir
         tmp_dir=$(mktemp -d)
-        git clone "$REPO_URL" "$tmp_dir" >> "$LOG_FILE" 2>&1
+        git clone --branch "$REPO_BRANCH" "$REPO_URL" "$tmp_dir" >> "$LOG_FILE" 2>&1
 
         # Move contents (preserving dirs we already created)
         cp -a "$tmp_dir"/. "$INSTALL_DIR"/
