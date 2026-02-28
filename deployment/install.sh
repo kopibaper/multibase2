@@ -631,7 +631,7 @@ build_backend() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
-    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
@@ -639,6 +639,9 @@ build_backend() {
 
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
+
+    # Remove devDependencies after build to save disk space
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
 
     # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
