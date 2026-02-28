@@ -475,7 +475,7 @@ load_existing_config() {
     elif [ -f "$INSTALL_DIR/dashboard/backend/.env" ]; then
         env_file="$INSTALL_DIR/dashboard/backend/.env"
     else
-        return
+        return 0
     fi
 
     local _get
