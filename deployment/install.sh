@@ -165,7 +165,7 @@ preflight_checks() {
     if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
         echo -e "${YELLOW}WARNING: This script is designed for Ubuntu/Debian. Your OS: ${ID}${NC}"
         echo -ne "  Continue anyway? (y/n) [n]: "
-        read -r cont
+        read -r cont < /dev/tty
         if [ "$cont" != "y" ]; then
             exit 0
         fi
@@ -211,7 +211,7 @@ show_banner() {
     echo -e "  on your server."
     echo ""
     echo -ne "  Press ${BOLD}Enter${NC} to continue..."
-    read -r
+    read -r < /dev/tty || true
 }
 
 # =============================================================================
