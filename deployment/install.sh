@@ -49,6 +49,7 @@ UFW_ENABLED="y"
 SWAP_ENABLED="y"
 TOTAL_STEPS=14
 SKIP_WIZARD=0      # set to 1 when re-running with existing config loaded directly
+STATE_FILE="/opt/multibase/.installer-state"   # written right after wizard completes
 CURRENT_STEP=0
 
 # =============================================================================
@@ -418,12 +419,44 @@ wizard_confirm() {
 }
 
 # =============================================================================
+# Save Installer State (right after wizard, before any install steps)
+# =============================================================================
+
+save_installer_state() {
+    mkdir -p "$(dirname "$STATE_FILE")"
+    cat > "$STATE_FILE" <<EOF
+# Multibase installer state — saved $(date)
+INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
+INSTALLER_ADMIN_USER=${ADMIN_USER}
+INSTALLER_ADMIN_EMAIL=${ADMIN_EMAIL}
+INSTALLER_SSL_ENABLED=${SSL_ENABLED}
+INSTALLER_UFW_ENABLED=${UFW_ENABLED}
+FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
+BACKEND_DOMAIN=${BACKEND_DOMAIN}
+FRONTEND_URL=${FRONTEND_URL}
+BACKEND_URL=${BACKEND_URL}
+SSL_EMAIL=${SSL_EMAIL}
+SSL_TYPE=${SSL_TYPE:-per-tenant}
+CORS_ORIGIN=${FRONTEND_URL}
+EOF
+    chmod 600 "$STATE_FILE"
+}
+
+# =============================================================================
 # Load Existing Config (re-run detection)
 # =============================================================================
 
 load_existing_config() {
-    local env_file="$INSTALL_DIR/dashboard/backend/.env"
-    [ ! -f "$env_file" ] && return
+    # Prefer the lightweight state file (written immediately after wizard)
+    # Fall back to backend .env (written by generate_configs)
+    local env_file=""
+    if [ -f "$STATE_FILE" ]; then
+        env_file="$STATE_FILE"
+    elif [ -f "$INSTALL_DIR/dashboard/backend/.env" ]; then
+        env_file="$INSTALL_DIR/dashboard/backend/.env"
+    else
+        return
+    fi
 
     local _get
     _get() { grep -m1 "^${1}=" "$env_file" 2>/dev/null | cut -d= -f2- || true; }
@@ -1699,6 +1732,7 @@ main() {
     preflight_checks
     show_banner
     run_wizard
+    save_installer_state
 
     echo ""
     echo -e "${BOLD}Starting installation...${NC}"
