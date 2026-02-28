@@ -10,6 +10,12 @@ supabase/
 # Projects directory (contains deployment secrets)
 projects/
 *projects/*
+
+# Shared infrastructure – only the Compose definition is tracked,
+# not secrets, generated configs or runtime volumes
+shared/*
+!shared/docker-compose.shared.yml
+
 __pycache__/
 *.py[cod]
 *$py.class
