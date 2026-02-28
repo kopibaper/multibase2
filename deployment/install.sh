@@ -48,6 +48,7 @@ SSL_TYPE="per-tenant"
 UFW_ENABLED="y"
 SWAP_ENABLED="y"
 TOTAL_STEPS=14
+SKIP_WIZARD=0      # set to 1 when re-running with existing config loaded directly
 CURRENT_STEP=0
 
 # =============================================================================
@@ -436,19 +437,12 @@ load_existing_config() {
 
     [ -z "$prev_mode" ] && return
 
-    echo ""
-    echo -e "  ${YELLOW}Previous installation detected — loading saved settings:${NC}"
-    echo -e "  ${DIM}Mode: ${prev_mode}  |  Admin: ${prev_admin} (${prev_email})  |  SSL: ${prev_ssl}${NC}"
-    echo -e "  ${DIM}Press Enter to keep each value, or type a new one.${NC}"
-    echo ""
-
-    # Pre-fill variables as defaults for wizard
+    # Load all values silently first
     [ -n "$prev_mode" ]  && DEPLOY_MODE="$prev_mode"
     [ -n "$prev_admin" ] && ADMIN_USER="$prev_admin"
     [ -n "$prev_email" ] && ADMIN_EMAIL="$prev_email"
     [ -n "$prev_ssl" ]   && SSL_ENABLED="$prev_ssl"
     [ -n "$prev_ufw" ]   && UFW_ENABLED="$prev_ufw"
-    # Load domains
     local prev_frontend prev_backend prev_ssl_email prev_ssl_type prev_backend_url prev_frontend_url
     prev_frontend=$(_get FRONTEND_DOMAIN)
     prev_backend=$(_get BACKEND_DOMAIN)
@@ -462,12 +456,45 @@ load_existing_config() {
     [ -n "$prev_ssl_type" ]     && SSL_TYPE="$prev_ssl_type"
     [ -n "$prev_backend_url" ]  && BACKEND_URL="$prev_backend_url"
     [ -n "$prev_frontend_url" ] && FRONTEND_URL="$prev_frontend_url"
-    # Mark password as already set so wizard can skip
     ADMIN_PASS="__existing__"
+
+    # Ask user what to do
+    echo ""
+    separator
+    echo -e "  ${YELLOW}Previous installation detected${NC}"
+    separator
+    echo ""
+    echo -e "  ${DIM}Mode:    ${BOLD}${prev_mode}${NC}"
+    echo -e "  ${DIM}Domain:  ${BOLD}${BACKEND_DOMAIN:-${FRONTEND_DOMAIN}}${NC}"
+    echo -e "  ${DIM}Admin:   ${BOLD}${prev_admin}${NC} ${DIM}(${prev_email})${NC}"
+    echo -e "  ${DIM}SSL:     ${BOLD}${prev_ssl}${NC}  |  UFW: ${BOLD}${prev_ufw}${NC}"
+    echo ""
+    echo -e "  ${BOLD}[1]${NC} Use these settings and start installation directly"
+    echo -e "  ${BOLD}[2]${NC} Edit settings (go through wizard with pre-filled defaults)"
+    echo ""
+    local _choice=""
+    prompt _choice "Choice" "1"
+    if [ "$_choice" != "2" ]; then
+        SKIP_WIZARD=1
+        echo ""
+        echo -e "  ${GREEN}OK — resuming installation with existing settings.${NC}"
+        echo ""
+    fi
 }
 
 run_wizard() {
     load_existing_config
+
+    if [ "$SKIP_WIZARD" = "1" ]; then
+        # Just set TOTAL_STEPS based on loaded DEPLOY_MODE, skip all wizard steps
+        case "$DEPLOY_MODE" in
+            single)         TOTAL_STEPS=14 ;;
+            split-frontend) TOTAL_STEPS=9  ;;
+            split-backend)  TOTAL_STEPS=13 ;;
+        esac
+        return
+    fi
+
     wizard_deployment_mode
     wizard_domains
     wizard_admin
