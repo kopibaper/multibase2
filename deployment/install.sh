@@ -1311,7 +1311,6 @@ setup_ssl() {
                     --manual \
                     --preferred-challenges dns \
                     -d "*.${base}" \
-                    -d "${base}" \
                     --email "$SSL_EMAIL" \
                     --agree-tos \
                     < /dev/tty; then
