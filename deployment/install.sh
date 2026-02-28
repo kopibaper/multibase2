@@ -602,9 +602,14 @@ setup_python() {
 
     local venv_dir="$INSTALL_DIR/venv"
 
-    if [ -d "$venv_dir" ]; then
-        step_ok "Virtual environment already exists"
+    # Check if venv exists AND is functional (not just the directory)
+    if [ -d "$venv_dir" ] && "$venv_dir/bin/python3" -c "import sys" &>/dev/null; then
+        step_ok "Virtual environment already exists and is functional"
     else
+        if [ -d "$venv_dir" ]; then
+            step "Virtual environment broken, recreating..."
+            rm -rf "$venv_dir"
+        fi
         sudo -u "$INSTALL_USER" python3 -m venv "$venv_dir"
         step_new "Virtual environment created"
     fi
