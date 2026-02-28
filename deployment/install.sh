@@ -1283,16 +1283,23 @@ setup_ssl() {
                 echo -e "  ${DIM}certbot will ask you to add a DNS TXT record.${NC}"
                 echo -e "  ${DIM}Add the record, wait ~60 s for DNS propagation, then press Enter.${NC}"
                 echo ""
+                # certbot --manual is interactive: stdin must be /dev/tty (real terminal).
+                # Do NOT pipe stdout/stderr — that breaks the interactive prompt.
+                # This also fixes the EOFError when the installer runs via "curl | bash".
+                log "Running interactive certbot for *.${base} ..."
                 if ! certbot certonly \
                     --manual \
                     --preferred-challenges dns \
                     -d "*.${base}" \
                     -d "${base}" \
                     --email "$SSL_EMAIL" \
-                    --agree-tos 2>&1 | tee -a "$LOG_FILE"; then
-                    echo -e "${RED}ERROR: certbot failed for *.${base}. Check $LOG_FILE.${NC}" >&2
+                    --agree-tos \
+                    < /dev/tty; then
+                    echo -e "${RED}ERROR: certbot failed for *.${base}. See /var/log/letsencrypt/letsencrypt.log${NC}" >&2
+                    log "ERROR: certbot certonly failed for *.${base}"
                     exit 1
                 fi
+                log "certbot certonly succeeded for *.${base}"
                 # Install cert into nginx for each domain
                 for domain in "${domains[@]}"; do
                     local d_base
