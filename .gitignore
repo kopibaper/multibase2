@@ -17,6 +17,17 @@ shared/*
 !shared/docker-compose.shared.yml
 !shared/config/
 !shared/config/vector.yml
+!shared/volumes/
+!shared/volumes/db/
+!shared/volumes/db/init/
+!shared/volumes/db/init/*.sql
+!shared/volumes/nginx/
+!shared/volumes/nginx/nginx.conf
+!shared/volumes/nginx/tenants/
+shared/volumes/nginx/tenants/*.conf
+shared/volumes/nginx/tenants/*.backup
+!shared/volumes/pooler/
+!shared/volumes/pooler/pooler.exs
 
 __pycache__/
 *.py[cod]
