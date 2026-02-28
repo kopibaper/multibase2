@@ -473,6 +473,13 @@ install_dependencies() {
             apt-get install -y -qq python3 python3-pip python3-venv >> "$LOG_FILE" 2>&1
             step_new "Python $(python3 --version | awk '{print $2}') (installed)"
         fi
+        # venv must always be installed, even if python3 was pre-installed
+        # Ubuntu 24.04+ ships python3.12 without the venv module by default
+        local py_ver
+        py_ver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        apt-get install -y -qq python3-venv "python${py_ver}-venv" >> "$LOG_FILE" 2>&1 || \
+            apt-get install -y -qq python3-venv >> "$LOG_FILE" 2>&1
+        step_ok "Python venv (python${py_ver}-venv installed)"
     fi
 
     # Nginx
@@ -587,6 +594,11 @@ setup_python() {
     fi
 
     step "Setting up Python environment..."
+
+    # Ensure pip is available (may be missing even if python3 is installed)
+    if ! python3 -m pip --version &>/dev/null; then
+        apt-get install -y -qq python3-pip >> "$LOG_FILE" 2>&1
+    fi
 
     local venv_dir="$INSTALL_DIR/venv"
 
