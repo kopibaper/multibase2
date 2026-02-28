@@ -104,7 +104,7 @@ prompt() {
         echo -ne "  ${prompt_text}: "
     fi
 
-    read -r value
+    read -r value < /dev/tty
     value="${value:-$default}"
     eval "$var_name='$value'"
 }
@@ -115,7 +115,7 @@ prompt_password() {
     local value=""
 
     echo -ne "  ${prompt_text} ${DIM}(Enter for auto-generated)${NC}: "
-    read -rs value
+    read -rs value < /dev/tty
     echo ""
 
     if [ -z "$value" ]; then
@@ -132,7 +132,7 @@ prompt_yn() {
     local value=""
 
     echo -ne "  ${prompt_text} (y/n) ${DIM}[${default}]${NC}: "
-    read -r value
+    read -r value < /dev/tty
     value="${value:-$default}"
     value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
     eval "$var_name='$value'"
