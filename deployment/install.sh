@@ -541,9 +541,9 @@ run_wizard() {
     if [ "$SKIP_WIZARD" = "1" ]; then
         # Just set TOTAL_STEPS based on loaded DEPLOY_MODE, skip all wizard steps
         case "$DEPLOY_MODE" in
-            single)         TOTAL_STEPS=14 ;;
+            single)         TOTAL_STEPS=19 ;;
             split-frontend) TOTAL_STEPS=9  ;;
-            split-backend)  TOTAL_STEPS=13 ;;
+            split-backend)  TOTAL_STEPS=18 ;;
         esac
         return
     fi
@@ -557,9 +557,9 @@ run_wizard() {
 
     # Adjust total steps based on mode
     case "$DEPLOY_MODE" in
-        single)       TOTAL_STEPS=14 ;;
-        split-frontend) TOTAL_STEPS=9 ;;
-        split-backend)  TOTAL_STEPS=13 ;;
+        single)         TOTAL_STEPS=19 ;;
+        split-frontend) TOTAL_STEPS=9  ;;
+        split-backend)  TOTAL_STEPS=18 ;;
     esac
 }
 
@@ -1283,13 +1283,16 @@ setup_ssl() {
                 echo -e "  ${DIM}certbot will ask you to add a DNS TXT record.${NC}"
                 echo -e "  ${DIM}Add the record, wait ~60 s for DNS propagation, then press Enter.${NC}"
                 echo ""
-                certbot certonly \
+                if ! certbot certonly \
                     --manual \
                     --preferred-challenges dns \
                     -d "*.${base}" \
                     -d "${base}" \
                     --email "$SSL_EMAIL" \
-                    --agree-tos
+                    --agree-tos 2>&1 | tee -a "$LOG_FILE"; then
+                    echo -e "${RED}ERROR: certbot failed for *.${base}. Check $LOG_FILE.${NC}" >&2
+                    exit 1
+                fi
                 # Install cert into nginx for each domain
                 for domain in "${domains[@]}"; do
                     local d_base
