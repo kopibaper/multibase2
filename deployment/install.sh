@@ -799,8 +799,25 @@ build_backend() {
     # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
     chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/data"
+}
 
-    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+# =============================================================================
+# Database Migrations (after generate_configs so DATABASE_URL exists in .env)
+# =============================================================================
+
+run_db_migrations() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return 0
+    fi
+
+    step "Applying database migrations..."
+
+    cd "$INSTALL_DIR/dashboard/backend"
+
+    # Export DATABASE_URL from .env for prisma
+    local db_url
+    db_url=$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || echo 'file:./data/multibase.db')
+    DATABASE_URL="$db_url" sudo -u "$INSTALL_USER" -E npx prisma migrate deploy >> "$LOG_FILE" 2>&1
     step_ok "Database migrations applied"
 }
 
@@ -1563,13 +1580,16 @@ run_update() {
 
     step "Rebuilding backend..."
     cd "$INSTALL_DIR/dashboard/backend"
-    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
     step "Running database migrations..."
-    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    local db_url
+    db_url=$(grep -m1 '^DATABASE_URL=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || echo 'file:./data/multibase.db')
+    DATABASE_URL="$db_url" sudo -u "$INSTALL_USER" -E npx prisma migrate deploy >> "$LOG_FILE" 2>&1
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
@@ -1767,6 +1787,7 @@ main() {
     setup_shared_infra
     build_frontend
     generate_configs
+    run_db_migrations
     start_redis
     configure_nginx
     start_pm2
