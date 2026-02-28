@@ -11,6 +11,8 @@ import type {
   CreateAlertRuleRequest,
   InstanceTemplate,
   SystemTemplate,
+  SharedInfraStatus,
+  SharedDatabasesResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -603,4 +605,29 @@ export const storageApi = {
       body: JSON.stringify({ path, expiresIn }),
     });
   },
+};
+
+// =====================================================
+// Shared Infrastructure API (Cloud-Version)
+// =====================================================
+
+export const sharedApi = {
+  getStatus: (): Promise<SharedInfraStatus> => fetchApi('/api/shared/status'),
+
+  start: (): Promise<{ success: boolean; message: string }> =>
+    fetchApi('/api/shared/start', { method: 'POST' }),
+
+  stop: (): Promise<{ success: boolean; message: string }> =>
+    fetchApi('/api/shared/stop', { method: 'POST' }),
+
+  getDatabases: (): Promise<SharedDatabasesResponse> => fetchApi('/api/shared/databases'),
+
+  createDatabase: (projectName: string): Promise<{ success: boolean; database: string }> =>
+    fetchApi('/api/shared/databases', {
+      method: 'POST',
+      body: JSON.stringify({ projectName }),
+    }),
+
+  deleteDatabase: (name: string): Promise<{ success: boolean; database: string }> =>
+    fetchApi(`/api/shared/databases/${name}`, { method: 'DELETE' }),
 };

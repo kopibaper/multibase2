@@ -16,6 +16,7 @@ import {
   Mail,
   BookOpen,
   HardDrive,
+  Cloud,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
 
@@ -106,6 +107,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           <SidebarGroup title='Overview'>
             <SidebarLink to='/dashboard' icon={LayoutDashboard} end>
               Dashboard
+            </SidebarLink>
+            <SidebarLink to='/shared' icon={Cloud}>
+              Shared Infra
             </SidebarLink>
             <SidebarLink to='/templates' icon={Database}>
               Templates

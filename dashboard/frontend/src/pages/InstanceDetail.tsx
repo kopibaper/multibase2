@@ -27,6 +27,7 @@ import {
   Settings,
   Copy,
   Code,
+  Cloud,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
@@ -145,6 +146,12 @@ export default function InstanceDetail() {
             <div className='flex items-center gap-3 flex-wrap'>
               <Server className='w-6 h-6 text-primary flex-shrink-0' />
               <h2 className='text-xl sm:text-2xl font-bold truncate'>{instance.name}</h2>
+              {instance.stackType === 'cloud' && (
+                <span className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-500/20 text-brand-400 border border-brand-500/30'>
+                  <Cloud className='w-3 h-3' />
+                  Cloud
+                </span>
+              )}
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium border whitespace-nowrap ${getHealthColor(
                   instance.health.overall

@@ -175,16 +175,31 @@ export default function GaugeChart({
         </svg>
 
         {/* Center content */}
-        <div className='absolute inset-0 flex flex-col items-center justify-center'>
-          {Icon && (
-            <div className={`${colors.bg} ${config.iconPadding} rounded-full mb-1.5 backdrop-blur-sm`}>
-              <Icon className={`${config.iconSize} ${colors.text}`} />
+        {(() => {
+          const parts = displayValue?.includes(' / ') ? displayValue.split(' / ') : null;
+          return (
+            <div className='absolute inset-0 flex flex-col items-center justify-center gap-0.5'>
+              {Icon && (
+                <div className={`${colors.bg} p-1.5 rounded-full backdrop-blur-sm mb-0.5`}>
+                  <Icon className={`w-5 h-5 ${colors.text}`} />
+                </div>
+              )}
+              {parts ? (
+                <>
+                  <span className={`text-2xl font-bold ${colors.text} tabular-nums leading-tight`}>{parts[0]}</span>
+                  <div className='w-8 h-px bg-muted-foreground/25 my-0.5' />
+                  <span className='text-xs font-medium text-muted-foreground tabular-nums leading-tight'>
+                    {parts[1]}
+                  </span>
+                </>
+              ) : (
+                <span className={`text-2xl font-bold ${colors.text} tabular-nums`}>
+                  {displayValue || `${normalizedValue.toFixed(0)}%`}
+                </span>
+              )}
             </div>
-          )}
-          <span className={`${config.fontSize} font-bold ${colors.text} tabular-nums`}>
-            {displayValue || `${normalizedValue.toFixed(0)}%`}
-          </span>
-        </div>
+          );
+        })()}
 
         {/* Animated pulse ring for high values */}
         {isHighValue && (

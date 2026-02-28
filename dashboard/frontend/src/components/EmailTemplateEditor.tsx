@@ -275,7 +275,7 @@ export default function EmailTemplateEditor({ instance }: EmailTemplateEditorPro
                 srcDoc={previewHtml}
                 className='w-full h-full border-0'
                 title='Email Preview'
-                sandbox='allow-same-origin'
+                sandbox='allow-same-origin allow-scripts'
               />
             </div>
           </div>

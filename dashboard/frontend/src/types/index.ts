@@ -1,9 +1,13 @@
 // Multibase Dashboard Frontend Types
 
+// Stack Type: 'classic' = full per-project stack, 'cloud' = shared infra + lightweight tenant
+export type StackType = 'classic' | 'cloud';
+
 export interface SupabaseInstance {
   id: string;
   name: string;
   status: 'running' | 'stopped' | 'degraded' | 'healthy' | 'unhealthy';
+  stackType?: StackType;
   basePort: number;
   ports: PortMapping;
   credentials: InstanceCredentials;
@@ -15,12 +19,15 @@ export interface SupabaseInstance {
 }
 
 export interface PortMapping {
-  kong_http: number;
-  kong_https: number;
-  studio: number;
-  postgres: number;
-  pooler: number;
-  analytics: number;
+  gateway_port: number;
+  /** @deprecated Use gateway_port */
+  kong_http?: number;
+  /** @deprecated Use gateway_port */
+  kong_https?: number;
+  studio?: number;
+  postgres?: number;
+  pooler?: number;
+  analytics?: number;
 }
 
 export interface InstanceCredentials {
@@ -113,6 +120,9 @@ export interface SystemMetrics {
   totalCpu: number;
   totalMemory: number;
   totalDisk: number;
+  hostTotalMemory?: number;
+  hostDiskTotal?: number | null;
+  hostDiskUsed?: number | null;
   instanceCount: number;
   runningCount: number;
   timestamp: string;
@@ -198,4 +208,56 @@ export interface InstanceTemplate {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+// =====================================================
+// Shared Infrastructure Types (Cloud-Version)
+// =====================================================
+
+export interface SharedInfraStatus {
+  status: 'running' | 'stopped' | 'degraded';
+  services: SharedServiceStatus[];
+  ports: SharedPorts;
+  totalServices: number;
+  runningServices: number;
+}
+
+export interface SharedServiceStatus {
+  name: string;
+  status: string;
+  health: 'healthy' | 'unhealthy' | 'unknown';
+  uptime?: number;
+  cpu?: number;
+  memory?: number;
+}
+
+export interface SharedPorts {
+  postgres?: number;
+  studio?: number;
+  analytics?: number;
+  pooler?: number;
+  gateway?: number;
+  /** @deprecated Use gateway */
+  kong?: number;
+  meta?: number;
+}
+
+export interface SharedDatabase {
+  name: string;
+  projectName: string;
+  sizeBytes: number;
+  sizeFormatted: string;
+}
+
+export interface SharedDatabasesResponse {
+  databases: SharedDatabase[];
+  count: number;
+}
+
+export interface SharedMetrics {
+  cpu: number;
+  memory: number;
+  disk: number;
+  containerCount: number;
+  timestamp: string;
 }
