@@ -506,14 +506,16 @@ export class AuthService {
 
       if (!adminExists) {
         const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin123';
+        const defaultEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@multibase.local';
+        const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
         await this.register({
-          email: 'admin@multibase.local',
-          username: 'admin',
+          email: defaultEmail,
+          username: defaultUsername,
           password: defaultPassword,
           role: 'admin',
         });
-        logger.info('Initial admin user created');
-        logger.warn(`Default admin password: ${defaultPassword}`);
+        logger.info(`Initial admin user created: ${defaultEmail}`);
+        logger.warn(`Default admin password is set via DEFAULT_ADMIN_PASSWORD env var`);
       }
     } catch (error) {
       logger.error('Error creating initial admin:', error);

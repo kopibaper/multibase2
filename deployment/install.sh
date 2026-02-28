@@ -916,6 +916,11 @@ ALERT_CHECK_INTERVAL=60000
 # Session
 SESSION_SECRET=${session_secret}
 
+# Initial admin credentials (used by backend on first start if no admin exists)
+DEFAULT_ADMIN_USERNAME=${ADMIN_USER}
+DEFAULT_ADMIN_EMAIL=${ADMIN_EMAIL}
+DEFAULT_ADMIN_PASSWORD=${ADMIN_PASS}
+
 # Installer metadata (used for re-run detection)
 INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
 INSTALLER_ADMIN_USER=${ADMIN_USER}
@@ -1435,54 +1440,73 @@ create_admin() {
         return
     fi
 
-    # If password is empty, user kept existing credentials → skip creation
-    # (the Node script also checks for existing users, but this avoids hashing empty passwords)
-    if [ -z "$ADMIN_PASS" ]; then
-        step_skip "Admin account (keeping existing credentials)"
-        return
-    fi
-
     step "Creating admin account..."
 
     cd "$INSTALL_DIR/dashboard/backend"
 
+    # Check if a non-default admin already exists in the DB
+    local existing_email
+    existing_email=$(DATABASE_URL="file:./data/multibase.db" \
+        sudo -u "$INSTALL_USER" -E node -e "
+        const {PrismaClient}=require('/opt/multibase/dashboard/backend/node_modules/@prisma/client');
+        const p=new PrismaClient();
+        p.user.findFirst({where:{role:'admin'}}).then(u=>{process.stdout.write(u?u.email:'');p.\$disconnect();});
+        " 2>/dev/null || echo '')
+
+    if [ -n "$existing_email" ] && [ "$existing_email" != "admin@multibase.local" ]; then
+        step_skip "Admin account (existing: ${existing_email})"
+        return
+    fi
+
+    # No admin or only the hardcoded default exists — create/update with wizard credentials
+    if [ -z "$ADMIN_PASS" ]; then
+        step_skip "Admin account (no password provided — keeping existing credentials)"
+        return
+    fi
+
+    cd "$INSTALL_DIR/dashboard/backend"
+
     # Create a temporary Node.js script to seed the admin user
+    # Uses upsert: updates the default admin@multibase.local if it exists, otherwise creates new
     cat > /tmp/multibase-create-admin.js <<'SCRIPT'
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+const { PrismaClient } = require('/opt/multibase/dashboard/backend/node_modules/@prisma/client');
+const bcrypt = require('/opt/multibase/dashboard/backend/node_modules/bcryptjs');
 
 async function main() {
     const prisma = new PrismaClient();
 
     const username = process.env.ADMIN_USER;
-    const email = process.env.ADMIN_EMAIL;
+    const email    = process.env.ADMIN_EMAIL;
     const password = process.env.ADMIN_PASS;
-
-    // Check if admin already exists
-    const existing = await prisma.user.findFirst({
-        where: { OR: [{ email }, { username }] }
-    });
-
-    if (existing) {
-        console.log('Admin user already exists, skipping.');
-        await prisma.$disconnect();
-        return;
-    }
 
     const hash = await bcrypt.hash(password, 12);
 
-    await prisma.user.create({
-        data: {
-            username,
-            email,
-            passwordHash: hash,
-            role: 'admin',
-            isActive: true,
-            isEmailVerified: true
-        }
+    // If the hardcoded default admin exists, update it with the real credentials
+    const defaultAdmin = await prisma.user.findFirst({
+        where: { email: 'admin@multibase.local' }
     });
 
-    console.log('Admin user created successfully.');
+    if (defaultAdmin) {
+        await prisma.user.update({
+            where: { id: defaultAdmin.id },
+            data: { username, email, passwordHash: hash, isActive: true, isEmailVerified: true }
+        });
+        console.log(`Admin updated: ${email}`);
+    } else {
+        // Check if target email/username already exists (non-default)
+        const existing = await prisma.user.findFirst({
+            where: { OR: [{ email }, { username }] }
+        });
+        if (existing) {
+            console.log(`Admin already exists: ${existing.email}`);
+        } else {
+            await prisma.user.create({
+                data: { username, email, passwordHash: hash, role: 'admin', isActive: true, isEmailVerified: true }
+            });
+            console.log(`Admin created: ${email}`);
+        }
+    }
+
     await prisma.$disconnect();
 }
 
