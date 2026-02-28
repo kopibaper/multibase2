@@ -735,9 +735,9 @@ export class InstanceManager {
         fs.mkdirSync(nginxDir, { recursive: true });
       }
 
-      const domain = 'backend.tyto-design.de';
-      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.tyto-design.de';
-      const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
+      const domain = process.env.BACKEND_DOMAIN || 'localhost';
+      const dashboardUrl = process.env.DASHBOARD_URL || `https://${process.env.FRONTEND_DOMAIN || domain}`;
+      const backendUrl = process.env.BACKEND_URL || `https://${domain}`;
 
       // Cloud-Version: Studio Proxy zeigt auf Shared Studio
       const studioPort =
@@ -903,19 +903,23 @@ server {
       // Run Certbot for SSL only for cloud/VPS deployments
       // Note: This requires the backend process to have sudo permissions without password
       if (deploymentType === 'cloud') {
-        try {
-          const studioDomain = `${instance.name}.${domain}`;
-          const apiDomain = `${instance.name}-api.${domain}`;
-          const email = 'notification@tyto-design.de';
+        const email = process.env.SSL_EMAIL || process.env.CERTBOT_EMAIL || process.env.ADMIN_EMAIL || '';
+        if (!email) {
+          logger.warn('SSL_EMAIL / CERTBOT_EMAIL not set — skipping Certbot. Set SSL_EMAIL in .env to enable automatic SSL.');
+        } else {
+          try {
+            const studioDomain = `${instance.name}.${domain}`;
+            const apiDomain = `${instance.name}-api.${domain}`;
 
-          logger.info('Starting Certbot for auto-SSL...');
-          await execAsync(
-            `sudo certbot --nginx -d ${studioDomain} -d ${apiDomain} --non-interactive --agree-tos --redirect --email ${email}`
-          );
-          logger.info(`Certbot finished successfully for ${studioDomain} and ${apiDomain}`);
-        } catch (certbotError) {
-          logger.error('Certbot failed to generate SSL certificates:', certbotError);
-          // Do not throw, allow instance creation to complete (user can fix SSL manually)
+            logger.info('Starting Certbot for auto-SSL...');
+            await execAsync(
+              `sudo certbot --nginx -d ${studioDomain} -d ${apiDomain} --non-interactive --agree-tos --redirect --email ${email}`
+            );
+            logger.info(`Certbot finished successfully for ${studioDomain} and ${apiDomain}`);
+          } catch (certbotError) {
+            logger.error('Certbot failed to generate SSL certificates:', certbotError);
+            // Do not throw, allow instance creation to complete (user can fix SSL manually)
+          }
         }
       } else {
         logger.info(`Skipping Certbot for localhost deployment: ${instance.name}`);

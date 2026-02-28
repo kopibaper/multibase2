@@ -75,7 +75,8 @@ class SupabaseProjectGenerator:
         self.base_port = base_port
         
         # Shared Infrastructure Referenz
-        self.shared_dir = Path(__file__).parent / "shared"
+        self.base_dir = Path(__file__).parent
+        self.shared_dir = self.base_dir / "shared"
         self.shared_env = self._load_shared_env()
 
         # Ask if running on localhost first
@@ -247,6 +248,22 @@ class SupabaseProjectGenerator:
                 print(f"  Note: Nginx gateway not running yet (will apply on next start)")
         except Exception:
             print(f"  Note: Could not reload Nginx gateway (will apply on next start)")
+
+        # Register tenant port in shared stack (dynamic port scaling)
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent))
+            from setup_shared import SharedInfraManager
+            manager = SharedInfraManager()
+            added = manager.add_tenant_port(int(gateway_port))
+            if added:
+                print(f"  Port {gateway_port} registered in shared stack (docker-compose.override.yml updated)")
+            else:
+                print(f"  Port {gateway_port} already registered in shared stack")
+        except Exception as e:
+            print(f"  Note: Could not register port in shared stack: {e}")
+            print(f"        Add NGINX_PORT_N={gateway_port} to shared/.env.shared manually")
+
 
     def _create_project_database(self):
         """Create the project database in the shared PostgreSQL cluster."""

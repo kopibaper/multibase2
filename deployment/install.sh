@@ -43,6 +43,7 @@ ADMIN_EMAIL=""
 ADMIN_PASS=""
 SSL_ENABLED="y"
 SSL_EMAIL=""
+SSL_TYPE="per-tenant"
 UFW_ENABLED="y"
 SWAP_ENABLED="y"
 TOTAL_STEPS=14
@@ -315,6 +316,13 @@ wizard_ssl() {
     if [ "$SSL_ENABLED" = "y" ]; then
         prompt SSL_EMAIL "Email for Let's Encrypt" "${ADMIN_EMAIL:-}"
         [ -z "$SSL_EMAIL" ] && error_exit "SSL email is required"
+
+        echo ""
+        echo -e "  ${DIM}Wildcard certs (*.domain.com) cover all subdomains automatically${NC}"
+        echo -e "  ${DIM}but require a manual DNS TXT record during issuance (DNS-01 challenge).${NC}"
+        local _wildcard="n"
+        prompt_yn _wildcard "Use wildcard certificate (*.domain.com)?" "n"
+        [ "$_wildcard" = "y" ] && SSL_TYPE="wildcard" || SSL_TYPE="per-tenant"
     fi
 }
 
@@ -370,7 +378,13 @@ wizard_confirm() {
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
         echo -e "  Admin:            ${BOLD}${ADMIN_USER}${NC} (${ADMIN_EMAIL})"
     fi
-    echo -e "  SSL:              ${BOLD}$([ "$SSL_ENABLED" = "y" ] && echo "Yes" || echo "No")${NC}"
+    local _ssl_label
+    if [ "$SSL_ENABLED" = "y" ]; then
+        [ "$SSL_TYPE" = "wildcard" ] && _ssl_label="Yes (wildcard)" || _ssl_label="Yes (per-tenant)"
+    else
+        _ssl_label="No"
+    fi
+    echo -e "  SSL:              ${BOLD}${_ssl_label}${NC}"
     echo -e "  Firewall:         ${BOLD}$([ "$UFW_ENABLED" = "y" ] && echo "Yes (UFW)" || echo "No")${NC}"
     echo -e "  Swap:             ${BOLD}$([ "$SWAP_ENABLED" = "y" ] && echo "2 GB" || echo "No")${NC}"
     echo ""
@@ -668,12 +682,28 @@ DATABASE_URL="file:./data/multibase.db"
 REDIS_URL=redis://localhost:6379
 
 # Docker
-DOCKER_HOST=/var/run/docker.sock
+DOCKER_SOCKET_PATH=/var/run/docker.sock
 
 # Paths
 PROJECTS_PATH=${INSTALL_DIR}/projects
 PYTHON_PATH=${INSTALL_DIR}/venv/bin/python3
 BACKUP_PATH=${INSTALL_DIR}/backups
+SHARED_DIR=${INSTALL_DIR}/shared
+
+# Domains
+BACKEND_DOMAIN=${BACKEND_DOMAIN}
+FRONTEND_DOMAIN=${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+DASHBOARD_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+BACKEND_URL=https://${BACKEND_DOMAIN}
+
+# SSL / Certbot
+SSL_EMAIL=${SSL_EMAIL}
+CERTBOT_EMAIL=${SSL_EMAIL}
+SSL_TYPE=${SSL_TYPE:-per-tenant}
+
+# App URLs
+APP_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+DASHBOARD_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
 
 # CORS
 CORS_ORIGIN=${FRONTEND_URL}
@@ -719,6 +749,8 @@ module.exports = {
     instances: 1,
     autorestart: true,
     max_memory_restart: '512M',
+    wait_ready: true,
+    listen_timeout: 30000,
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
     error_file: '${INSTALL_DIR}/logs/backend-error.log',
     out_file: '${INSTALL_DIR}/logs/backend-out.log'
@@ -728,6 +760,75 @@ EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/ecosystem.config.js"
         step_ok "PM2 ecosystem.config.js created"
     fi
+}
+
+# =============================================================================
+# Sudoers – nginx reload + certbot without password prompt
+# =============================================================================
+
+setup_sudoers() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Configuring sudoers for nginx and certbot..."
+
+    cat > /etc/sudoers.d/multibase <<EOF
+# Multibase: allow backend service to reload nginx and run certbot without password
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -s reload
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot *
+EOF
+    chmod 440 /etc/sudoers.d/multibase
+    visudo -c -f /etc/sudoers.d/multibase >> "$LOG_FILE" 2>&1
+    step_ok "sudoers configured for ${INSTALL_USER} (nginx + certbot)"
+}
+
+# =============================================================================
+# Shared Infrastructure Setup
+# =============================================================================
+
+setup_shared_infra() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Setting up Shared Infrastructure..."
+
+    local shared_dir="${INSTALL_DIR}/shared"
+    local python="${INSTALL_DIR}/venv/bin/python3"
+
+    # 1. Generate .env.shared with secure secrets (only if not present)
+    if [ ! -f "${shared_dir}/.env.shared" ]; then
+        sudo -u "$INSTALL_USER" "$python" "${INSTALL_DIR}/setup_shared.py" init >> "$LOG_FILE" 2>&1
+        step_ok ".env.shared generated with secure secrets"
+    else
+        step_ok ".env.shared already exists – skipping generation"
+    fi
+
+    # 2. Patch SHARED_PUBLIC_URL to the configured backend domain
+    if [ -n "$BACKEND_DOMAIN" ]; then
+        sed -i "s|SHARED_PUBLIC_URL=.*|SHARED_PUBLIC_URL=https://${BACKEND_DOMAIN}|" \
+            "${shared_dir}/.env.shared"
+    fi
+
+    # 3. Start shared stack (PostgreSQL, Studio, Analytics, Nginx-Gateway, ...)
+    sudo -u "$INSTALL_USER" "$python" "${INSTALL_DIR}/setup_shared.py" start >> "$LOG_FILE" 2>&1
+    step_ok "Shared stack started"
+
+    # 4. Wait for PostgreSQL to be ready (max 60 s)
+    step "Waiting for PostgreSQL to be ready..."
+    local retries=0
+    until docker exec multibase-db pg_isready -U postgres -q 2>/dev/null; do
+        retries=$((retries + 1))
+        if [ "$retries" -ge 60 ]; then
+            step_fail "PostgreSQL did not become ready within 60 seconds"
+            error_exit "Shared PostgreSQL failed to start — check 'docker logs multibase-db'"
+        fi
+        sleep 1
+    done
+    step_ok "PostgreSQL is ready"
 }
 
 # =============================================================================
@@ -874,6 +975,44 @@ EOF
 }
 
 # =============================================================================
+# Shared Infrastructure – Systemd Auto-Start
+# =============================================================================
+
+setup_shared_autostart() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Configuring Shared Infrastructure auto-start on boot..."
+
+    cat > /etc/systemd/system/multibase-shared.service <<EOF
+[Unit]
+Description=Multibase Shared Infrastructure (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=${INSTALL_USER}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/venv/bin/python3 ${INSTALL_DIR}/setup_shared.py start
+ExecStop=/usr/bin/docker compose \\
+    -f ${INSTALL_DIR}/shared/docker-compose.shared.yml \\
+    --env-file ${INSTALL_DIR}/shared/.env.shared down
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable multibase-shared.service
+    step_ok "multibase-shared.service enabled (auto-start on reboot)"
+}
+
+# =============================================================================
 # PM2 Setup
 # =============================================================================
 
@@ -926,19 +1065,63 @@ setup_ssl() {
         domains+=("$BACKEND_DOMAIN")
     fi
 
-    for domain in "${domains[@]}"; do
-        if [ -d "/etc/letsencrypt/live/$domain" ]; then
-            step_ok "SSL certificate for $domain already exists"
-        else
-            certbot --nginx \
-                -d "$domain" \
-                --email "$SSL_EMAIL" \
-                --agree-tos \
-                --non-interactive \
-                --redirect >> "$LOG_FILE" 2>&1
-            step_new "SSL certificate obtained for $domain"
-        fi
-    done
+    if [ "$SSL_TYPE" = "wildcard" ]; then
+        # Wildcard: one cert per unique base domain via DNS-01 challenge
+        local base_domains=()
+        for domain in "${domains[@]}"; do
+            # Strip one subdomain level to get base domain (e.g. api.example.com → example.com)
+            local base
+            base=$(echo "$domain" | awk -F. 'NF>=2{print $(NF-1)"."$NF}')
+            local found=0
+            for bd in "${base_domains[@]:-}"; do [ "$bd" = "$base" ] && found=1; done
+            [ $found -eq 0 ] && base_domains+=("$base")
+        done
+
+        for base in "${base_domains[@]}"; do
+            if [ -d "/etc/letsencrypt/live/${base}" ] || [ -d "/etc/letsencrypt/live/*.${base}" ]; then
+                step_ok "Wildcard SSL certificate for *.${base} already exists"
+            else
+                echo ""
+                echo -e "  ${YELLOW}ACTION REQUIRED for wildcard cert *.${base}${NC}"
+                echo -e "  ${DIM}certbot will ask you to add a DNS TXT record.${NC}"
+                echo -e "  ${DIM}Add the record, wait ~60 s for DNS propagation, then press Enter.${NC}"
+                echo ""
+                certbot certonly \
+                    --manual \
+                    --preferred-challenges dns \
+                    -d "*.${base}" \
+                    -d "${base}" \
+                    --email "$SSL_EMAIL" \
+                    --agree-tos
+                # Install cert into nginx for each domain
+                for domain in "${domains[@]}"; do
+                    local d_base
+                    d_base=$(echo "$domain" | awk -F. 'NF>=2{print $(NF-1)"."$NF}')
+                    if [ "$d_base" = "$base" ]; then
+                        certbot install \
+                            --nginx \
+                            -d "$domain" \
+                            --cert-name "${base}" >> "$LOG_FILE" 2>&1 || true
+                    fi
+                done
+                step_new "Wildcard SSL certificate obtained for *.${base}"
+            fi
+        done
+    else
+        for domain in "${domains[@]}"; do
+            if [ -d "/etc/letsencrypt/live/$domain" ]; then
+                step_ok "SSL certificate for $domain already exists"
+            else
+                certbot --nginx \
+                    -d "$domain" \
+                    --email "$SSL_EMAIL" \
+                    --agree-tos \
+                    --non-interactive \
+                    --redirect >> "$LOG_FILE" 2>&1
+                step_new "SSL certificate obtained for $domain"
+            fi
+        done
+    fi
 }
 
 # =============================================================================
@@ -1393,14 +1576,17 @@ main() {
 
     install_dependencies
     setup_user_dirs
+    setup_sudoers
     clone_repo
     setup_python
     build_backend
+    setup_shared_infra
     build_frontend
     generate_configs
     start_redis
     configure_nginx
     start_pm2
+    setup_shared_autostart
     setup_ssl
     setup_firewall_swap
     create_admin
