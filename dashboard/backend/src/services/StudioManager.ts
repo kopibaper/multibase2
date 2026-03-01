@@ -116,7 +116,7 @@ export class StudioManager {
 
       // 4. Ensure Nginx gateway config is up-to-date for this tenant
       logger.info(`[Studio Switch] Step 2/2: Updating Nginx gateway config for "${tenantName}"...`);
-      await this.ensureTenantNginxRoute(tenantName);
+      await this.ensureTenantNginxRoute(tenantName, studioPort);
 
       // 4. Update state
       this.activeTenant = {
@@ -145,6 +145,14 @@ export class StudioManager {
     const port = this.tenantStudioPorts.get(tenantName);
     if (!port) return null;
     this.markTenantAccess(tenantName);
+
+    // In cloud/VPS deployment, use the public HTTPS subdomain URL
+    // (system nginx proxies test1.BACKEND_DOMAIN → tenant studio port)
+    const backendDomain = process.env.BACKEND_DOMAIN;
+    if (backendDomain) {
+      return `https://${tenantName}.${backendDomain}`;
+    }
+
     return `http://${host}:${port}`;
   }
 
@@ -263,16 +271,47 @@ export class StudioManager {
   }
 
   /**
-   * Generate/update the Nginx gateway config for this tenant and reload.
-   * This replaces the old ensureTenantKongMetaRoute method.
+   * Update system nginx config to route the tenant subdomain to the correct
+   * per-tenant studio port, then reload system nginx.
+   * Also regenerates the Docker nginx-gateway config.
    */
-  private async ensureTenantNginxRoute(tenantName: string): Promise<void> {
+  private async ensureTenantNginxRoute(tenantName: string, studioPort: number): Promise<void> {
+    // 1. Update system nginx sites-enabled config to point to per-tenant studio port
+    const sysNginxConfig = path.join(
+      this.projectsDir,
+      '..',
+      'nginx',
+      'sites-enabled',
+      `${tenantName}.conf`
+    );
+    if (fs.existsSync(sysNginxConfig)) {
+      try {
+        let config = fs.readFileSync(sysNginxConfig, 'utf8');
+        // Replace the studio proxy_pass in the main location / block
+        // The comment "# Main location with authentication" uniquely identifies the block
+        const updated = config.replace(
+          /(# Main location with authentication[\s\S]*?proxy_pass http:\/\/127\.0\.0\.1:)\d+(;)/,
+          `$1${studioPort}$2`
+        );
+        if (updated !== config) {
+          fs.writeFileSync(sysNginxConfig, updated);
+          logger.info(`Updated system nginx studio proxy_pass for "${tenantName}" to port ${studioPort}`);
+        }
+        // Reload system nginx (multibase has sudo NOPASSWD for this)
+        await execAsync('sudo nginx -s reload', { timeout: 10000 });
+        logger.info(`System nginx reloaded for tenant "${tenantName}"`);
+      } catch (err: any) {
+        logger.warn(`Failed to update system nginx for "${tenantName}": ${err.message}`);
+      }
+    }
+
+    // 2. Also update Docker nginx-gateway config for the Supabase API routes
     try {
       await generateAndWriteTenantConfig(tenantName, this.projectsDir, this.sharedDir);
       await reloadNginxGateway();
-      logger.info(`Nginx gateway config updated and reloaded for tenant "${tenantName}"`);
+      logger.info(`Docker nginx-gateway config updated and reloaded for tenant "${tenantName}"`);
     } catch (error: any) {
-      logger.warn(`Failed to update Nginx gateway for tenant "${tenantName}": ${error.message}`);
+      logger.warn(`Failed to update Docker nginx-gateway for tenant "${tenantName}": ${error.message}`);
       // Non-fatal: Studio can still work, just the gateway routes might be outdated
     }
   }
