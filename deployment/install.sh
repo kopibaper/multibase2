@@ -1118,15 +1118,32 @@ start_redis() {
 
     step "Starting Redis..."
 
+    # Always read password from .env - single source of truth
+    local redis_pass
+    redis_pass=$(grep -m1 '^REDIS_URL=' "$INSTALL_DIR/dashboard/backend/.env" | sed -n 's|.*://:\([^@]*\)@.*|\1|p')
+
     if docker ps --format '{{.Names}}' | grep -q "^${REDIS_CONTAINER}$"; then
-        step_ok "Redis container already running"
+        # Container is running - verify the password matches to catch re-install drift
+        local current_pass
+        current_pass=$(docker inspect "$REDIS_CONTAINER" 2>/dev/null \
+            | python3 -c "import sys,json; c=json.load(sys.stdin)[0]; args=' '.join(c['Args']); idx=args.find('--requirepass'); print(args[idx:].split()[1] if idx>=0 else '')" 2>/dev/null || true)
+
+        if [ "$current_pass" = "$redis_pass" ]; then
+            step_ok "Redis container already running (password matches)"
+        else
+            step "Redis password mismatch - restarting with updated password..."
+            docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
+            docker run -d \
+                --name "$REDIS_CONTAINER" \
+                --restart unless-stopped \
+                -p 127.0.0.1:6379:6379 \
+                redis:7-alpine \
+                redis-server --requirepass "$redis_pass" >> "$LOG_FILE" 2>&1
+            step_new "Redis container restarted with new password"
+        fi
     else
         # Remove stopped container if exists
         docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
-
-        # Extract Redis password from .env
-        local redis_pass
-        redis_pass=$(grep -m1 '^REDIS_URL=' "$INSTALL_DIR/dashboard/backend/.env" | sed -n 's|.*://:\([^@]*\)@.*|\1|p')
 
         docker run -d \
             --name "$REDIS_CONTAINER" \
