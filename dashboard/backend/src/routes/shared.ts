@@ -20,6 +20,7 @@ import DockerManager from '../services/DockerManager';
 import { StudioManager } from '../services/StudioManager';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
+import { requireAuth } from '../middleware/authMiddleware';
 
 const execAsync = promisify(exec);
 
@@ -28,6 +29,9 @@ export function createSharedRoutes(
   studioManager?: StudioManager
 ): Router {
   const router = Router();
+
+  // All shared infrastructure endpoints require a valid session
+  router.use(requireAuth);
 
   const getSharedDir = () => {
     const projectsPath = process.env.PROJECTS_PATH || path.join(__dirname, '../../../projects');

@@ -1109,7 +1109,7 @@ start_redis() {
         docker run -d \
             --name "$REDIS_CONTAINER" \
             --restart unless-stopped \
-            -p 6379:6379 \
+            -p 127.0.0.1:6379:6379 \
             redis:7-alpine >> "$LOG_FILE" 2>&1
 
         step_new "Redis container started"
