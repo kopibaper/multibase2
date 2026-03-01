@@ -385,7 +385,7 @@ END $$;
         override_path = self.shared_dir / 'docker-compose.override.yml'
         write_with_unix_newlines(str(override_path), content)
 
-
+    def _get_shared_env(self) -> dict:
         """Read shared .env file and return as dict."""
         env = {}
         if self.env_file.exists():
