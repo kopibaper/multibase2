@@ -15,6 +15,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
+import { Pool } from 'pg';
 import DockerManager from '../services/DockerManager';
 import { StudioManager } from '../services/StudioManager';
 import { logger } from '../utils/logger';
@@ -40,6 +41,18 @@ export function createSharedRoutes(
       return parseEnvFile(envPath);
     }
     return null;
+  };
+
+  const getSharedPgPool = () => {
+    const sharedEnv = getSharedEnv();
+    return new Pool({
+      host: '127.0.0.1',
+      port: parseInt(sharedEnv?.SHARED_PG_PORT || '5432', 10),
+      user: 'postgres',
+      password: sharedEnv?.SHARED_POSTGRES_PASSWORD || process.env.POSTGRES_PASSWORD,
+      database: 'postgres',
+      connectionTimeoutMillis: 5000,
+    });
   };
 
   /**
@@ -140,32 +153,28 @@ export function createSharedRoutes(
    * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
   router.get('/databases', async (_req: Request, res: Response) => {
+    const pool = getSharedPgPool();
     try {
-      const sql = `SELECT datname, pg_database_size(datname) as size_bytes FROM pg_database WHERE datname LIKE 'project_%' ORDER BY datname;`;
-      const { stdout } = await execAsync(
-        `docker exec multibase-db psql -U postgres -t -c "${sql}"`
+      const result = await pool.query(
+        `SELECT datname, pg_database_size(datname) as size_bytes FROM pg_database WHERE datname LIKE 'project_%' ORDER BY datname`
       );
 
-      const databases = stdout
-        .trim()
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .map((line) => {
-          const [datname, sizeBytes] = line.split('|').map((s) => s.trim());
-          const bytes = parseInt(sizeBytes, 10) || 0;
-          return {
-            name: datname,
-            projectName: datname.replace('project_', '').replace(/_/g, '-'),
-            sizeBytes: bytes,
-            sizeFormatted: formatBytes(bytes),
-          };
-        });
+      const databases = result.rows.map((row) => {
+        const bytes = parseInt(row.size_bytes, 10) || 0;
+        return {
+          name: row.datname,
+          projectName: row.datname.replace('project_', '').replace(/_/g, '-'),
+          sizeBytes: bytes,
+          sizeFormatted: formatBytes(bytes),
+        };
+      });
 
       res.json({ databases, count: databases.length });
     } catch (error: any) {
       logger.error('Error listing databases:', error);
       res.status(500).json({ error: error.message });
+    } finally {
+      await pool.end();
     }
   });
 
@@ -183,7 +192,12 @@ export function createSharedRoutes(
       }
 
       const dbName = `project_${projectName}`.replace(/-/g, '_');
-      await execAsync(`docker exec multibase-db psql -U postgres -c "CREATE DATABASE ${dbName};"`);
+      const createPool = getSharedPgPool();
+      try {
+        await createPool.query(`CREATE DATABASE ${dbName}`);
+      } finally {
+        await createPool.end();
+      }
 
       logger.info(`Created database: ${dbName}`);
       res.json({ success: true, database: dbName });
@@ -203,12 +217,16 @@ export function createSharedRoutes(
       const dbName = `project_${req.params.name}`.replace(/-/g, '_');
 
       // Terminate active connections first, then drop
-      await execAsync(
-        `docker exec multibase-db psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid<>pg_backend_pid();"`
-      );
-      await execAsync(
-        `docker exec multibase-db psql -U postgres -c "DROP DATABASE IF EXISTS ${dbName};"`
-      );
+      const dropPool = getSharedPgPool();
+      try {
+        await dropPool.query(
+          `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()`,
+          [dbName]
+        );
+        await dropPool.query(`DROP DATABASE IF EXISTS ${dbName}`);
+      } finally {
+        await dropPool.end();
+      }
 
       logger.info(`Dropped database: ${dbName}`);
       res.json({ success: true, database: dbName });
