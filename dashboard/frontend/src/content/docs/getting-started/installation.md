@@ -178,21 +178,20 @@ This will:
 
 ## Uninstalling
 
-Remove the entire installation:
+See the dedicated [Uninstall Guide](/setup/getting-started/uninstall) for full details.
+
+Quick reference:
 
 ```bash
-sudo /opt/multibase/deployment/install.sh --uninstall
+# Standard removal
+sudo bash /opt/multibase/deployment/uninstall.sh
+
+# Keep project data
+sudo bash /opt/multibase/deployment/uninstall.sh --keep-data
+
+# Remove everything including system packages
+sudo bash /opt/multibase/deployment/uninstall.sh --del-all
 ```
-
-Or remove everything **except** your project data and database:
-
-```bash
-sudo /opt/multibase/deployment/install.sh --uninstall --keep-data
-```
-
-**What gets removed:** PM2 processes, Nginx vhosts, SSL certificates, Redis container, install directory, system user.
-
-**What stays:** Node.js, Docker, Nginx, Python (system-level packages).
 
 ---
 

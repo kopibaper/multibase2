@@ -55,6 +55,9 @@ export default function SetupLayout({}: SetupLayoutProps) {
             <SidebarLink to='/setup/getting-started/installation' icon={Book}>
               Installation
             </SidebarLink>
+            <SidebarLink to='/setup/getting-started/uninstall' icon={Book}>
+              Uninstall
+            </SidebarLink>
             <SidebarLink to='/setup/getting-started/hosting' icon={Book}>
               Choosing a VPS
             </SidebarLink>
