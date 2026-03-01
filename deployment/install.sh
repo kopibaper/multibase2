@@ -16,6 +16,7 @@ set -euo pipefail
 INSTALL_DIR="/opt/multibase"
 INSTALL_USER="multibase"
 REPO_URL="https://github.com/skipper159/multibase2.git"
+REPO_BRANCH="${REPO_BRANCH:-cloud-version}"
 LOG_FILE="/var/log/multibase-install.log"
 NODE_MAJOR=20
 REDIS_CONTAINER="multibase-redis"
@@ -43,9 +44,12 @@ ADMIN_EMAIL=""
 ADMIN_PASS=""
 SSL_ENABLED="y"
 SSL_EMAIL=""
+SSL_TYPE="per-tenant"
 UFW_ENABLED="y"
 SWAP_ENABLED="y"
 TOTAL_STEPS=14
+SKIP_WIZARD=0      # set to 1 when re-running with existing config loaded directly
+STATE_FILE="/opt/multibase/.installer-state"   # written right after wizard completes
 CURRENT_STEP=0
 
 # =============================================================================
@@ -90,6 +94,28 @@ error_exit() {
     exit 1
 }
 
+# Read from /dev/tty if available, otherwise fall back to stdin.
+# Usage: tty_read [-s] VAR [DEFAULT]
+tty_read() {
+    local _silent=0
+    if [ "${1:-}" = "-s" ]; then _silent=1; shift; fi
+    local _var="$1"
+    local _default="${2:-}"
+    local _val=""
+    if [ -c /dev/tty ] && { true < /dev/tty; } 2>/dev/null; then
+        if [ "$_silent" = "1" ]; then
+            IFS= read -rs _val < /dev/tty || true
+        else
+            IFS= read -r _val < /dev/tty || true
+        fi
+    else
+        # No TTY available – use default silently
+        _val=""
+    fi
+    _val="${_val:-$_default}"
+    eval "$_var=\$_val"
+}
+
 prompt() {
     local var_name="$1"
     local prompt_text="$2"
@@ -102,9 +128,8 @@ prompt() {
         echo -ne "  ${prompt_text}: "
     fi
 
-    read -r value
-    value="${value:-$default}"
-    eval "$var_name='$value'"
+    tty_read value "$default"
+    printf -v "$var_name" '%s' "$value"
 }
 
 prompt_password() {
@@ -113,14 +138,14 @@ prompt_password() {
     local value=""
 
     echo -ne "  ${prompt_text} ${DIM}(Enter for auto-generated)${NC}: "
-    read -rs value
+    tty_read -s value ""
     echo ""
 
     if [ -z "$value" ]; then
         value=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
         echo -e "  ${DIM}Auto-generated password${NC}"
     fi
-    eval "$var_name='$value'"
+    printf -v "$var_name" '%s' "$value"
 }
 
 prompt_yn() {
@@ -130,10 +155,9 @@ prompt_yn() {
     local value=""
 
     echo -ne "  ${prompt_text} (y/n) ${DIM}[${default}]${NC}: "
-    read -r value
-    value="${value:-$default}"
+    tty_read value "$default"
     value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
-    eval "$var_name='$value'"
+    printf -v "$var_name" '%s' "$value"
 }
 
 separator() {
@@ -163,7 +187,7 @@ preflight_checks() {
     if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
         echo -e "${YELLOW}WARNING: This script is designed for Ubuntu/Debian. Your OS: ${ID}${NC}"
         echo -ne "  Continue anyway? (y/n) [n]: "
-        read -r cont
+        tty_read cont "n"
         if [ "$cont" != "y" ]; then
             exit 0
         fi
@@ -209,7 +233,7 @@ show_banner() {
     echo -e "  on your server."
     echo ""
     echo -ne "  Press ${BOLD}Enter${NC} to continue..."
-    read -r
+    tty_read _ack ""
 }
 
 # =============================================================================
@@ -235,7 +259,13 @@ wizard_deployment_mode() {
     echo ""
 
     local choice=""
-    prompt choice "Choice" "1"
+    local default_choice="1"
+    case "$DEPLOY_MODE" in
+        single)         default_choice="1" ;;
+        split-frontend) default_choice="2" ;;
+        split-backend)  default_choice="3" ;;
+    esac
+    prompt choice "Choice" "$default_choice"
 
     case "$choice" in
         1) DEPLOY_MODE="single" ;;
@@ -254,29 +284,29 @@ wizard_domains() {
 
     case "$DEPLOY_MODE" in
         single)
-            prompt FRONTEND_DOMAIN "Frontend domain (e.g. dashboard.example.com)" ""
+            prompt FRONTEND_DOMAIN "Frontend domain (e.g. dashboard.example.com)" "${FRONTEND_DOMAIN:-}"
             [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
             echo ""
-            prompt BACKEND_DOMAIN "Backend domain (e.g. api.example.com)" ""
+            prompt BACKEND_DOMAIN "Backend domain (e.g. api.example.com)" "${BACKEND_DOMAIN:-}"
             [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
             BACKEND_URL="https://${BACKEND_DOMAIN}"
             FRONTEND_URL="https://${FRONTEND_DOMAIN}"
             ;;
         split-frontend)
-            prompt FRONTEND_DOMAIN "Frontend domain (this server)" ""
+            prompt FRONTEND_DOMAIN "Frontend domain (this server)" "${FRONTEND_DOMAIN:-}"
             [ -z "$FRONTEND_DOMAIN" ] && error_exit "Frontend domain is required"
             echo ""
-            prompt BACKEND_URL "Backend URL (remote server, incl. https://)" ""
+            prompt BACKEND_URL "Backend URL (remote server, incl. https://)" "${BACKEND_URL:-}"
             [ -z "$BACKEND_URL" ] && error_exit "Backend URL is required"
             # Extract domain from URL
             BACKEND_DOMAIN=$(echo "$BACKEND_URL" | sed 's|https\?://||' | sed 's|/.*||')
             FRONTEND_URL="https://${FRONTEND_DOMAIN}"
             ;;
         split-backend)
-            prompt BACKEND_DOMAIN "Backend domain (this server)" ""
+            prompt BACKEND_DOMAIN "Backend domain (this server)" "${BACKEND_DOMAIN:-}"
             [ -z "$BACKEND_DOMAIN" ] && error_exit "Backend domain is required"
             echo ""
-            prompt FRONTEND_URL "Frontend URL (remote server, for CORS)" ""
+            prompt FRONTEND_URL "Frontend URL (remote server, for CORS)" "${FRONTEND_URL:-}"
             [ -z "$FRONTEND_URL" ] && error_exit "Frontend URL is required"
             BACKEND_URL="https://${BACKEND_DOMAIN}"
             # Extract domain from URL
@@ -297,10 +327,20 @@ wizard_admin() {
     separator
     echo ""
 
-    prompt ADMIN_USER "Username" "admin"
-    prompt ADMIN_EMAIL "Email" ""
+    prompt ADMIN_USER "Username" "${ADMIN_USER:-admin}"
+    prompt ADMIN_EMAIL "Email" "${ADMIN_EMAIL:-}"
     [ -z "$ADMIN_EMAIL" ] && error_exit "Admin email is required"
-    prompt_password ADMIN_PASS "Password"
+
+    if [ "$ADMIN_PASS" = "__existing__" ]; then
+        echo -e "  ${DIM}Password: keeping existing (leave blank to auto-generate new one)${NC}"
+        local _newpass=""
+        echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
+        tty_read -s _newpass ""
+        echo ""
+        [ -n "$_newpass" ] && ADMIN_PASS="$_newpass" || ADMIN_PASS=""
+    else
+        prompt_password ADMIN_PASS "Password"
+    fi
 }
 
 wizard_ssl() {
@@ -310,11 +350,26 @@ wizard_ssl() {
     separator
     echo ""
 
-    prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "y"
+    prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "${SSL_ENABLED:-y}"
 
     if [ "$SSL_ENABLED" = "y" ]; then
         prompt SSL_EMAIL "Email for Let's Encrypt" "${ADMIN_EMAIL:-}"
         [ -z "$SSL_EMAIL" ] && error_exit "SSL email is required"
+
+        echo ""
+        echo -e "  ${BOLD}Certificate type:${NC}"
+        echo -e "  ${GREEN}[per-domain]${NC} Fully automatic — certbot proves ownership via HTTP."
+        echo -e "              No manual steps. Works with any DNS provider. ${BOLD}(recommended)${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[wildcard]${NC}   Covers *.domain.com automatically, but ${BOLD}requires a manual step:${NC}"
+        echo -e "              The installer will PAUSE and ask you to add a DNS TXT record"
+        echo -e "              at your DNS provider (Hetzner, Cloudflare, etc.), then press Enter."
+        echo -e "              ${DIM}DNS propagation can take up to 60 seconds.${NC}"
+        echo ""
+        local _wildcard="n"
+        [ "$SSL_TYPE" = "wildcard" ] && _wildcard="y"
+        prompt_yn _wildcard "Use wildcard certificate? (manual DNS step required)" "$_wildcard"
+        [ "$_wildcard" = "y" ] && SSL_TYPE="wildcard" || SSL_TYPE="per-tenant"
     fi
 }
 
@@ -325,7 +380,7 @@ wizard_extras() {
     separator
     echo ""
 
-    prompt_yn UFW_ENABLED "Configure UFW firewall?" "y"
+    prompt_yn UFW_ENABLED "Configure UFW firewall?" "${UFW_ENABLED:-y}"
 
     local total_ram
     total_ram=$(free -m | awk '/^Mem:/{print $2}')
@@ -370,7 +425,13 @@ wizard_confirm() {
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
         echo -e "  Admin:            ${BOLD}${ADMIN_USER}${NC} (${ADMIN_EMAIL})"
     fi
-    echo -e "  SSL:              ${BOLD}$([ "$SSL_ENABLED" = "y" ] && echo "Yes" || echo "No")${NC}"
+    local _ssl_label
+    if [ "$SSL_ENABLED" = "y" ]; then
+        [ "$SSL_TYPE" = "wildcard" ] && _ssl_label="Yes (wildcard)" || _ssl_label="Yes (per-tenant)"
+    else
+        _ssl_label="No"
+    fi
+    echo -e "  SSL:              ${BOLD}${_ssl_label}${NC}"
     echo -e "  Firewall:         ${BOLD}$([ "$UFW_ENABLED" = "y" ] && echo "Yes (UFW)" || echo "No")${NC}"
     echo -e "  Swap:             ${BOLD}$([ "$SWAP_ENABLED" = "y" ] && echo "2 GB" || echo "No")${NC}"
     echo ""
@@ -384,7 +445,116 @@ wizard_confirm() {
     fi
 }
 
+# =============================================================================
+# Save Installer State (right after wizard, before any install steps)
+# =============================================================================
+
+save_installer_state() {
+    mkdir -p "$(dirname "$STATE_FILE")"
+    cat > "$STATE_FILE" <<EOF
+# Multibase installer state — saved $(date)
+INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
+INSTALLER_ADMIN_USER=${ADMIN_USER}
+INSTALLER_ADMIN_EMAIL=${ADMIN_EMAIL}
+INSTALLER_SSL_ENABLED=${SSL_ENABLED}
+INSTALLER_UFW_ENABLED=${UFW_ENABLED}
+FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
+BACKEND_DOMAIN=${BACKEND_DOMAIN}
+FRONTEND_URL=${FRONTEND_URL}
+BACKEND_URL=${BACKEND_URL}
+SSL_EMAIL=${SSL_EMAIL}
+SSL_TYPE=${SSL_TYPE:-per-tenant}
+CORS_ORIGIN=${FRONTEND_URL}
+EOF
+    chmod 600 "$STATE_FILE"
+}
+
+# =============================================================================
+# Load Existing Config (re-run detection)
+# =============================================================================
+
+load_existing_config() {
+    # Prefer the lightweight state file (written immediately after wizard)
+    # Fall back to backend .env (written by generate_configs)
+    local env_file=""
+    if [ -f "$STATE_FILE" ]; then
+        env_file="$STATE_FILE"
+    elif [ -f "$INSTALL_DIR/dashboard/backend/.env" ]; then
+        env_file="$INSTALL_DIR/dashboard/backend/.env"
+    else
+        return 0
+    fi
+
+    local _get
+    _get() { grep -m1 "^${1}=" "$env_file" 2>/dev/null | cut -d= -f2- || true; }
+
+    local prev_mode prev_admin prev_email prev_ssl prev_ufw
+    prev_mode=$(_get INSTALLER_DEPLOY_MODE)
+    prev_admin=$(_get INSTALLER_ADMIN_USER)
+    prev_email=$(_get INSTALLER_ADMIN_EMAIL)
+    prev_ssl=$(_get INSTALLER_SSL_ENABLED)
+    prev_ufw=$(_get INSTALLER_UFW_ENABLED)
+
+    [ -z "$prev_mode" ] && return
+
+    # Load all values silently first
+    [ -n "$prev_mode" ]  && DEPLOY_MODE="$prev_mode"
+    [ -n "$prev_admin" ] && ADMIN_USER="$prev_admin"
+    [ -n "$prev_email" ] && ADMIN_EMAIL="$prev_email"
+    [ -n "$prev_ssl" ]   && SSL_ENABLED="$prev_ssl"
+    [ -n "$prev_ufw" ]   && UFW_ENABLED="$prev_ufw"
+    local prev_frontend prev_backend prev_ssl_email prev_ssl_type prev_backend_url prev_frontend_url
+    prev_frontend=$(_get FRONTEND_DOMAIN)
+    prev_backend=$(_get BACKEND_DOMAIN)
+    prev_ssl_email=$(_get SSL_EMAIL)
+    prev_ssl_type=$(_get SSL_TYPE)
+    prev_backend_url=$(_get BACKEND_URL)
+    prev_frontend_url=$(_get CORS_ORIGIN)
+    [ -n "$prev_frontend" ]     && FRONTEND_DOMAIN="$prev_frontend"
+    [ -n "$prev_backend" ]      && BACKEND_DOMAIN="$prev_backend"
+    [ -n "$prev_ssl_email" ]    && SSL_EMAIL="$prev_ssl_email"
+    [ -n "$prev_ssl_type" ]     && SSL_TYPE="$prev_ssl_type"
+    [ -n "$prev_backend_url" ]  && BACKEND_URL="$prev_backend_url"
+    [ -n "$prev_frontend_url" ] && FRONTEND_URL="$prev_frontend_url"
+    ADMIN_PASS="__existing__"
+
+    # Ask user what to do
+    echo ""
+    separator
+    echo -e "  ${YELLOW}Previous installation detected${NC}"
+    separator
+    echo ""
+    echo -e "  ${DIM}Mode:    ${BOLD}${prev_mode}${NC}"
+    echo -e "  ${DIM}Domain:  ${BOLD}${BACKEND_DOMAIN:-${FRONTEND_DOMAIN}}${NC}"
+    echo -e "  ${DIM}Admin:   ${BOLD}${prev_admin}${NC} ${DIM}(${prev_email})${NC}"
+    echo -e "  ${DIM}SSL:     ${BOLD}${prev_ssl}${NC}  |  UFW: ${BOLD}${prev_ufw}${NC}"
+    echo ""
+    echo -e "  ${BOLD}[1]${NC} Use these settings and start installation directly"
+    echo -e "  ${BOLD}[2]${NC} Edit settings (go through wizard with pre-filled defaults)"
+    echo ""
+    local _choice=""
+    prompt _choice "Choice" "1"
+    if [ "$_choice" != "2" ]; then
+        SKIP_WIZARD=1
+        echo ""
+        echo -e "  ${GREEN}OK — resuming installation with existing settings.${NC}"
+        echo ""
+    fi
+}
+
 run_wizard() {
+    load_existing_config
+
+    if [ "$SKIP_WIZARD" = "1" ]; then
+        # Just set TOTAL_STEPS based on loaded DEPLOY_MODE, skip all wizard steps
+        case "$DEPLOY_MODE" in
+            single)         TOTAL_STEPS=19 ;;
+            split-frontend) TOTAL_STEPS=9  ;;
+            split-backend)  TOTAL_STEPS=18 ;;
+        esac
+        return
+    fi
+
     wizard_deployment_mode
     wizard_domains
     wizard_admin
@@ -394,9 +564,9 @@ run_wizard() {
 
     # Adjust total steps based on mode
     case "$DEPLOY_MODE" in
-        single)       TOTAL_STEPS=14 ;;
-        split-frontend) TOTAL_STEPS=9 ;;
-        split-backend)  TOTAL_STEPS=13 ;;
+        single)         TOTAL_STEPS=19 ;;
+        split-frontend) TOTAL_STEPS=9  ;;
+        split-backend)  TOTAL_STEPS=18 ;;
     esac
 }
 
@@ -458,6 +628,13 @@ install_dependencies() {
             apt-get install -y -qq python3 python3-pip python3-venv >> "$LOG_FILE" 2>&1
             step_new "Python $(python3 --version | awk '{print $2}') (installed)"
         fi
+        # venv must always be installed, even if python3 was pre-installed
+        # Ubuntu 24.04+ ships python3.12 without the venv module by default
+        local py_ver
+        py_ver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        apt-get install -y -qq python3-venv "python${py_ver}-venv" >> "$LOG_FILE" 2>&1 || \
+            apt-get install -y -qq python3-venv >> "$LOG_FILE" 2>&1
+        step_ok "Python venv (python${py_ver}-venv installed)"
     fi
 
     # Nginx
@@ -545,19 +722,20 @@ clone_repo() {
     if [ -d "$INSTALL_DIR/.git" ]; then
         step_ok "Repository already exists, pulling latest..."
         cd "$INSTALL_DIR"
-        sudo -u "$INSTALL_USER" git pull >> "$LOG_FILE" 2>&1
+        sudo -u "$INSTALL_USER" git pull origin "$REPO_BRANCH" >> "$LOG_FILE" 2>&1
         step_ok "Repository updated"
     else
         # Clone into a temp dir first, then move contents
         local tmp_dir
         tmp_dir=$(mktemp -d)
-        git clone "$REPO_URL" "$tmp_dir" >> "$LOG_FILE" 2>&1
+        git clone --branch "$REPO_BRANCH" "$REPO_URL" "$tmp_dir" >> "$LOG_FILE" 2>&1
 
         # Move contents (preserving dirs we already created)
         cp -a "$tmp_dir"/. "$INSTALL_DIR"/
         rm -rf "$tmp_dir"
 
         chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
+        chmod 700 "$INSTALL_DIR"
         step_ok "Repository cloned to $INSTALL_DIR"
     fi
 }
@@ -573,11 +751,21 @@ setup_python() {
 
     step "Setting up Python environment..."
 
+    # Ensure pip is available (may be missing even if python3 is installed)
+    if ! python3 -m pip --version &>/dev/null; then
+        apt-get install -y -qq python3-pip >> "$LOG_FILE" 2>&1
+    fi
+
     local venv_dir="$INSTALL_DIR/venv"
 
-    if [ -d "$venv_dir" ]; then
-        step_ok "Virtual environment already exists"
+    # Check if venv exists AND is functional (not just the directory)
+    if [ -d "$venv_dir" ] && "$venv_dir/bin/python3" -c "import sys" &>/dev/null; then
+        step_ok "Virtual environment already exists and is functional"
     else
+        if [ -d "$venv_dir" ]; then
+            step "Virtual environment broken, recreating..."
+            rm -rf "$venv_dir"
+        fi
         sudo -u "$INSTALL_USER" python3 -m venv "$venv_dir"
         step_new "Virtual environment created"
     fi
@@ -604,7 +792,7 @@ build_backend() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
-    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
@@ -613,11 +801,35 @@ build_backend() {
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
+    # Remove devDependencies after build to save disk space
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
+
     # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
     chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/data"
+}
 
-    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+# =============================================================================
+# Database Migrations (after generate_configs so DATABASE_URL exists in .env)
+# =============================================================================
+
+run_db_migrations() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return 0
+    fi
+
+    step "Applying database migrations..."
+
+    cd "$INSTALL_DIR/dashboard/backend"
+
+    # Prisma reads DATABASE_URL from .env automatically when run in the project directory.
+    # Do NOT extract and re-pass DATABASE_URL manually – grep/cut leaves literal quotes in
+    # the value (e.g. "file:./data/multibase.db") which causes Prisma P1003 errors.
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+        echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
+        tail -20 "$LOG_FILE" >&2
+        exit 1
+    fi
     step_ok "Database migrations applied"
 }
 
@@ -650,6 +862,14 @@ generate_configs() {
 
     local session_secret
     session_secret=$(generate_secret)
+    local redis_password
+    redis_password=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)
+
+    # ROOT_DOMAIN: 2nd-level base domain for instance subdomains.
+    # backend.tyto-design.de  → tyto-design.de
+    # tyto-design.de          → tyto-design.de  (already base)
+    local root_domain
+    root_domain=$(echo "${BACKEND_DOMAIN}" | awk -F. 'NF>=3{print $(NF-1)"."$NF; next} {print}')
 
     # Backend .env (only for single + split-backend)
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
@@ -665,15 +885,33 @@ NODE_ENV=production
 DATABASE_URL="file:./data/multibase.db"
 
 # Redis
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://:${redis_password}@localhost:6379
 
 # Docker
-DOCKER_HOST=/var/run/docker.sock
+DOCKER_SOCKET_PATH=/var/run/docker.sock
 
 # Paths
 PROJECTS_PATH=${INSTALL_DIR}/projects
 PYTHON_PATH=${INSTALL_DIR}/venv/bin/python3
 BACKUP_PATH=${INSTALL_DIR}/backups
+SHARED_DIR=${INSTALL_DIR}/shared
+
+# Domains
+BACKEND_DOMAIN=${BACKEND_DOMAIN}
+ROOT_DOMAIN=${root_domain}
+FRONTEND_DOMAIN=${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+DASHBOARD_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+BACKEND_URL=https://${BACKEND_DOMAIN}
+COOKIE_DOMAIN=.${root_domain}
+
+# SSL / Certbot
+SSL_EMAIL=${SSL_EMAIL}
+CERTBOT_EMAIL=${SSL_EMAIL}
+SSL_TYPE=${SSL_TYPE:-per-tenant}
+
+# App URLs
+APP_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
+DASHBOARD_URL=https://${FRONTEND_DOMAIN:-${BACKEND_DOMAIN}}
 
 # CORS
 CORS_ORIGIN=${FRONTEND_URL}
@@ -688,8 +926,21 @@ ALERT_CHECK_INTERVAL=60000
 
 # Session
 SESSION_SECRET=${session_secret}
+
+# Initial admin credentials (used by backend on first start if no admin exists)
+DEFAULT_ADMIN_USERNAME=${ADMIN_USER}
+DEFAULT_ADMIN_EMAIL=${ADMIN_EMAIL}
+DEFAULT_ADMIN_PASSWORD=${ADMIN_PASS}
+
+# Installer metadata (used for re-run detection)
+INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
+INSTALLER_ADMIN_USER=${ADMIN_USER}
+INSTALLER_ADMIN_EMAIL=${ADMIN_EMAIL}
+INSTALLER_SSL_ENABLED=${SSL_ENABLED}
+INSTALLER_UFW_ENABLED=${UFW_ENABLED}
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/.env"
+        chmod 600 "$INSTALL_DIR/dashboard/backend/.env"
         step_ok "Backend .env created"
     fi
 
@@ -699,8 +950,10 @@ EOF
 # Multibase Frontend Configuration
 # Generated by installer v${SCRIPT_VERSION} on $(date)
 VITE_API_URL=${BACKEND_URL}
+VITE_ROOT_DOMAIN=${root_domain}
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/frontend/.env"
+        chmod 600 "$INSTALL_DIR/dashboard/frontend/.env"
         step_ok "Frontend .env created (VITE_API_URL=${BACKEND_URL})"
     fi
 
@@ -712,11 +965,12 @@ module.exports = {
     name: '${PM2_APP_NAME}',
     cwd: '${INSTALL_DIR}/dashboard/backend',
     script: 'dist/server.js',
+    exec_mode: 'fork',
+    instances: 1,
     env: {
       NODE_ENV: 'production',
       PORT: 3001
     },
-    instances: 1,
     autorestart: true,
     max_memory_restart: '512M',
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
@@ -731,6 +985,129 @@ EOF
 }
 
 # =============================================================================
+# Sudoers – nginx reload + certbot without password prompt
+# =============================================================================
+
+setup_sudoers() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Configuring sudoers for nginx and certbot..."
+
+    cat > /etc/sudoers.d/multibase <<EOF
+# Multibase: allow backend service to reload nginx and run certbot without password
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -s reload
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot certonly *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot install *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot renew --no-random-sleep-on-renew
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot certonly *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot install *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot renew --no-random-sleep-on-renew
+EOF
+    chmod 440 /etc/sudoers.d/multibase
+    visudo -c -f /etc/sudoers.d/multibase >> "$LOG_FILE" 2>&1
+    step_ok "sudoers configured for ${INSTALL_USER} (nginx + certbot)"
+}
+
+# =============================================================================
+# Shared Infrastructure Setup
+# =============================================================================
+
+setup_shared_infra() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Setting up Shared Infrastructure..."
+
+    local shared_dir="${INSTALL_DIR}/shared"
+    local python="${INSTALL_DIR}/venv/bin/python3"
+
+    # 1. Generate .env.shared with secure secrets (only if not present)
+    if [ ! -f "${shared_dir}/.env.shared" ]; then
+        sudo -u "$INSTALL_USER" "$python" "${INSTALL_DIR}/setup_shared.py" init >> "$LOG_FILE" 2>&1
+        step_ok ".env.shared generated with secure secrets"
+    else
+        step_ok ".env.shared already exists – skipping generation"
+    fi
+
+    # 2. Patch SHARED_PUBLIC_URL to the configured backend domain
+    if [ -n "$BACKEND_DOMAIN" ]; then
+        sed -i "s|SHARED_PUBLIC_URL=.*|SHARED_PUBLIC_URL=https://${BACKEND_DOMAIN}|" \
+            "${shared_dir}/.env.shared"
+    fi
+
+    local compose_file="${shared_dir}/docker-compose.shared.yml"
+    local env_file="${shared_dir}/.env.shared"
+
+    # 3. Pull images — show per-image progress (first install ~8 GB, can take 10–20 min)
+    echo ""
+    echo -e "        ${DIM}[1/2] Pulling Docker images (first install ~8 GB, may take 10–20 min)...${NC}"
+    local images
+    images=$(docker compose --file "$compose_file" --env-file "$env_file" \
+        --project-name multibase-shared config --images 2>/dev/null || true)
+    for img in $images; do
+        if docker image inspect "$img" &>/dev/null; then
+            echo -e "        ${GREEN}✓${NC} ${DIM}${img} (already cached)${NC}"
+            log "  Image cached: $img"
+        else
+            echo -e "        ${YELLOW}↓${NC} ${DIM}Pulling ${img}...${NC}"
+            if docker pull "$img" >> "$LOG_FILE" 2>&1; then
+                echo -e "        ${GREEN}✓${NC} ${DIM}${img} pulled${NC}"
+                log "  Image pulled: $img"
+            else
+                echo -e "        ${RED}✗${NC} ${DIM}Failed to pull ${img}${NC}"
+                log "  ERROR pulling image: $img"
+            fi
+        fi
+    done
+    echo ""
+
+    # 4. Start shared stack and show per-container status
+    echo -e "        ${DIM}[2/2] Starting containers...${NC}"
+    sudo -u "$INSTALL_USER" "$python" "${INSTALL_DIR}/setup_shared.py" start >> "$LOG_FILE" 2>&1
+    # Print status of each container
+    docker compose --file "$compose_file" --env-file "$env_file" \
+        --project-name multibase-shared ps \
+        --format "table {{.Name}}\t{{.Status}}" 2>/dev/null | tail -n +2 | \
+        while IFS=$'\t' read -r name status; do
+            if echo "$status" | grep -qi "up\|running\|healthy"; then
+                echo -e "        ${GREEN}✓${NC} ${DIM}${name} — ${status}${NC}"
+            elif echo "$status" | grep -qi "starting\|health"; then
+                echo -e "        ${YELLOW}⏳${NC} ${DIM}${name} — ${status}${NC}"
+            else
+                echo -e "        ${RED}✗${NC} ${DIM}${name} — ${status}${NC}"
+            fi
+        done
+    echo ""
+    step_ok "Shared stack started"
+
+    # 5. Wait for PostgreSQL to be ready (max 60 s)
+    step "Waiting for PostgreSQL to be ready..."
+    local retries=0
+    until docker exec multibase-db pg_isready -U postgres -q 2>/dev/null; do
+        retries=$((retries + 1))
+        if [ "$retries" -ge 60 ]; then
+            step_fail "PostgreSQL did not become ready within 60 seconds"
+            error_exit "Shared PostgreSQL failed to start — check 'docker logs multibase-db'"
+        fi
+        sleep 1
+    done
+    step_ok "PostgreSQL is ready"
+
+    # 6. Fix postgres data directory ownership so TCP connections work
+    #    The supabase/postgres image runs as UID 105 (postgres user inside container)
+    #    but Docker volume dirs may be created as root or INSTALL_USER. Fix it now.
+    local db_data_dir="${INSTALL_DIR}/shared/volumes/db/data"
+    if [ -d "$db_data_dir" ]; then
+        chown -R 105:106 "$db_data_dir" >> "$LOG_FILE" 2>&1 || true
+        log "Fixed postgres data directory ownership to 105:106"
+    fi
+}
+
+# =============================================================================
 # Redis Container
 # =============================================================================
 
@@ -741,8 +1118,29 @@ start_redis() {
 
     step "Starting Redis..."
 
+    # Always read password from .env - single source of truth
+    local redis_pass
+    redis_pass=$(grep -m1 '^REDIS_URL=' "$INSTALL_DIR/dashboard/backend/.env" | sed -n 's|.*://:\([^@]*\)@.*|\1|p')
+
     if docker ps --format '{{.Names}}' | grep -q "^${REDIS_CONTAINER}$"; then
-        step_ok "Redis container already running"
+        # Container is running - verify the password matches to catch re-install drift
+        local current_pass
+        current_pass=$(docker inspect "$REDIS_CONTAINER" 2>/dev/null \
+            | python3 -c "import sys,json; c=json.load(sys.stdin)[0]; args=' '.join(c['Args']); idx=args.find('--requirepass'); print(args[idx:].split()[1] if idx>=0 else '')" 2>/dev/null || true)
+
+        if [ "$current_pass" = "$redis_pass" ]; then
+            step_ok "Redis container already running (password matches)"
+        else
+            step "Redis password mismatch - restarting with updated password..."
+            docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
+            docker run -d \
+                --name "$REDIS_CONTAINER" \
+                --restart unless-stopped \
+                -p 127.0.0.1:6379:6379 \
+                redis:7-alpine \
+                redis-server --requirepass "$redis_pass" >> "$LOG_FILE" 2>&1
+            step_new "Redis container restarted with new password"
+        fi
     else
         # Remove stopped container if exists
         docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
@@ -750,8 +1148,9 @@ start_redis() {
         docker run -d \
             --name "$REDIS_CONTAINER" \
             --restart unless-stopped \
-            -p 6379:6379 \
-            redis:7-alpine >> "$LOG_FILE" 2>&1
+            -p 127.0.0.1:6379:6379 \
+            redis:7-alpine \
+            redis-server --requirepass "$redis_pass" >> "$LOG_FILE" 2>&1
 
         step_new "Redis container started"
     fi
@@ -772,6 +1171,13 @@ server {
     listen [::]:80;
     server_name ${FRONTEND_DOMAIN};
     root ${INSTALL_DIR}/dashboard/frontend/dist;
+
+    # Security headers
+    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;
+    add_header X-Frame-Options \"SAMEORIGIN\" always;
+    add_header X-Content-Type-Options \"nosniff\" always;
+    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
 
     # HTTPS redirect
     if (\$scheme != "https") {
@@ -837,6 +1243,9 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     # API proxy
     location / {
@@ -874,6 +1283,44 @@ EOF
 }
 
 # =============================================================================
+# Shared Infrastructure – Systemd Auto-Start
+# =============================================================================
+
+setup_shared_autostart() {
+    if [ "$DEPLOY_MODE" = "split-frontend" ]; then
+        return
+    fi
+
+    step "Configuring Shared Infrastructure auto-start on boot..."
+
+    cat > /etc/systemd/system/multibase-shared.service <<EOF
+[Unit]
+Description=Multibase Shared Infrastructure (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=${INSTALL_USER}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/venv/bin/python3 ${INSTALL_DIR}/setup_shared.py start
+ExecStop=/usr/bin/docker compose \\
+    -f ${INSTALL_DIR}/shared/docker-compose.shared.yml \\
+    --env-file ${INSTALL_DIR}/shared/.env.shared down
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable multibase-shared.service
+    step_ok "multibase-shared.service enabled (auto-start on reboot)"
+}
+
+# =============================================================================
 # PM2 Setup
 # =============================================================================
 
@@ -885,23 +1332,23 @@ start_pm2() {
     step "Starting backend via PM2..."
 
     # Stop existing if running
-    sudo -u "$INSTALL_USER" pm2 delete "$PM2_APP_NAME" 2>/dev/null || true
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 delete '$PM2_APP_NAME'" 2>/dev/null || true
 
-    # Start with ecosystem file
+    # Start with ecosystem file (requires login shell for PM2 daemon spawn)
     cd "$INSTALL_DIR"
-    sudo -u "$INSTALL_USER" pm2 start ecosystem.config.js >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "cd '$INSTALL_DIR' && pm2 start ecosystem.config.js"  >> "$LOG_FILE" 2>&1
     step_ok "Backend started"
 
     # Save PM2 process list
-    sudo -u "$INSTALL_USER" pm2 save >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 save" >> "$LOG_FILE" 2>&1
     step_ok "PM2 process list saved"
 
     # Setup PM2 startup script
-    pm2 startup systemd -u "$INSTALL_USER" --hp "/home/$INSTALL_USER" >> "$LOG_FILE" 2>&1
+    env PATH="$PATH:/usr/bin" pm2 startup systemd -u "$INSTALL_USER" --hp "/home/$INSTALL_USER" >> "$LOG_FILE" 2>&1
     step_ok "PM2 startup configured (auto-start on reboot)"
 
     # Install log rotation
-    sudo -u "$INSTALL_USER" pm2 install pm2-logrotate >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 install pm2-logrotate" >> "$LOG_FILE" 2>&1
     step_ok "PM2 log rotation enabled"
 }
 
@@ -926,19 +1373,85 @@ setup_ssl() {
         domains+=("$BACKEND_DOMAIN")
     fi
 
-    for domain in "${domains[@]}"; do
-        if [ -d "/etc/letsencrypt/live/$domain" ]; then
-            step_ok "SSL certificate for $domain already exists"
-        else
-            certbot --nginx \
-                -d "$domain" \
-                --email "$SSL_EMAIL" \
-                --agree-tos \
-                --non-interactive \
-                --redirect >> "$LOG_FILE" 2>&1
-            step_new "SSL certificate obtained for $domain"
-        fi
-    done
+    if [ "$SSL_TYPE" = "wildcard" ]; then
+        # Wildcard: one cert per unique base domain via DNS-01 challenge
+        local base_domains=()
+        for domain in "${domains[@]}"; do
+            # Strip one subdomain level to get base domain (e.g. api.example.com → example.com)
+            local base
+            base=$(echo "$domain" | awk -F. 'NF>=2{print $(NF-1)"."$NF}')
+            local found=0
+            for bd in "${base_domains[@]:-}"; do [ "$bd" = "$base" ] && found=1; done
+            [ $found -eq 0 ] && base_domains+=("$base")
+        done
+
+        for base in "${base_domains[@]}"; do
+            if [ -d "/etc/letsencrypt/live/${base}" ] || [ -d "/etc/letsencrypt/live/*.${base}" ]; then
+                step_ok "Wildcard SSL certificate for *.${base} already exists"
+            else
+                echo ""
+                echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "  ${YELLOW}ACTION REQUIRED — Wildcard SSL for *.${base}${NC}"
+                echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo ""
+                echo -e "  certbot will now show you a DNS TXT record to add."
+                echo ""
+                echo -e "  ${BOLD}IMPORTANT: Do NOT press Enter immediately!${NC}"
+                echo -e "  After adding the TXT record at your DNS provider, verify"
+                echo -e "  that it has propagated by running this command in another"
+                echo -e "  terminal ${BOLD}before${NC} pressing Enter:"
+                echo ""
+                echo -e "  ${CYAN}  dig TXT _acme-challenge.${base} +short${NC}"
+                echo -e "  ${DIM}  (or: nslookup -type=TXT _acme-challenge.${base} 8.8.8.8)${NC}"
+                echo ""
+                echo -e "  Only press Enter once the expected value appears in the output."
+                echo -e "  DNS propagation typically takes 1–5 minutes."
+                echo ""
+                # certbot --manual is interactive: stdin must be /dev/tty (real terminal).
+                # Do NOT pipe stdout/stderr — that breaks the interactive prompt.
+                # This also fixes the EOFError when the installer runs via "curl | bash".
+                log "Running interactive certbot for *.${base} ..."
+                if ! certbot certonly \
+                    --manual \
+                    --preferred-challenges dns \
+                    -d "*.${base}" \
+                    --email "$SSL_EMAIL" \
+                    --agree-tos \
+                    < /dev/tty; then
+                    echo -e "${RED}ERROR: certbot failed for *.${base}. See /var/log/letsencrypt/letsencrypt.log${NC}" >&2
+                    log "ERROR: certbot certonly failed for *.${base}"
+                    exit 1
+                fi
+                log "certbot certonly succeeded for *.${base}"
+                # Install cert into nginx for each domain
+                for domain in "${domains[@]}"; do
+                    local d_base
+                    d_base=$(echo "$domain" | awk -F. 'NF>=2{print $(NF-1)"."$NF}')
+                    if [ "$d_base" = "$base" ]; then
+                        certbot install \
+                            --nginx \
+                            -d "$domain" \
+                            --cert-name "${base}" >> "$LOG_FILE" 2>&1 || true
+                    fi
+                done
+                step_new "Wildcard SSL certificate obtained for *.${base}"
+            fi
+        done
+    else
+        for domain in "${domains[@]}"; do
+            if [ -d "/etc/letsencrypt/live/$domain" ]; then
+                step_ok "SSL certificate for $domain already exists"
+            else
+                certbot --nginx \
+                    -d "$domain" \
+                    --email "$SSL_EMAIL" \
+                    --agree-tos \
+                    --non-interactive \
+                    --redirect >> "$LOG_FILE" 2>&1
+                step_new "SSL certificate obtained for $domain"
+            fi
+        done
+    fi
 }
 
 # =============================================================================
@@ -989,43 +1502,69 @@ create_admin() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
+    # Check if a non-default admin already exists in the DB
+    local existing_email
+    existing_email=$(DATABASE_URL="file:./data/multibase.db" \
+        sudo -u "$INSTALL_USER" -E node -e "
+        const {PrismaClient}=require('/opt/multibase/dashboard/backend/node_modules/@prisma/client');
+        const p=new PrismaClient();
+        p.user.findFirst({where:{role:'admin'}}).then(u=>{process.stdout.write(u?u.email:'');p.\$disconnect();});
+        " 2>/dev/null || echo '')
+
+    if [ -n "$existing_email" ] && [ "$existing_email" != "admin@multibase.local" ]; then
+        step_skip "Admin account (existing: ${existing_email})"
+        return
+    fi
+
+    # No admin or only the hardcoded default exists — create/update with wizard credentials
+    if [ -z "$ADMIN_PASS" ]; then
+        step_skip "Admin account (no password provided — keeping existing credentials)"
+        return
+    fi
+
+    cd "$INSTALL_DIR/dashboard/backend"
+
     # Create a temporary Node.js script to seed the admin user
+    # Uses upsert: updates the default admin@multibase.local if it exists, otherwise creates new
     cat > /tmp/multibase-create-admin.js <<'SCRIPT'
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+const { PrismaClient } = require('/opt/multibase/dashboard/backend/node_modules/@prisma/client');
+const bcrypt = require('/opt/multibase/dashboard/backend/node_modules/bcryptjs');
 
 async function main() {
     const prisma = new PrismaClient();
 
     const username = process.env.ADMIN_USER;
-    const email = process.env.ADMIN_EMAIL;
+    const email    = process.env.ADMIN_EMAIL;
     const password = process.env.ADMIN_PASS;
-
-    // Check if admin already exists
-    const existing = await prisma.user.findFirst({
-        where: { OR: [{ email }, { username }] }
-    });
-
-    if (existing) {
-        console.log('Admin user already exists, skipping.');
-        await prisma.$disconnect();
-        return;
-    }
 
     const hash = await bcrypt.hash(password, 12);
 
-    await prisma.user.create({
-        data: {
-            username,
-            email,
-            passwordHash: hash,
-            role: 'admin',
-            isActive: true,
-            isEmailVerified: true
-        }
+    // If the hardcoded default admin exists, update it with the real credentials
+    const defaultAdmin = await prisma.user.findFirst({
+        where: { email: 'admin@multibase.local' }
     });
 
-    console.log('Admin user created successfully.');
+    if (defaultAdmin) {
+        await prisma.user.update({
+            where: { id: defaultAdmin.id },
+            data: { username, email, passwordHash: hash, isActive: true, isEmailVerified: true }
+        });
+        console.log(`Admin updated: ${email}`);
+    } else {
+        // Check if target email/username already exists (non-default)
+        const existing = await prisma.user.findFirst({
+            where: { OR: [{ email }, { username }] }
+        });
+        if (existing) {
+            console.log(`Admin already exists: ${existing.email}`);
+        } else {
+            await prisma.user.create({
+                data: { username, email, passwordHash: hash, role: 'admin', isActive: true, isEmailVerified: true }
+            });
+            console.log(`Admin created: ${email}`);
+        }
+    }
+
     await prisma.$disconnect();
 }
 
@@ -1156,8 +1695,17 @@ show_completion() {
     echo -e "  ${BOLD}Useful Commands:${NC}"
 
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo ""
+        echo -e "  ${BOLD}Service User:${NC}"
+        echo -e "    The backend runs as system user ${CYAN}${INSTALL_USER}${NC}."
+        echo -e "    This user has no password (security best practice)."
+        echo -e "    To switch to this user for PM2/log access:"
+        echo ""
+        echo -e "    ${CYAN}sudo su - ${INSTALL_USER}${NC}"
+        echo ""
         echo "    pm2 status                     -- Check backend status"
         echo "    pm2 logs multibase-backend     -- View backend logs"
+        echo "    pm2 restart multibase-backend  -- Restart backend"
     fi
 
     echo "    sudo nginx -t                  -- Test Nginx config"
@@ -1197,13 +1745,19 @@ run_update() {
 
     step "Rebuilding backend..."
     cd "$INSTALL_DIR/dashboard/backend"
-    sudo -u "$INSTALL_USER" npm ci --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
     step "Running database migrations..."
-    sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1
+    # Prisma reads DATABASE_URL from .env automatically – do not extract manually.
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+        echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
+        tail -20 "$LOG_FILE" >&2
+        exit 1
+    fi
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
@@ -1386,6 +1940,7 @@ main() {
     preflight_checks
     show_banner
     run_wizard
+    save_installer_state
 
     echo ""
     echo -e "${BOLD}Starting installation...${NC}"
@@ -1393,14 +1948,18 @@ main() {
 
     install_dependencies
     setup_user_dirs
+    setup_sudoers
     clone_repo
     setup_python
     build_backend
+    setup_shared_infra
     build_frontend
     generate_configs
+    run_db_migrations
     start_redis
     configure_nginx
     start_pm2
+    setup_shared_autostart
     setup_ssl
     setup_firewall_swap
     create_admin
