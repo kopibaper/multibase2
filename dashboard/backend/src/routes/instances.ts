@@ -137,7 +137,7 @@ export function createInstanceRoutes(
         // Handle Template
         if (createRequest.templateId) {
           const template = await prisma.instanceTemplate.findUnique({
-            where: { PostgreSQLid: createRequest.templateId },
+            where: { id: createRequest.templateId },
           });
 
           if (!template) {
