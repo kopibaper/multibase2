@@ -55,7 +55,7 @@ import AuthService from './services/AuthService';
 // Load environment variables
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 // Parse CORS origins - supports comma-separated list for multiple origins
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
@@ -366,7 +366,7 @@ async function start() {
     await startServices();
 
     httpServer.listen(PORT, '127.0.0.1', () => {
-      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`, {
+      logger.info(`🚀 Multibase Dashboard API running on 127.0.0.1:${PORT}`, {
         service: 'multibase-dashboard',
       });
       logger.info(`📂 Projects Path: ${PROJECTS_PATH} (resolved: ${path.resolve(PROJECTS_PATH)})`, {
