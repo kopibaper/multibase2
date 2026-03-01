@@ -294,12 +294,23 @@ export class StudioManager {
     if (fs.existsSync(sysNginxConfig)) {
       try {
         let config = fs.readFileSync(sysNginxConfig, 'utf8');
-        // Replace the studio proxy_pass in the main location / block
-        // The comment "# Main location with authentication" uniquely identifies the block
-        const updated = config.replace(
-          /(# Main location with authentication[\s\S]*?proxy_pass http:\/\/127\.0\.0\.1:)\d+(;)/,
-          `$1${studioPort}$2`
-        );
+        // Replace the studio proxy_pass port: find the first location / block that
+        // contains auth_request (= studio block), then replace its proxy_pass port.
+        // Supports configs with or without the "# Main location with authentication" comment.
+        const authReqIdx = config.indexOf('auth_request /auth-check;');
+        let updated = config;
+        if (authReqIdx !== -1) {
+          const proxyPassMarker = 'proxy_pass http://127.0.0.1:';
+          const ppIdx = config.indexOf(proxyPassMarker, authReqIdx);
+          if (ppIdx !== -1) {
+            const afterProxyPass = ppIdx + proxyPassMarker.length;
+            const semicolonIdx = config.indexOf(';', afterProxyPass);
+            if (semicolonIdx !== -1) {
+              updated =
+                config.slice(0, afterProxyPass) + studioPort + config.slice(semicolonIdx);
+            }
+          }
+        }
         if (updated !== config) {
           fs.writeFileSync(sysNginxConfig, updated);
           logger.info(`Updated system nginx studio proxy_pass for "${tenantName}" to port ${studioPort}`);
