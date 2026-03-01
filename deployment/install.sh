@@ -1282,23 +1282,23 @@ start_pm2() {
     step "Starting backend via PM2..."
 
     # Stop existing if running
-    sudo -u "$INSTALL_USER" pm2 delete "$PM2_APP_NAME" 2>/dev/null || true
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 delete '$PM2_APP_NAME'" 2>/dev/null || true
 
-    # Start with ecosystem file
+    # Start with ecosystem file (requires login shell for PM2 daemon spawn)
     cd "$INSTALL_DIR"
-    sudo -u "$INSTALL_USER" pm2 start ecosystem.config.js >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "cd '$INSTALL_DIR' && pm2 start ecosystem.config.js"  >> "$LOG_FILE" 2>&1
     step_ok "Backend started"
 
     # Save PM2 process list
-    sudo -u "$INSTALL_USER" pm2 save >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 save" >> "$LOG_FILE" 2>&1
     step_ok "PM2 process list saved"
 
     # Setup PM2 startup script
-    pm2 startup systemd -u "$INSTALL_USER" --hp "/home/$INSTALL_USER" >> "$LOG_FILE" 2>&1
+    env PATH="$PATH:/usr/bin" pm2 startup systemd -u "$INSTALL_USER" --hp "/home/$INSTALL_USER" >> "$LOG_FILE" 2>&1
     step_ok "PM2 startup configured (auto-start on reboot)"
 
     # Install log rotation
-    sudo -u "$INSTALL_USER" pm2 install pm2-logrotate >> "$LOG_FILE" 2>&1
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 install pm2-logrotate" >> "$LOG_FILE" 2>&1
     step_ok "PM2 log rotation enabled"
 }
 
