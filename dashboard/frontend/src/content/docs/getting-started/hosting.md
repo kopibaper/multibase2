@@ -2,6 +2,8 @@
 
 This guide helps you select and order a Virtual Private Server (VPS) for running Multibase.
 
+> **Cloud version note:** Multibase runs a shared Docker infrastructure stack (8 containers: PostgreSQL, Studio, Supavisor, Logflare, Vector, meta, imgproxy, nginx-gateway) plus a Redis container. Each Supabase project you create adds another 5 containers (auth, REST, realtime, storage, edge functions). Plan your server size accordingly.
+
 ## Recommended Providers
 
 | Provider            | Starting Price | Pros                                         | Cons                 |
@@ -24,11 +26,17 @@ This guide helps you select and order a Virtual Private Server (VPS) for running
 
 1. Click "Add Server"
 2. **Location:** Choose closest to your users (e.g., `Nuremberg` for EU)
-3. **Image:** Select `Ubuntu 22.04`
+3. **Image:** Select `Ubuntu 24.04`
 4. **Type:** Choose based on your needs:
-   - **CX21** (2 vCPU, 4 GB RAM) - 1-2 instances
-   - **CX31** (2 vCPU, 8 GB RAM) - 3-5 instances
-   - **CX41** (4 vCPU, 16 GB RAM) - 5-10 instances
+
+   | Server | vCPU | RAM | Disk | Price | Supabase instances | Notes |
+   | --- | :---: | :---: | :---: | :---: | :---: | --- |
+   | **CX21** | 2 | 4 GB | 40 GB | ~€4/mo | 1–2 | Tight — shared stack uses ~1.5 GB at idle |
+   | **CX31** | 2 | 8 GB | 80 GB | ~€9/mo | 3–8 | Recommended starting point |
+   | **CX41** | 4 | 16 GB | 160 GB | ~€18/mo | 8–20 | Comfortable for production |
+   | **CX51** | 8 | 32 GB | 240 GB | ~€35/mo | 20–40 | High-load / many tenants |
+
+   > **RAM breakdown:** Shared infra (8 containers + Redis) uses ~1.5 GB at idle. OS + backend adds ~0.5 GB. Each Supabase instance (5 containers: auth, REST, realtime, storage, edge functions) adds roughly **500–700 MB** under active load.
 
 ### Step 3: Configure Access
 
@@ -65,17 +73,18 @@ apt update && apt upgrade -y
 # Set timezone
 timedatectl set-timezone Europe/Berlin
 
-# Create a non-root user (optional but recommended)
-adduser multibase
-usermod -aG sudo multibase
-
-# Reboot to apply updates
+# Reboot to apply kernel/package updates
 reboot
 ```
 
+> You do **not** need to create a `multibase` system user manually — the installer creates it automatically with the correct permissions.
+
 ## Next Steps
 
-Once your VPS is ready, proceed to:
+Once your VPS is ready, run the installer:
 
-1. [Linux Basics](/setup/server-setup/linux-basics) - Initial server hardening
-2. [Installing Dependencies](/setup/server-setup/dependencies) - Docker, Node.js, etc.
+```bash
+curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/cloud-version/deployment/install.sh | sudo bash
+```
+
+See the [Installation Guide](/setup/getting-started/installation) for a full walkthrough.
