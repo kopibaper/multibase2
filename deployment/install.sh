@@ -951,15 +951,14 @@ module.exports = {
     name: '${PM2_APP_NAME}',
     cwd: '${INSTALL_DIR}/dashboard/backend',
     script: 'dist/server.js',
+    exec_mode: 'fork',
+    instances: 1,
     env: {
       NODE_ENV: 'production',
       PORT: 3001
     },
-    instances: 1,
     autorestart: true,
     max_memory_restart: '512M',
-    wait_ready: true,
-    listen_timeout: 30000,
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
     error_file: '${INSTALL_DIR}/logs/backend-error.log',
     out_file: '${INSTALL_DIR}/logs/backend-out.log'
@@ -1079,6 +1078,15 @@ setup_shared_infra() {
         sleep 1
     done
     step_ok "PostgreSQL is ready"
+
+    # 6. Fix postgres data directory ownership so TCP connections work
+    #    The supabase/postgres image runs as UID 105 (postgres user inside container)
+    #    but Docker volume dirs may be created as root or INSTALL_USER. Fix it now.
+    local db_data_dir="${INSTALL_DIR}/shared/volumes/db/data"
+    if [ -d "$db_data_dir" ]; then
+        chown -R 105:106 "$db_data_dir" >> "$LOG_FILE" 2>&1 || true
+        log "Fixed postgres data directory ownership to 105:106"
+    fi
 }
 
 # =============================================================================
