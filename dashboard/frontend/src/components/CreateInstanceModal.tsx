@@ -78,17 +78,21 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
         // Pre-fill fields if they exist in config
         deploymentType: config.deploymentType || prev.deploymentType,
         basePort: config.basePort || prev.basePort,
-        domain: config.domain || prev.domain,
+        domain: config.domain || (derivedDomain !== 'localhost' ? derivedDomain : prev.domain),
         protocol: config.protocol || prev.protocol,
         corsOriginsList: config.corsOrigins ? config.corsOrigins.join(', ') : prev.corsOriginsList,
       }));
       toast.info(`Loaded template: ${initialTemplate.name}`);
-    } else if (!open) {
+    } else if (open && !initialTemplate) {
+      // Pre-fill with derived root domain when opening fresh
       setFormData({
         ...initialFormData,
         domain: derivedDomain !== 'localhost' ? derivedDomain : '',
         corsOriginsList: systemSettings?.cors || '',
       });
+      setErrors({});
+    } else if (!open) {
+      setFormData(initialFormData);
       setErrors({});
     }
   }, [open, initialTemplate]);
@@ -275,7 +279,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                         type='text'
                         value={formData.domain}
                         onChange={(e) => setFormData((prev) => ({ ...prev, domain: e.target.value }))}
-                        placeholder='api.example.com'
+                        placeholder='example.com'
                         className={cn(
                           'w-full px-3 py-2 border rounded-r-md bg-input focus:ring-2 focus:ring-primary focus:outline-none',
                           errors.domain ? 'border-destructive' : 'border-border'
@@ -283,6 +287,12 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                       />
                     </div>
                     {errors.domain && <p className='text-destructive text-xs mt-1'>{errors.domain}</p>}
+                    {!errors.domain && formData.domain && (
+                      <p className='text-muted-foreground text-xs mt-1'>
+                        Instance will be reachable at <span className='font-mono text-foreground'>&lt;name&gt;.{formData.domain}</span>
+                        {' '}(wildcard cert <span className='font-mono text-foreground'>*.{formData.domain}</span> required)
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -376,15 +386,15 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                     <code className='bg-secondary px-2 py-0.5 rounded text-primary font-mono'>
                       {isLocal
                         ? `http://localhost:${formData.basePort || '54323'}`
-                        : `https://${formData.name}.${formData.domain || 'example.com'}`}
+                        : `https://${formData.name || '<name>'}.${formData.domain || 'example.com'}`}
                     </code>
                   </div>
                   <div className='flex justify-between items-center text-sm'>
                     <span className='text-muted-foreground'>API URL:</span>
                     <code className='bg-secondary px-2 py-0.5 rounded text-foreground font-mono'>
                       {isLocal
-                        ? `http://localhost:${formData.basePort || '54323'}/api`
-                        : `https://${formData.name}.${formData.domain || 'example.com'}/api`}
+                        ? `http://localhost:${formData.basePort || '54323'}`
+                        : `https://${formData.name || '<name>'}-api.${formData.domain || 'example.com'}`}
                     </code>
                   </div>
                 </div>
