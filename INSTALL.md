@@ -155,19 +155,46 @@ This will:
 
 ## Uninstall
 
-Remove the installation:
+A dedicated uninstall script is provided at `deployment/uninstall.sh`.
 
 ```bash
-# Remove everything
-sudo /opt/multibase/deployment/install.sh --uninstall
+# Standard removal (processes, containers, configs, user, install dir)
+sudo bash /opt/multibase/deployment/uninstall.sh
 
-# Remove but keep project data and database
-sudo /opt/multibase/deployment/install.sh --uninstall --keep-data
+# Keep project data and database
+sudo bash /opt/multibase/deployment/uninstall.sh --keep-data
+
+# Also remove ALL system packages (Node.js, Docker, Nginx, PM2, Certbot)
+sudo bash /opt/multibase/deployment/uninstall.sh --del-all
+
+# Skip confirmation prompt
+sudo bash /opt/multibase/deployment/uninstall.sh --yes
+
+# Combine flags
+sudo bash /opt/multibase/deployment/uninstall.sh --del-all --yes
 ```
 
-**Removed:** PM2 processes, Nginx vhosts, SSL certificates, Redis container, install directory, system user.
+### What gets removed
 
-**Not removed:** Node.js, Docker, Nginx, Python (system packages).
+| Component | Standard | `--del-all` |
+| --- | --- | --- |
+| PM2 processes + startup service | ✅ | ✅ |
+| Shared infrastructure containers | ✅ | ✅ |
+| Redis container | ✅ | ✅ |
+| Project instance containers | ✅ | ✅ |
+| Docker images (supabase/*, redis) | ✅ | ✅ |
+| Nginx vhosts | ✅ | ✅ |
+| SSL certificates | ✅ | ✅ |
+| Sudoers config | ✅ | ✅ |
+| Swap file | ✅ | ✅ |
+| Install directory (`/opt/multibase`) | ✅ | ✅ |
+| System user (`multibase`) | ✅ | ✅ |
+| Log file | ✅ | ✅ |
+| Node.js | ❌ | ✅ |
+| Docker + all Docker data | ❌ | ✅ |
+| Nginx (package) | ❌ | ✅ |
+| PM2 (global) | ❌ | ✅ |
+| Certbot | ❌ | ✅ |
 
 ---
 

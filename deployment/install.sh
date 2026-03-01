@@ -129,7 +129,7 @@ prompt() {
     fi
 
     tty_read value "$default"
-    eval "$var_name='$value'"
+    printf -v "$var_name" '%s' "$value"
 }
 
 prompt_password() {
@@ -145,7 +145,7 @@ prompt_password() {
         value=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
         echo -e "  ${DIM}Auto-generated password${NC}"
     fi
-    eval "$var_name='$value'"
+    printf -v "$var_name" '%s' "$value"
 }
 
 prompt_yn() {
@@ -157,7 +157,7 @@ prompt_yn() {
     echo -ne "  ${prompt_text} (y/n) ${DIM}[${default}]${NC}: "
     tty_read value "$default"
     value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
-    eval "$var_name='$value'"
+    printf -v "$var_name" '%s' "$value"
 }
 
 separator() {
@@ -735,6 +735,7 @@ clone_repo() {
         rm -rf "$tmp_dir"
 
         chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
+        chmod 700 "$INSTALL_DIR"
         step_ok "Repository cloned to $INSTALL_DIR"
     fi
 }
@@ -861,6 +862,8 @@ generate_configs() {
 
     local session_secret
     session_secret=$(generate_secret)
+    local redis_password
+    redis_password=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)
 
     # Backend .env (only for single + split-backend)
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
@@ -876,7 +879,7 @@ NODE_ENV=production
 DATABASE_URL="file:./data/multibase.db"
 
 # Redis
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://:${redis_password}@localhost:6379
 
 # Docker
 DOCKER_SOCKET_PATH=/var/run/docker.sock
@@ -930,6 +933,7 @@ INSTALLER_SSL_ENABLED=${SSL_ENABLED}
 INSTALLER_UFW_ENABLED=${UFW_ENABLED}
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/.env"
+        chmod 600 "$INSTALL_DIR/dashboard/backend/.env"
         step_ok "Backend .env created"
     fi
 
@@ -941,6 +945,7 @@ EOF
 VITE_API_URL=${BACKEND_URL}
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/frontend/.env"
+        chmod 600 "$INSTALL_DIR/dashboard/frontend/.env"
         step_ok "Frontend .env created (VITE_API_URL=${BACKEND_URL})"
     fi
 
@@ -986,8 +991,12 @@ setup_sudoers() {
 # Multibase: allow backend service to reload nginx and run certbot without password
 ${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -s reload
 ${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
-${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot *
-${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot certonly *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot install *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot renew --no-random-sleep-on-renew
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot certonly *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot install *
+${INSTALL_USER} ALL=(ALL) NOPASSWD: /snap/bin/certbot renew --no-random-sleep-on-renew
 EOF
     chmod 440 /etc/sudoers.d/multibase
     visudo -c -f /etc/sudoers.d/multibase >> "$LOG_FILE" 2>&1
@@ -1107,11 +1116,16 @@ start_redis() {
         # Remove stopped container if exists
         docker rm -f "$REDIS_CONTAINER" &>/dev/null || true
 
+        # Extract Redis password from .env
+        local redis_pass
+        redis_pass=$(grep -m1 '^REDIS_URL=' "$INSTALL_DIR/dashboard/backend/.env" | sed -n 's|.*://:\([^@]*\)@.*|\1|p')
+
         docker run -d \
             --name "$REDIS_CONTAINER" \
             --restart unless-stopped \
             -p 127.0.0.1:6379:6379 \
-            redis:7-alpine >> "$LOG_FILE" 2>&1
+            redis:7-alpine \
+            redis-server --requirepass "$redis_pass" >> "$LOG_FILE" 2>&1
 
         step_new "Redis container started"
     fi
@@ -1132,6 +1146,13 @@ server {
     listen [::]:80;
     server_name ${FRONTEND_DOMAIN};
     root ${INSTALL_DIR}/dashboard/frontend/dist;
+
+    # Security headers
+    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;
+    add_header X-Frame-Options \"SAMEORIGIN\" always;
+    add_header X-Content-Type-Options \"nosniff\" always;
+    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
 
     # HTTPS redirect
     if (\$scheme != "https") {
@@ -1197,6 +1218,9 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     # API proxy
     location / {
@@ -1646,8 +1670,17 @@ show_completion() {
     echo -e "  ${BOLD}Useful Commands:${NC}"
 
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        echo ""
+        echo -e "  ${BOLD}Service User:${NC}"
+        echo -e "    The backend runs as system user ${CYAN}${INSTALL_USER}${NC}."
+        echo -e "    This user has no password (security best practice)."
+        echo -e "    To switch to this user for PM2/log access:"
+        echo ""
+        echo -e "    ${CYAN}sudo su - ${INSTALL_USER}${NC}"
+        echo ""
         echo "    pm2 status                     -- Check backend status"
         echo "    pm2 logs multibase-backend     -- View backend logs"
+        echo "    pm2 restart multibase-backend  -- Restart backend"
     fi
 
     echo "    sudo nginx -t                  -- Test Nginx config"
