@@ -40,11 +40,14 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Derive domain from VITE_API_URL
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  // ROOT_DOMAIN: 2nd-level base domain for instance subdomains (e.g. tyto-design.de)
+  // Prefer explicit VITE_ROOT_DOMAIN; fall back to stripping the leftmost label from VITE_API_URL hostname.
   const derivedDomain = (() => {
+    if (import.meta.env.VITE_ROOT_DOMAIN) return import.meta.env.VITE_ROOT_DOMAIN as string;
     try {
-      return new URL(apiUrl).hostname;
+      const hostname = new URL(import.meta.env.VITE_API_URL || 'http://localhost:3001').hostname;
+      const parts = hostname.split('.');
+      return parts.length >= 3 ? parts.slice(-2).join('.') : hostname;
     } catch {
       return 'localhost';
     }
@@ -138,6 +141,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
     }
 
     // Add env overrides for cloud deployment
+    // domain = ROOT_DOMAIN (2nd-level) so wildcard cert covers the subdomain
     if (formData.deploymentType === 'cloud' && formData.domain && formData.name) {
       const sanitizedName = formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
       requestData.env = {

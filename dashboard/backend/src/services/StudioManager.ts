@@ -146,11 +146,18 @@ export class StudioManager {
     if (!port) return null;
     this.markTenantAccess(tenantName);
 
-    // In cloud/VPS deployment, use the public HTTPS subdomain URL
-    // (system nginx proxies test1.BACKEND_DOMAIN → tenant studio port)
-    const backendDomain = process.env.BACKEND_DOMAIN;
-    if (backendDomain) {
-      return `https://${tenantName}.${backendDomain}`;
+    // In cloud/VPS deployment, use the public HTTPS subdomain URL.
+    // Instances live on ROOT_DOMAIN (2nd-level, covered by wildcard cert).
+    // Falls back to BACKEND_DOMAIN for backwards-compat, then derives root domain.
+    const backendDomain = process.env.BACKEND_DOMAIN || '';
+    const rootDomain =
+      process.env.ROOT_DOMAIN ||
+      (() => {
+        const parts = backendDomain.split('.');
+        return parts.length >= 3 ? parts.slice(-2).join('.') : backendDomain;
+      })();
+    if (rootDomain) {
+      return `https://${tenantName}.${rootDomain}`;
     }
 
     return `http://${host}:${port}`;

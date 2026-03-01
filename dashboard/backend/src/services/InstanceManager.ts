@@ -736,6 +736,15 @@ export class InstanceManager {
       }
 
       const domain = process.env.BACKEND_DOMAIN || 'localhost';
+      // ROOT_DOMAIN: 2nd-level base domain for instance subdomains (e.g. tyto-design.de)
+      // Derived from BACKEND_DOMAIN by stripping the leftmost subdomain label.
+      // backend.tyto-design.de → tyto-design.de  |  tyto-design.de → tyto-design.de
+      const rootDomain =
+        process.env.ROOT_DOMAIN ||
+        (() => {
+          const parts = domain.split('.');
+          return parts.length >= 3 ? parts.slice(-2).join('.') : domain;
+        })();
       const dashboardUrl = process.env.DASHBOARD_URL || `https://${process.env.FRONTEND_DOMAIN || domain}`;
       const backendUrl = process.env.BACKEND_URL || `https://${domain}`;
 
@@ -745,10 +754,32 @@ export class InstanceManager {
           ? process.env.SHARED_STUDIO_PORT || '3000'
           : instance.ports.studio || '3000';
 
-      const configContent = `# Auto-generated config for ${instance.name} with authentication
+      // Wildcard cert path — *.rootDomain covers all instance subdomains
+      const certDir = `/etc/letsencrypt/live/${rootDomain}`;
+      const wildcardCertExists =
+        deploymentType === 'cloud' && fs.existsSync(`${certDir}/fullchain.pem`);
+
+      // SSL block reused for both Studio and API server blocks
+      const sslBlock = wildcardCertExists
+        ? `    ssl_certificate ${certDir}/fullchain.pem;
+    ssl_certificate_key ${certDir}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+`
+        : '';
+
+      const configContent = `# Auto-generated config for ${instance.name}
+# Instance subdomain uses ROOT_DOMAIN (${rootDomain}) so the wildcard cert covers it.
 server {
     listen 80;
-    server_name ${instance.name}.${domain};
+    server_name ${instance.name}.${rootDomain};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${instance.name}.${rootDomain};
+${sslBlock}
     client_max_body_size 100M;
 
     # Security headers
@@ -820,7 +851,14 @@ server {
 
 server {
     listen 80;
-    server_name ${instance.name}-api.${domain};
+    server_name ${instance.name}-api.${rootDomain};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${instance.name}-api.${rootDomain};
+${sslBlock}
     client_max_body_size 100M;
 
     # Security headers
@@ -900,29 +938,18 @@ server {
         // If reload fails, Certbot might also fail if it relies on the running server
       }
 
-      // Run Certbot for SSL only for cloud/VPS deployments
-      // Note: This requires the backend process to have sudo permissions without password
+      // SSL: wildcard cert *.rootDomain covers all instance subdomains automatically.
+      // No per-instance Certbot run needed.
       if (deploymentType === 'cloud') {
-        const email = process.env.SSL_EMAIL || process.env.CERTBOT_EMAIL || process.env.ADMIN_EMAIL || '';
-        if (!email) {
-          logger.warn('SSL_EMAIL / CERTBOT_EMAIL not set — skipping Certbot. Set SSL_EMAIL in .env to enable automatic SSL.');
+        if (wildcardCertExists) {
+          logger.info(`Wildcard cert at ${certDir} covers ${instance.name}.${rootDomain} — no Certbot needed.`);
         } else {
-          try {
-            const studioDomain = `${instance.name}.${domain}`;
-            const apiDomain = `${instance.name}-api.${domain}`;
-
-            logger.info('Starting Certbot for auto-SSL...');
-            await execAsync(
-              `sudo certbot --nginx -d ${studioDomain} -d ${apiDomain} --non-interactive --agree-tos --redirect --email ${email}`
-            );
-            logger.info(`Certbot finished successfully for ${studioDomain} and ${apiDomain}`);
-          } catch (certbotError) {
-            logger.error('Certbot failed to generate SSL certificates:', certbotError);
-            // Do not throw, allow instance creation to complete (user can fix SSL manually)
-          }
+          logger.warn(
+            `No wildcard cert found at ${certDir}. ` +
+            `Ensure ROOT_DOMAIN=${rootDomain} is set and a wildcard cert exists. ` +
+            `Instance ${instance.name} will serve HTTP only until SSL is configured.`
+          );
         }
-      } else {
-        logger.info(`Skipping Certbot for localhost deployment: ${instance.name}`);
       }
     } catch (error) {
       logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
