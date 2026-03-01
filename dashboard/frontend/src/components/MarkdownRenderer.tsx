@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import 'highlight.js/styles/github-dark.css';
 
 interface MarkdownRendererProps {
@@ -10,6 +11,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
     <div className='w-full max-w-4xl mx-auto pb-20 animate-fade-in-up'>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           h1: ({ children }: any) => (
@@ -50,10 +52,27 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           code: ({ className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !match;
+            const lang = match?.[1];
+            const isTerminal = lang === 'text' || lang === 'terminal' || lang === 'console';
+
             return isInline ? (
               <code className='relative rounded bg-muted px-[0.4rem] py-[0.2rem] font-mono text-sm font-semibold text-foreground border border-border'>
                 {children}
               </code>
+            ) : isTerminal ? (
+              <div className='relative my-6 rounded-lg border border-zinc-700 overflow-hidden font-mono text-sm'>
+                <div className='flex items-center gap-1.5 px-4 py-2.5 bg-zinc-800 border-b border-zinc-700'>
+                  <span className='w-3 h-3 rounded-full bg-red-500/80' />
+                  <span className='w-3 h-3 rounded-full bg-yellow-500/80' />
+                  <span className='w-3 h-3 rounded-full bg-green-500/80' />
+                  <span className='ml-2 text-xs text-zinc-400'>Terminal</span>
+                </div>
+                <div className='bg-zinc-950 p-4 overflow-x-auto'>
+                  <code className='text-zinc-200 whitespace-pre leading-6' {...props}>
+                    {children}
+                  </code>
+                </div>
+              </div>
             ) : (
               <div className='relative my-6 rounded-lg border bg-muted/50 p-4 font-mono text-sm overflow-x-auto'>
                 <code className={className} {...props}>
