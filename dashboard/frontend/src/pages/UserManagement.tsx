@@ -72,6 +72,9 @@ export default function UserManagement() {
 
       if (!response.ok) {
         const error = await response.json();
+        if (error.details && Array.isArray(error.details)) {
+          throw new Error(error.details.map((d: { message: string }) => d.message).join(' · '));
+        }
         throw new Error(error.error || 'Failed to create user');
       }
 
@@ -290,6 +293,9 @@ export default function UserManagement() {
                     required
                     className='w-full px-3 py-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-input text-foreground'
                   />
+                  <p className='mt-1 text-xs text-muted-foreground'>
+                    Min. 8 characters · uppercase · lowercase · number · special character (e.g. <span className='font-mono'>Admin123!</span>)
+                  </p>
                 </div>
                 <div>
                   <label className='block text-sm font-medium text-foreground mb-1'>
