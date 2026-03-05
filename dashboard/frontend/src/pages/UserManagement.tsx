@@ -72,6 +72,9 @@ export default function UserManagement() {
 
       if (!response.ok) {
         const error = await response.json();
+        if (error.details && Array.isArray(error.details)) {
+          throw new Error(error.details.map((d: { message: string }) => d.message).join(' · '));
+        }
         throw new Error(error.error || 'Failed to create user');
       }
 
@@ -226,7 +229,7 @@ export default function UserManagement() {
   return (
     <div className='min-h-screen bg-background'>
       <PageHeader>
-        <div className='flex items-center justify-between'>
+        <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
           <div>
             <Link to='/' className='inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-2'>
               <ArrowLeft className='w-4 h-4' />
@@ -248,7 +251,7 @@ export default function UserManagement() {
         </div>
       </PageHeader>
 
-      <main className='container mx-auto px-6 py-8'>
+      <main className='container mx-auto px-4 sm:px-6 py-6 sm:py-8'>
         {/* Create Form */}
         {isCreating && (
           <div className='bg-card border rounded-lg p-6 mb-6'>
@@ -290,6 +293,9 @@ export default function UserManagement() {
                     required
                     className='w-full px-3 py-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-input text-foreground'
                   />
+                  <p className='mt-1 text-xs text-muted-foreground'>
+                    Min. 8 characters · uppercase · lowercase · number · special character (e.g. <span className='font-mono'>Admin123!</span>)
+                  </p>
                 </div>
                 <div>
                   <label className='block text-sm font-medium text-foreground mb-1'>
@@ -323,7 +329,7 @@ export default function UserManagement() {
         )}
 
         {/* Users List */}
-        <div className='bg-card border rounded-lg overflow-hidden'>
+        <div className='bg-card border rounded-lg overflow-x-auto'>
           <table className='w-full'>
             <thead className='bg-muted'>
               <tr>
@@ -471,8 +477,8 @@ export default function UserManagement() {
 
         {/* Reset Password Modal */}
         {resetPasswordUser && (
-          <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
-            <div className='bg-card border rounded-lg p-6 w-full max-w-md'>
+          <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'>
+            <div className='bg-card border rounded-lg p-4 sm:p-6 w-full max-w-md'>
               <h2 className='text-xl font-semibold mb-4'>Reset Password</h2>
               <p className='text-sm text-muted-foreground mb-4'>
                 Set new password for <strong>{resetPasswordUser.username}</strong>

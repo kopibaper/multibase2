@@ -24,21 +24,21 @@ export default function TemplatePreviewModal({ isOpen, template, onClose }: Temp
   };
 
   return (
-    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50'>
-      <div className='glass-modal w-full max-w-2xl max-h-[90vh] flex flex-col'>
-        <div className='flex items-center justify-between p-6 border-b border-border'>
-          <div>
-            <h2 className='text-2xl font-bold text-foreground'>{template.name}</h2>
-            <p className='text-muted-foreground mt-1'>{template.description || 'No description provided'}</p>
+    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50'>
+      <div className='glass-modal w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-xl'>
+        <div className='flex items-start justify-between p-4 sm:p-6 border-b border-border flex-shrink-0'>
+          <div className='min-w-0 pr-3'>
+            <h2 className='text-xl sm:text-2xl font-bold text-foreground truncate'>{template.name}</h2>
+            <p className='text-muted-foreground mt-1 text-sm'>{template.description || 'No description provided'}</p>
           </div>
           <button onClick={onClose} className='p-2 hover:bg-muted rounded-full transition-colors'>
             <X className='w-5 h-5 text-muted-foreground' />
           </button>
         </div>
 
-        <div className='flex-1 overflow-y-auto p-6 space-y-6'>
+        <div className='flex-1 overflow-y-auto p-4 sm:p-6 space-y-6'>
           {/* Main Info */}
-          <div className='grid grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <div className='bg-secondary/30 p-4 rounded-lg border border-border'>
               <div className='flex items-center gap-2 mb-2 text-primary'>
                 <Server className='w-4 h-4' />
@@ -105,16 +105,16 @@ export default function TemplatePreviewModal({ isOpen, template, onClose }: Temp
           </div>
         </div>
 
-        <div className='p-6 border-t border-border flex justify-end gap-3 bg-secondary/10'>
+        <div className='p-4 sm:p-6 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-3 bg-secondary/10 flex-shrink-0'>
           <button
             onClick={onClose}
-            className='px-4 py-2 border border-border rounded-md text-foreground hover:bg-muted transition-colors'
+            className='w-full sm:w-auto px-4 py-2.5 border border-border rounded-md text-foreground hover:bg-muted transition-colors text-sm'
           >
             Cancel
           </button>
           <button
             onClick={handleUseTemplate}
-            className='flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm'
+            className='w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm text-sm'
           >
             <Check className='w-4 h-4' />
             Use Template

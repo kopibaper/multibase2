@@ -179,7 +179,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50' />
-        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-modal w-full max-w-3xl max-h-[90vh] overflow-y-auto z-50 p-0'>
+        <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-modal w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto z-50 p-0'>
           {/* Header */}
           <div className='flex items-center justify-between p-6 border-b border-border'>
             <div>
@@ -198,7 +198,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
 
           <form onSubmit={handleSubmit} className='flex flex-col md:flex-row'>
             {/* Left Column: Core Settings */}
-            <div className='flex-1 p-6 space-y-6 border-r border-border'>
+            <div className='flex-1 p-4 sm:p-6 space-y-6 border-b md:border-b-0 md:border-r border-border'>
               <div className='space-y-4'>
                 <h3 className='font-semibold text-lg flex items-center gap-2'>
                   <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm'>
@@ -335,7 +335,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
             </div>
 
             {/* Right Column: Advanced & Preview */}
-            <div className='flex-1 p-6 space-y-6 bg-secondary/5'>
+            <div className='flex-1 p-4 sm:p-6 space-y-6 bg-secondary/5'>
               <div className='space-y-4'>
                 <h3 className='font-semibold text-lg flex items-center gap-2'>
                   <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm'>
@@ -381,17 +381,17 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
               <div className='mt-8 pt-6 border-t border-border'>
                 <h4 className='text-sm font-semibold mb-3'>Live Preview</h4>
                 <div className='bg-card border border-border p-4 rounded-lg shadow-sm space-y-2'>
-                  <div className='flex justify-between items-center text-sm'>
+                  <div className='flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center text-sm'>
                     <span className='text-muted-foreground'>Studio URL:</span>
-                    <code className='bg-secondary px-2 py-0.5 rounded text-primary font-mono'>
+                    <code className='bg-secondary px-2 py-0.5 rounded text-primary font-mono text-xs break-all'>
                       {isLocal
                         ? `http://localhost:${formData.basePort || '54323'}`
                         : `https://${formData.name || '<name>'}.${formData.domain || 'example.com'}`}
                     </code>
                   </div>
-                  <div className='flex justify-between items-center text-sm'>
+                  <div className='flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center text-sm'>
                     <span className='text-muted-foreground'>API URL:</span>
-                    <code className='bg-secondary px-2 py-0.5 rounded text-foreground font-mono'>
+                    <code className='bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs break-all'>
                       {isLocal
                         ? `http://localhost:${formData.basePort || '54323'}`
                         : `https://${formData.name || '<name>'}-api.${formData.domain || 'example.com'}`}
@@ -400,18 +400,18 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                 </div>
               </div>
 
-              <div className='pt-6 flex gap-3 justify-end'>
+              <div className='pt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end'>
                 <button
                   type='button'
                   onClick={() => onOpenChange(false)}
-                  className='px-4 py-2 border border-border rounded-md hover:bg-secondary'
+                  className='w-full sm:w-auto px-4 py-2.5 border border-border rounded-md hover:bg-secondary text-sm'
                 >
                   Cancel
                 </button>
                 <button
                   type='submit'
                   disabled={createInstance.isPending}
-                  className='px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2'
+                  className='w-full sm:w-auto px-6 py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 text-sm'
                 >
                   {createInstance.isPending && (
                     <div className='w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full' />

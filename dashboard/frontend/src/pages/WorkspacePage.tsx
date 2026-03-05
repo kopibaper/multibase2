@@ -14,6 +14,7 @@ import {
   Loader2,
   FolderKanban,
   ChevronRight,
+  ChevronLeft,
   Database,
   Code,
 } from 'lucide-react';
@@ -97,9 +98,13 @@ export default function WorkspacePage() {
 
   return (
     <div className='h-[calc(100vh-4rem)]'>
-      <div className='flex h-full'>
-        {/* Left: Project List */}
-        <div className='w-80 border-r border-white/5 flex flex-col flex-shrink-0'>
+      <div className='flex h-full flex-col md:flex-row'>
+        {/* Left: Project List – on mobile hidden when a project is selected */}
+        <div
+          className={`md:w-80 md:border-r md:border-b-0 border-b border-white/5 flex flex-col md:flex-shrink-0 ${
+            selectedProject ? 'hidden md:flex' : 'flex flex-1 md:flex-none'
+          }`}
+        >
           {/* Search */}
           <div className='p-4 border-b border-white/5'>
             <div className='relative'>
@@ -164,8 +169,8 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Right: Detail Panel */}
-        <div className='flex-1 overflow-y-auto'>
+        {/* Right: Detail Panel – on mobile hidden when nothing is selected */}
+        <div className={`flex-1 overflow-y-auto ${!selectedProject ? 'hidden md:block' : 'block'}`}>
           {!selected ? (
             <div className='flex flex-col items-center justify-center h-full text-center p-8'>
               <div className='w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center mb-4'>
@@ -177,21 +182,30 @@ export default function WorkspacePage() {
               </p>
             </div>
           ) : (
-            <div className='p-6'>
+            <div className='p-4 md:p-6'>
+              {/* Mobile: back button */}
+              <button
+                onClick={() => setSelectedProject(null)}
+                className='md:hidden flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors'
+              >
+                <ChevronLeft className='w-4 h-4' />
+                All Projects
+              </button>
+
               {/* Project Header */}
-              <div className='flex items-start justify-between mb-6'>
+              <div className='flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between'>
                 <div>
                   <div className='flex items-center gap-3'>
-                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center'>
+                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
                       <Database className='w-5 h-5 text-brand-400' />
                     </div>
-                    <div>
-                      <h2 className='text-2xl font-bold text-foreground'>{selected.name}</h2>
-                      <p className='text-sm text-muted-foreground'>{selected.credentials?.project_url}</p>
+                    <div className='min-w-0'>
+                      <h2 className='text-xl md:text-2xl font-bold text-foreground truncate'>{selected.name}</h2>
+                      <p className='text-sm text-muted-foreground truncate'>{selected.credentials?.project_url}</p>
                     </div>
                   </div>
                 </div>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-2 flex-wrap'>
                   <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                       selected.health?.overall === 'healthy' || selected.status === 'running'
@@ -222,73 +236,73 @@ export default function WorkspacePage() {
               </div>
 
               {/* Quick Actions */}
-              <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6'>
+              <div className='grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6'>
                 {/* Open Studio */}
                 <button
                   onClick={() => handleOpenStudio(selected)}
                   disabled={studioActivating === selected.name || selected.status === 'stopped'}
-                  className='flex items-center gap-3 px-4 py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 
+                  className='flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl bg-brand-500/10 border border-brand-500/20 
                     hover:bg-brand-500/20 hover:border-brand-500/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   {studioActivating === selected.name ? (
-                    <Loader2 className='w-5 h-5 animate-spin text-brand-400' />
+                    <Loader2 className='w-5 h-5 animate-spin text-brand-400 flex-shrink-0' />
                   ) : (
-                    <ExternalLink className='w-5 h-5 text-brand-400 group-hover:scale-110 transition-transform' />
+                    <ExternalLink className='w-5 h-5 text-brand-400 group-hover:scale-110 transition-transform flex-shrink-0' />
                   )}
-                  <div className='text-left'>
+                  <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>Open Studio</p>
-                    <p className='text-xs text-muted-foreground'>Supabase Dashboard</p>
+                    <p className='text-xs text-muted-foreground hidden sm:block'>Supabase Dashboard</p>
                   </div>
                 </button>
 
                 {/* Supabase Manager */}
                 <button
                   onClick={() => setActiveTab('manager')}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all group ${
+                  className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-all group ${
                     activeTab === 'manager'
                       ? 'bg-blue-500/20 border-blue-500/30'
                       : 'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/30'
                   }`}
                 >
-                  <Code className='w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform' />
-                  <div className='text-left'>
+                  <Code className='w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>Manager</p>
-                    <p className='text-xs text-muted-foreground'>DB, Functions, Storage</p>
+                    <p className='text-xs text-muted-foreground hidden sm:block'>DB, Functions, Storage</p>
                   </div>
                 </button>
 
                 {/* API Keys */}
                 <button
                   onClick={() => setKeysModalInstance(selected)}
-                  className='flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 
+                  className='flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 
                     hover:bg-purple-500/20 hover:border-purple-500/30 transition-all group'
                 >
-                  <Key className='w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform' />
-                  <div className='text-left'>
+                  <Key className='w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>API Keys</p>
-                    <p className='text-xs text-muted-foreground'>Anon, Service Role, JWT</p>
+                    <p className='text-xs text-muted-foreground hidden sm:block'>Anon, Service Role, JWT</p>
                   </div>
                 </button>
 
                 {/* SMTP */}
                 <button
                   onClick={() => setActiveTab('smtp')}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all group ${
+                  className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-all group ${
                     activeTab === 'smtp'
                       ? 'bg-orange-500/20 border-orange-500/30'
                       : 'bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/30'
                   }`}
                 >
-                  <Mail className='w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform' />
-                  <div className='text-left'>
+                  <Mail className='w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>SMTP Settings</p>
-                    <p className='text-xs text-muted-foreground'>Email configuration</p>
+                    <p className='text-xs text-muted-foreground hidden sm:block'>Email configuration</p>
                   </div>
                 </button>
               </div>
 
               {/* Tab Content */}
-              <div className='flex items-center gap-1 mb-4 border-b border-white/5 pb-px'>
+              <div className='flex items-center gap-1 mb-4 border-b border-white/5 pb-px overflow-x-auto scrollbar-none'>
                 <button
                   onClick={() => setActiveTab('overview')}
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${

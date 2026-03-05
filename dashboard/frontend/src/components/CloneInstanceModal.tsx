@@ -52,7 +52,7 @@ export default function CloneInstanceModal({ isOpen, onClose, sourceName }: Clon
   if (!isOpen) return null;
 
   return (
-    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50'>
+    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4'>
       <div className='glass-modal w-full max-w-md'>
         {/* Header */}
         <div className='flex items-center justify-between p-4 border-b border-border'>
@@ -112,18 +112,18 @@ export default function CloneInstanceModal({ isOpen, onClose, sourceName }: Clon
           </div>
 
           {/* Actions */}
-          <div className='flex justify-end gap-2 pt-4'>
+          <div className='flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4'>
             <button
               type='button'
               onClick={onClose}
-              className='px-4 py-2 rounded-md border border-border hover:bg-secondary transition-colors'
+              className='w-full sm:w-auto px-4 py-2.5 rounded-md border border-border hover:bg-secondary transition-colors text-sm'
             >
               Cancel
             </button>
             <button
               type='submit'
               disabled={cloneMutation.isPending || !newName.trim()}
-              className='flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors disabled:opacity-50'
+              className='w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors disabled:opacity-50 text-sm'
             >
               {cloneMutation.isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <Copy className='w-4 h-4' />}
               Clone Instance

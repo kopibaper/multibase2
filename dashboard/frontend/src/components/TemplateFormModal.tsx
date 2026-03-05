@@ -217,22 +217,22 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   if (!isOpen) return null;
 
   const tabs = [
-    { id: 'general', label: 'General Info', icon: Layers },
-    { id: 'deployment', label: 'Deployment', icon: () => <Settings className='w-4 h-4' /> },
-    { id: 'services', label: 'Services', icon: Box },
-    { id: 'database', label: 'Database', icon: Database },
-    { id: 'auth', label: 'Authentication', icon: Lock },
-    { id: 'api', label: 'API & Realtime', icon: Server },
-    { id: 'storage', label: 'Storage', icon: Layers }, // Changed Icon to Layers to distinguish
-    { id: 'env', label: 'Environment', icon: Settings },
+    { id: 'general', label: 'General Info', shortLabel: 'General', icon: Layers },
+    { id: 'deployment', label: 'Deployment', shortLabel: 'Deploy', icon: () => <Settings className='w-4 h-4' /> },
+    { id: 'services', label: 'Services', shortLabel: 'Services', icon: Box },
+    { id: 'database', label: 'Database', shortLabel: 'Database', icon: Database },
+    { id: 'auth', label: 'Authentication', shortLabel: 'Auth', icon: Lock },
+    { id: 'api', label: 'API & Realtime', shortLabel: 'API', icon: Server },
+    { id: 'storage', label: 'Storage', shortLabel: 'Storage', icon: Layers },
+    { id: 'env', label: 'Environment', shortLabel: 'Env', icon: Settings },
   ] as const;
 
   return (
-    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
-      {/* Increased max-width to 4xl */}
-      <div className='glass-modal w-full max-w-4xl flex flex-col max-h-[90vh]'>
+    <div className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4'>
+      {/* Full-screen on mobile, constrained on sm+ */}
+      <div className='glass-modal w-full max-w-4xl flex flex-col h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-xl'>
         {/* Header */}
-        <div className='flex items-center justify-between p-6 border-b border-border'>
+        <div className='flex items-center justify-between p-4 sm:p-6 border-b border-border flex-shrink-0'>
           <div>
             <h2 className='text-xl font-semibold flex items-center gap-2'>
               {isEditMode ? <Settings className='w-5 h-5 text-primary' /> : <Layers className='w-5 h-5 text-primary' />}
@@ -245,9 +245,31 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
           </button>
         </div>
 
-        <div className='flex flex-1 overflow-hidden'>
-          {/* Sidebar Tabs */}
-          <div className='w-48 border-r border-border bg-secondary/10 flex flex-col'>
+        <div className='flex flex-1 overflow-hidden flex-col md:flex-row'>
+          {/* Mobile: horizontal scrollable tab bar (icons + short labels) */}
+          <div className='md:hidden border-b border-border bg-secondary/10 flex overflow-x-auto scrollbar-none flex-shrink-0'>
+            {tabs.map((tab) => {
+              const Icon = tab.icon as any;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 flex-shrink-0',
+                    activeTab === tab.id
+                      ? 'border-primary text-primary bg-secondary/30'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className='w-4 h-4' />
+                  {tab.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop: Sidebar Tabs */}
+          <div className='hidden md:flex w-48 border-r border-border bg-secondary/10 flex-col flex-shrink-0'>
             {tabs.map((tab) => {
               const Icon = tab.icon as any;
               return (
@@ -269,7 +291,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
           </div>
 
           {/* Content Area */}
-          <div className='flex-1 p-6 overflow-y-auto bg-card'>
+          <div className='flex-1 p-4 sm:p-6 overflow-y-auto bg-card'>
             <form id='template-form' onSubmit={handleSubmit} className='space-y-6 max-w-2xl mx-auto'>
               {activeTab === 'general' && (
                 <div className='space-y-4 animate-in fade-in'>
@@ -897,7 +919,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                         />
                       </div>
                       {getEnv('GOTRUE_SMTP_HOST') !== '' && (
-                        <div className='p-4 grid grid-cols-2 gap-4 animate-in slide-in-from-top-2'>
+                        <div className='p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in slide-in-from-top-2'>
                           <div className='col-span-2'>
                             <label className='text-xs font-medium'>Sender Email</label>
                             <input
@@ -1198,7 +1220,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
         </div>
 
         {/* Footer */}
-        <div className='p-4 border-t border-border flex justify-between items-center bg-secondary/5 rounded-b-lg'>
+        <div className='p-3 sm:p-4 border-t border-border flex justify-between items-center bg-secondary/5 rounded-b-lg flex-shrink-0'>
           <button
             type='button'
             onClick={onClose}

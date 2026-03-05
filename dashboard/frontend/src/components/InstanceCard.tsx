@@ -134,7 +134,7 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
     <>
       <div
         onClick={handleCardClick}
-        className='glass-card p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02]'
+        className='glass-card p-4 sm:p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02]'
       >
         {/* Header */}
         <div className='flex items-start justify-between mb-4'>
