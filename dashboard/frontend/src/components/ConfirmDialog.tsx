@@ -57,16 +57,16 @@ export default function ConfirmDialog({
           <p className='text-muted-foreground'>{message}</p>
         </div>
 
-        <div className='flex justify-end gap-3 p-4 border-t border-border bg-secondary/10 rounded-b-lg'>
+        <div className='flex flex-col-reverse sm:flex-row sm:justify-end gap-3 p-4 border-t border-border bg-secondary/10 rounded-b-lg'>
           <button
             onClick={onCancel}
-            className='px-4 py-2 text-sm font-medium hover:bg-secondary rounded-md transition-colors'
+            className='w-full sm:w-auto px-4 py-2.5 text-sm font-medium hover:bg-secondary rounded-md transition-colors'
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${styles.button}`}
+            className={`w-full sm:w-auto px-4 py-2.5 text-sm font-medium rounded-md transition-colors ${styles.button}`}
           >
             {confirmText}
           </button>

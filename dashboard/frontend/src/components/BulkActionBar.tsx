@@ -55,8 +55,8 @@ export default function BulkActionBar({ selectedInstances, onClearSelection }: B
   }
 
   return (
-    <div className='fixed bottom-6 left-1/2 -translate-x-1/2 z-50'>
-      <div className='bg-card border border-border rounded-xl shadow-2xl p-4 flex items-center gap-4'>
+    <div className='fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-2rem)] sm:w-auto max-w-sm sm:max-w-none'>
+      <div className='bg-card border border-border rounded-xl shadow-2xl p-3 sm:p-4 flex items-center gap-2 sm:gap-4'>
         {/* Selected Count */}
         <div className='flex items-center gap-2 pr-4 border-r border-border'>
           <span className='bg-primary text-primary-foreground text-sm font-bold px-2 py-1 rounded-full'>
@@ -70,40 +70,43 @@ export default function BulkActionBar({ selectedInstances, onClearSelection }: B
           <button
             onClick={() => handleAction('start')}
             disabled={bulkMutation.isPending}
-            className='flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50'
+            className='flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50'
+            title='Start All'
           >
             {bulkMutation.isPending && bulkMutation.variables === 'start' ? (
               <Loader2 className='w-4 h-4 animate-spin' />
             ) : (
               <Play className='w-4 h-4' />
             )}
-            Start All
+            <span className='hidden sm:inline'>Start All</span>
           </button>
 
           <button
             onClick={() => handleAction('stop')}
             disabled={bulkMutation.isPending}
-            className='flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50'
+            className='flex items-center gap-2 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50'
+            title='Stop All'
           >
             {bulkMutation.isPending && bulkMutation.variables === 'stop' ? (
               <Loader2 className='w-4 h-4 animate-spin' />
             ) : (
               <Square className='w-4 h-4' />
             )}
-            Stop All
+            <span className='hidden sm:inline'>Stop All</span>
           </button>
 
           <button
             onClick={() => handleAction('restart')}
             disabled={bulkMutation.isPending}
-            className='flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50'
+            className='flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50'
+            title='Restart All'
           >
             {bulkMutation.isPending && bulkMutation.variables === 'restart' ? (
               <Loader2 className='w-4 h-4 animate-spin' />
             ) : (
               <RotateCw className='w-4 h-4' />
             )}
-            Restart All
+            <span className='hidden sm:inline'>Restart All</span>
           </button>
         </div>
 

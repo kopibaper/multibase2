@@ -292,8 +292,8 @@ export default function InstanceDetail() {
 
         {/* Delete Instance Section */}
         <div className='mt-12 pt-8 border-t border-border'>
-          <div className='bg-destructive/5 border border-destructive/20 rounded-lg p-6'>
-            <div className='flex items-start justify-between'>
+          <div className='bg-destructive/5 border border-destructive/20 rounded-lg p-4 sm:p-6'>
+            <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
               <div>
                 <h3 className='text-lg font-semibold text-destructive flex items-center gap-2'>
                   <Trash2 className='w-5 h-5' />
@@ -305,7 +305,7 @@ export default function InstanceDetail() {
               </div>
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className='flex items-center gap-2 px-4 py-2 bg-destructive text-white rounded-md hover:bg-destructive/90 transition-colors'
+                className='flex items-center gap-2 px-4 py-2.5 bg-destructive text-white rounded-md hover:bg-destructive/90 transition-colors sm:flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start'
               >
                 <Trash2 className='w-4 h-4' />
                 Delete Instance

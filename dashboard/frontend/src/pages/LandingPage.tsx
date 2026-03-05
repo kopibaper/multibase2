@@ -57,8 +57,8 @@ const LandingPage = () => {
 
       {/* Navbar */}
       <nav className='z-10 border-b border-white/5 backdrop-blur-md sticky top-0'>
-        <div className='container mx-auto px-6 h-16 flex items-center justify-between'>
-          <div className='flex items-center gap-2 font-bold text-xl tracking-tight'>
+        <div className='container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between'>
+          <div className='flex items-center gap-2 font-bold text-xl tracking-tight flex-shrink-0'>
             <img src='/logo.png' alt='Multibase' className='w-8 h-8' />
             Multibase
           </div>
@@ -102,7 +102,7 @@ const LandingPage = () => {
 
       <main className='relative z-10 flex-grow'>
         {/* Hero Section */}
-        <div className='container mx-auto px-6 pt-20 pb-20 text-center'>
+        <div className='container mx-auto px-4 sm:px-6 pt-16 sm:pt-20 pb-16 sm:pb-20 text-center'>
           <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-brand-400 mb-8 animate-fade-in-up'>
             <span className='relative flex h-2 w-2'>
               <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75'></span>
@@ -111,7 +111,7 @@ const LandingPage = () => {
             Multibase is now live
           </div>
 
-          <h1 className='text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-br from-white to-white/60 pb-2 animate-fade-in-up [animation-delay:100ms]'>
+          <h1 className='text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-br from-white to-white/60 pb-2 animate-fade-in-up [animation-delay:100ms]'>
             Scale your database <br />
             <span className='text-brand-500'>without limits.</span>
           </h1>
@@ -149,7 +149,7 @@ const LandingPage = () => {
         </div>
 
         {/* Features Grid */}
-        <div className='container mx-auto px-6 py-20 border-t border-white/5 bg-background/50 backdrop-blur-sm'>
+        <div className='container mx-auto px-4 sm:px-6 py-16 sm:py-20 border-t border-white/5 bg-background/50 backdrop-blur-sm'>
           <div className='text-center mb-16'>
             <h2 className='text-3xl font-bold mb-4'>Everything you need to build</h2>
             <p className='text-muted-foreground max-w-2xl mx-auto'>
@@ -195,7 +195,7 @@ const LandingPage = () => {
 
       {/* Footer */}
       <footer className='border-t border-white/10 bg-[#111] py-12 relative z-10'>
-        <div className='container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-8'>
+        <div className='container mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8'>
           <div>
             <div className='flex items-center gap-2 font-bold mb-4'>
               <img src='/logo.png' alt='Multibase' className='w-6 h-6' />
@@ -264,7 +264,7 @@ const LandingPage = () => {
             </ul>
           </div>
         </div>
-        <div className='container mx-auto px-6 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground'>
+        <div className='container mx-auto px-4 sm:px-6 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground'>
           &copy; 2026 Multibase Inc. All rights reserved.
         </div>
       </footer>

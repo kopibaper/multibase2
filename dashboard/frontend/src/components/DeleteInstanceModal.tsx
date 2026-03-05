@@ -38,7 +38,7 @@ export default function DeleteInstanceModal({ instance, open, onClose, onConfirm
     <div className='fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4'>
       <div className='glass-modal max-w-lg w-full'>
         {/* Header */}
-        <div className='flex items-center justify-between p-6 border-b border-border'>
+        <div className='flex items-center justify-between p-4 sm:p-6 border-b border-border'>
           <div className='flex items-center gap-3'>
             <div className='p-2 bg-destructive/10 rounded-lg'>
               <Trash2 className='w-6 h-6 text-destructive' />
@@ -51,7 +51,7 @@ export default function DeleteInstanceModal({ instance, open, onClose, onConfirm
         </div>
 
         {/* Content */}
-        <div className='p-6 space-y-4'>
+        <div className='p-4 sm:p-6 space-y-4'>
           {/* Warning */}
           <div className='bg-destructive/10 border border-destructive/20 rounded-lg p-4'>
             <div className='flex gap-3'>
@@ -109,17 +109,17 @@ export default function DeleteInstanceModal({ instance, open, onClose, onConfirm
         </div>
 
         {/* Footer */}
-        <div className='flex items-center justify-end gap-3 p-6 border-t border-border'>
+        <div className='flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 p-4 sm:p-6 border-t border-border'>
           <button
             onClick={handleClose}
-            className='px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors'
+            className='w-full sm:w-auto px-4 py-2.5 border border-border rounded-md hover:bg-muted transition-colors text-sm'
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={!serviceRoleKey}
-            className='flex items-center gap-2 px-4 py-2 bg-destructive text-white rounded-md hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+            className='w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-destructive text-white rounded-md hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm'
           >
             <Trash2 className='w-4 h-4' />
             Delete Instance

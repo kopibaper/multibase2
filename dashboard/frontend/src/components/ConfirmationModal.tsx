@@ -45,18 +45,18 @@ export default function ConfirmationModal({
 
         <p className='text-muted-foreground mb-6'>{message}</p>
 
-        <div className='flex justify-end gap-3'>
+        <div className='flex flex-col-reverse sm:flex-row sm:justify-end gap-3'>
           <button
             onClick={onClose}
             disabled={isLoading}
-            className='px-4 py-2 rounded-md hover:bg-secondary transition-colors disabled:opacity-50'
+            className='w-full sm:w-auto px-4 py-2.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50 text-sm'
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 rounded-md text-white flex items-center gap-2 transition-colors disabled:opacity-50 ${
+            className={`w-full sm:w-auto px-4 py-2.5 rounded-md text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm ${
               variant === 'danger'
                 ? 'bg-destructive hover:bg-destructive/90'
                 : variant === 'warning'

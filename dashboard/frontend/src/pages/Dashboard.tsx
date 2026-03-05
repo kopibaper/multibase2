@@ -73,8 +73,8 @@ export default function Dashboard() {
     <div className='min-h-screen'>
       {/* Page Header */}
       <header className='border-b border-white/5 bg-card/30 backdrop-blur-sm sticky top-0 z-20'>
-        <div className='px-8 py-6'>
-          <div className='flex items-center justify-between'>
+        <div className='px-4 sm:px-8 py-4 sm:py-6'>
+          <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
             <div>
               <h1 className='text-2xl font-bold text-foreground'>Dashboard</h1>
               <p className='text-muted-foreground mt-1'>Manage your Supabase instances</p>
@@ -103,7 +103,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className='container mx-auto px-6 py-8'>
+      <main className='container mx-auto px-4 sm:px-6 py-6 sm:py-8'>
         {/* Stats Overview */}
         <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
           <div className='glass-card p-6'>
@@ -196,7 +196,7 @@ export default function Dashboard() {
 
         {/* System Overview Charts */}
         {systemMetrics && instances && instances.length > 0 && (
-          <div className='bg-card border rounded-lg p-6 mb-8'>
+          <div className='bg-card border rounded-lg p-4 sm:p-6 mb-8'>
             <h2 className='text-xl font-semibold mb-6 flex items-center gap-2'>
               <Activity className='w-6 h-6' />
               System Overview
