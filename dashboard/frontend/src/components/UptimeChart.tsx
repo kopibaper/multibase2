@@ -8,6 +8,29 @@ interface UptimeChartProps {
   days?: number;
 }
 
+function getBarColor(hours: number): string {
+  const pct = (hours / 24) * 100;
+  if (pct >= 95) return 'bg-green-500';
+  if (pct >= 75) return 'bg-yellow-400';
+  if (pct >= 40) return 'bg-orange-400';
+  return 'bg-red-500';
+}
+
+function getBarColorToday(hours: number): string {
+  const pct = (hours / 24) * 100;
+  if (pct >= 95) return 'bg-green-400';
+  if (pct >= 75) return 'bg-yellow-300';
+  if (pct >= 40) return 'bg-orange-300';
+  return 'bg-red-400';
+}
+
+function getUptimeTextColor(pct: number): string {
+  if (pct >= 95) return 'text-green-500';
+  if (pct >= 75) return 'text-yellow-500';
+  if (pct >= 40) return 'text-orange-500';
+  return 'text-red-500';
+}
+
 export function UptimeChart({ instanceName, className, days = 10 }: UptimeChartProps) {
   const { data: stats, isLoading } = useInstanceUptime(instanceName, days);
 
@@ -33,34 +56,36 @@ export function UptimeChart({ instanceName, className, days = 10 }: UptimeChartP
     );
   }
 
-  // Take last 10 days only
-  const last10Days = stats.history.slice(-10);
-
-  // Calculate current uptime from services if available
-  const todayHours = last10Days.length > 0 ? last10Days[last10Days.length - 1].hours : 0;
+  // Take last N days only
+  const lastDays = stats.history.slice(-days);
+  const todayEntry = lastDays[lastDays.length - 1];
+  const todayHours = todayEntry ? todayEntry.hours : 0;
+  const overallPct = stats.uptimePercentage ?? 0;
 
   return (
     <div className={cn('space-y-2', className)}>
       <div className='flex items-center justify-between text-xs px-1'>
         <span className='text-muted-foreground'>Uptime ({days}d)</span>
-        <span className='font-medium text-green-500'>Today: {todayHours}h</span>
+        <span className={cn('font-medium', getUptimeTextColor(overallPct))}>
+          {overallPct.toFixed(1)}%
+        </span>
       </div>
 
-      {/* Bar Chart - 10 vertical bars */}
+      {/* Bar Chart — vertical bars, height = hours up that day */}
       <div className='flex items-end justify-between gap-1 h-[50px] px-1'>
-        {last10Days.map((day, index) => {
-          // Height is proportional to hours (max 24h = 100%)
+        {lastDays.map((day, index) => {
           const heightPercent = (day.hours / 24) * 100;
-          const isToday = index === last10Days.length - 1;
+          const isToday = index === lastDays.length - 1;
+          const colorClass = isToday ? getBarColorToday(day.hours) : getBarColor(day.hours);
 
           return (
             <div
               key={day.date}
               className='flex-1 flex flex-col items-center gap-0.5'
-              title={`${day.date}: ${day.hours}h up`}
+              title={`${day.date}: ${day.hours}h up (${((day.hours / 24) * 100).toFixed(0)}%)`}
             >
               <div
-                className={cn('w-full rounded-sm transition-all', isToday ? 'bg-green-500' : 'bg-green-500/70')}
+                className={cn('w-full rounded-sm transition-all', colorClass)}
                 style={{ height: `${Math.max(heightPercent, 2)}%` }}
               />
             </div>
@@ -70,8 +95,14 @@ export function UptimeChart({ instanceName, className, days = 10 }: UptimeChartP
 
       {/* Day labels */}
       <div className='flex justify-between text-[10px] text-muted-foreground px-1'>
-        <span>{new Date(last10Days[0]?.date).toLocaleDateString(undefined, { day: 'numeric' })}</span>
-        <span>Today</span>
+        <span>
+          {lastDays[0]
+            ? new Date(lastDays[0].date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+            : ''}
+        </span>
+        <span className={cn('font-medium', getUptimeTextColor((todayHours / 24) * 100))}>
+          Today {todayHours}h
+        </span>
       </div>
     </div>
   );

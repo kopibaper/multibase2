@@ -15,7 +15,7 @@ export class UptimeService {
       (instance) => instance.name === instanceName
     );
 
-    const basePort = config?.ports?.kong_http || config?.ports?.studio || 0;
+    const basePort = config?.ports?.gateway_port || config?.ports?.kong_http || config?.ports?.studio || 0;
 
     const instance = await this.prisma.instance.upsert({
       where: { id: instanceName },
@@ -75,10 +75,22 @@ export class UptimeService {
     let responseTime = 0;
 
     try {
-      // Cloud-Version: Use Kong HTTP port for health check (no per-instance Studio)
-      // Classic: Use Studio port
-      const port = instance.ports.studio || instance.ports.kong_http;
-      const healthPath = instance.ports.studio ? '/' : '/rest/v1/';
+      // Port priority:
+      //   Cloud stack:   gateway_port (Nginx gateway, replaces Kong) → /rest/v1/
+      //   Classic stack: studio port → /
+      //   Fallback:      kong_http (legacy field name) → /rest/v1/
+      const gatewayPort = instance.ports.gateway_port || instance.ports.kong_http;
+      const studioPort = instance.ports.studio;
+
+      // Prefer gateway (cloud) if available; fall back to studio (classic)
+      const port = gatewayPort || studioPort;
+      const healthPath = studioPort && !gatewayPort ? '/' : '/rest/v1/';
+
+      if (!port) {
+        logger.warn(`UptimeService: no valid port found for instance "${instance.name}", skipping check`);
+        return;
+      }
+
       // Using 5s timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -89,7 +101,8 @@ export class UptimeService {
 
       clearTimeout(timeoutId);
 
-      if (response.ok) {
+      if (response.ok || response.status === 401) {
+        // 401 means the gateway is up but requires auth — still counts as "up"
         status = 'up';
       }
 
