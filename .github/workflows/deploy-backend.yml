@@ -1,0 +1,61 @@
+name: Deploy Backend (cloud-version)
+
+on:
+  push:
+    branches: [cloud-version]
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy Backend Files to VPS 2
+        uses: easingthemes/ssh-deploy@v5.0.0
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.VPS2_HOST }}
+          REMOTE_USER: ${{ secrets.VPS2_USER }}
+          EXCLUDE: '/node_modules/, .git/, .github/, /dashboard/frontend/'
+          TARGET: '/opt/multibase/'
+          ARGS: '-rltgoDzvO'
+
+      - name: Post-Deployment Commands (VPS 2)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            cd /opt/multibase/dashboard/backend
+
+            # Install production dependencies
+            npm ci
+
+            # Write .env
+            echo "PORT=3001" > .env
+            echo "NODE_ENV=production" >> .env
+            echo "PROJECTS_PATH=../../projects" >> .env
+            echo "LOG_LEVEL=info" >> .env
+            echo "DATABASE_URL=file:./prisma/data/multibase.db" >> .env
+            echo "REDIS_URL=redis://localhost:6379" >> .env
+            echo "CORS_ORIGIN=https://multibase.tyto-design.de,http://localhost:5173" >> .env
+            echo "METRICS_INTERVAL=15000" >> .env
+            echo "HEALTH_CHECK_INTERVAL=10000" >> .env
+            echo "ALERT_CHECK_INTERVAL=60000" >> .env
+            echo "APP_URL=https://multibase.tyto-design.de" >> .env
+            echo "DASHBOARD_URL=https://multibase.tyto-design.de" >> .env
+            echo "BACKEND_URL=https://backend.tyto-design.de" >> .env
+            echo "COOKIE_DOMAIN=.tyto-design.de" >> .env
+            echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" >> .env
+
+            # Run Migrations
+            npx prisma generate
+            npx prisma migrate deploy
+
+            # Build Backend
+            npm run build
+
+            # Restart PM2
+            pm2 restart multibase-backend || pm2 start dist/server.js --name "multibase-backend"
