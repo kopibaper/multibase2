@@ -205,6 +205,15 @@ export default function UserManagement() {
     }
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Server Admin';
+      case 'user': return 'User';
+      case 'viewer': return 'Viewer';
+      default: return role;
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
@@ -299,17 +308,22 @@ export default function UserManagement() {
                 </div>
                 <div>
                   <label className='block text-sm font-medium text-foreground mb-1'>
-                    Role <span className='text-destructive'>*</span>
+                    Server Role <span className='text-destructive'>*</span>
                   </label>
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
                     className='w-full px-3 py-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-input text-foreground'
                   >
-                    <option value='viewer'>Viewer</option>
-                    <option value='user'>User</option>
-                    <option value='admin'>Admin</option>
+                    <option value='viewer'>Viewer – read only</option>
+                    <option value='user'>User – manage instances</option>
+                    <option value='admin'>Server Admin – full server access</option>
                   </select>
+                  {formData.role === 'admin' && (
+                    <p className='mt-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1'>
+                      ⚠️ Server Admin bypasses all organisation restrictions and has full access to all instances and settings.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className='flex gap-3 pt-4'>
@@ -362,7 +376,7 @@ export default function UserManagement() {
                       )}`}
                     >
                       {getRoleIcon(user.role)}
-                      {user.role}
+                      {getRoleLabel(user.role)}
                     </span>
                   </td>
                   <td className='px-6 py-4'>
@@ -444,16 +458,21 @@ export default function UserManagement() {
                   />
                 </div>
                 <div>
-                  <label className='block text-sm font-medium text-foreground mb-1'>Role</label>
+                  <label className='block text-sm font-medium text-foreground mb-1'>Server Role</label>
                   <select
                     value={editingUser.role}
                     onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as any })}
                     className='w-full px-3 py-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-input text-foreground'
                   >
-                    <option value='viewer'>Viewer</option>
-                    <option value='user'>User</option>
-                    <option value='admin'>Admin</option>
+                    <option value='viewer'>Viewer – read only</option>
+                    <option value='user'>User – manage instances</option>
+                    <option value='admin'>Server Admin – full server access</option>
                   </select>
+                  {editingUser.role === 'admin' && (
+                    <p className='mt-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1'>
+                      ⚠️ Server Admin bypasses all organisation restrictions and has full access to all instances and settings.
+                    </p>
+                  )}
                 </div>
                 <div className='flex gap-3 pt-4'>
                   <button

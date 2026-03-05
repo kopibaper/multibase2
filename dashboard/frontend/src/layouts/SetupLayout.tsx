@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Book, Code, Layers, FileText, Cloud, Network } from 'lucide-react';
+import { Book, Code, Layers, FileText, Cloud, Network, Building2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
@@ -119,7 +119,13 @@ export default function SetupLayout({}: SetupLayoutProps) {
               v1.2 Released
             </SidebarLink>
             <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText}>
-              v1.3 Roadmap
+              v1.3 Released
+            </SidebarLink>
+            <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText}>
+              v1.4 Released
+            </SidebarLink>
+            <SidebarLink to='/setup/reference/multi-tenancy' icon={Building2}>
+              Multi-Tenancy
             </SidebarLink>
             <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud}>
               Cloud Architecture

@@ -8,11 +8,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Organisation {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  members     OrgMember[]
+  instances   Instance[]
+
+  @@index([slug])
+}
+
+model OrgMember {
+  id       Int          @id @default(autoincrement())
+  orgId    String
+  userId   String
+  role     String       @default("member") // 'owner' | 'admin' | 'member' | 'viewer'
+  joinedAt DateTime     @default(now())
+  org      Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
+}
+
 model Instance {
   id          String      @id
   name        String      @unique
   basePort    Int
   status      String      // 'running', 'stopped', 'degraded', 'healthy'
+  orgId       String?     // Optional: assigned to an organisation
+  org         Organisation? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   metrics     Metric[]
@@ -22,6 +51,7 @@ model Instance {
 
   @@index([name])
   @@index([status])
+  @@index([orgId])
 }
 
 model UptimeRecord {
@@ -138,6 +168,7 @@ model User {
   apiKeys          ApiKey[]
   templates        InstanceTemplate[]
   aiChatSessions   AiChatSession[]
+  orgMemberships   OrgMember[]
 
   @@index([email])
   @@index([role])

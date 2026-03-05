@@ -41,6 +41,9 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       setOrgs(data);
 
+      // Cache orgs for the API helper (so fetchApi can resolve slug → id)
+      localStorage.setItem('cachedOrgs', JSON.stringify(data));
+
       const savedSlug = localStorage.getItem('activeOrgSlug');
       const saved = data.find((o: Organisation) => o.slug === savedSlug);
       setActiveOrgState(saved || data[0] || null);

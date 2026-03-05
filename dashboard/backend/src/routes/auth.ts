@@ -21,14 +21,13 @@ export function createAuthRoutes() {
     auditLog('USER_REGISTER'),
     async (req: Request, res: Response): Promise<any> => {
       try {
-        const { email, username, password, role } = req.body;
+        const { email, username, password } = req.body;
 
         // Validation is now handled by Zod middleware
         const user = await AuthService.register({
           email,
           username,
           password,
-          role,
         });
 
         // Set user in request for audit logger

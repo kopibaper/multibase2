@@ -23,7 +23,6 @@ export const RegisterSchema = z.object({
     .regex(/[a-z]/, 'Passwort muss mindestens einen Kleinbuchstaben enthalten')
     .regex(/[0-9]/, 'Passwort muss mindestens eine Zahl enthalten')
     .regex(/[^a-zA-Z0-9]/, 'Passwort muss mindestens ein Sonderzeichen enthalten'),
-  role: z.enum(['admin', 'user', 'viewer']).optional(),
 });
 
 export const UpdateUserSchema = z.object({

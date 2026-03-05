@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrg } from '../contexts/OrgContext';
 import { cn } from '../lib/utils';
 import {
   LayoutDashboard,
@@ -17,6 +18,10 @@ import {
   BookOpen,
   HardDrive,
   Cloud,
+  Building2,
+  Plus,
+  UserCircle2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
 
@@ -84,7 +89,9 @@ interface SidebarProps {
 
 export default function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
+  const { orgs, activeOrg, setActiveOrg } = useOrg();
   const navigate = useNavigate();
+  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -104,6 +111,93 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
 
         {/* Navigation */}
         <nav className='flex-1 overflow-y-auto py-4 px-3 space-y-1'>
+
+          {/* Organisation Switcher */}
+          <div className='mb-3'>
+            <p className='px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60'>
+              Organisation
+            </p>
+            {activeOrg ? (
+              <div className='mt-1 space-y-0.5'>
+                {/* Org switcher button */}
+                <div className='relative'>
+                  <button
+                    onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
+                    className='w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-white/5 transition-colors'
+                  >
+                    <div className='w-6 h-6 rounded-md bg-brand-500/20 flex items-center justify-center text-brand-400 font-bold text-xs flex-shrink-0'>
+                      {activeOrg.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className='flex-1 text-left truncate'>{activeOrg.name}</span>
+                    <ChevronDown className={cn('w-3 h-3 text-muted-foreground transition-transform', orgDropdownOpen ? 'rotate-180' : '')} />
+                  </button>
+                  {orgDropdownOpen && orgs.length > 1 && (
+                    <div className='mx-2 mb-1 rounded-lg border border-white/10 bg-background/90 overflow-hidden'>
+                      {orgs.filter(o => o.id !== activeOrg.id).map(org => (
+                        <button
+                          key={org.id}
+                          onClick={() => { setActiveOrg(org); setOrgDropdownOpen(false); onNavigate?.(); }}
+                          className='w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
+                        >
+                          <div className='w-5 h-5 rounded bg-white/10 flex items-center justify-center text-xs font-bold flex-shrink-0'>
+                            {org.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className='truncate'>{org.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Members + Settings links */}
+                {(activeOrg.role === 'owner' || activeOrg.role === 'admin') && (
+                  <NavLink
+                    to={`/orgs/${activeOrg.slug}/members`}
+                    onClick={onNavigate}
+                    className={({ isActive }) => cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      isActive ? 'bg-brand-500/15 text-brand-400' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                    )}
+                  >
+                    <UserCircle2 className='w-4 h-4 flex-shrink-0' />
+                    Members
+                  </NavLink>
+                )}
+                {(activeOrg.role === 'owner' || activeOrg.role === 'admin') && (
+                  <NavLink
+                    to={`/orgs/${activeOrg.slug}/settings`}
+                    onClick={onNavigate}
+                    className={({ isActive }) => cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      isActive ? 'bg-brand-500/15 text-brand-400' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                    )}
+                  >
+                    <SlidersHorizontal className='w-4 h-4 flex-shrink-0' />
+                    Org Settings
+                  </NavLink>
+                )}
+                <NavLink
+                  to='/orgs/new'
+                  onClick={onNavigate}
+                  className={({ isActive }) => cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    isActive ? 'bg-brand-500/15 text-brand-400' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                  )}
+                >
+                  <Plus className='w-4 h-4 flex-shrink-0' />
+                  New Organisation
+                </NavLink>
+              </div>
+            ) : (
+              <button
+                onClick={() => { navigate('/orgs/new'); onNavigate?.(); }}
+                className='mt-1 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors border border-dashed border-white/10'
+              >
+                <Building2 className='w-4 h-4 flex-shrink-0' />
+                Create Organisation
+              </button>
+            )}
+          </div>
+
           <SidebarGroup title='Overview'>
             <SidebarLink to='/dashboard' icon={LayoutDashboard} end>
               Dashboard
@@ -173,7 +267,11 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
             </div>
             <div className='flex-1 min-w-0'>
               <p className='text-sm font-medium text-foreground truncate'>{user?.username}</p>
-              <p className='text-xs text-muted-foreground truncate'>{user?.email}</p>
+              {user?.role === 'admin' ? (
+                <p className='text-xs font-medium text-brand-400 truncate'>Global Admin</p>
+              ) : (
+                <p className='text-xs text-muted-foreground truncate'>{user?.email}</p>
+              )}
             </div>
             <Settings className='w-4 h-4 text-muted-foreground' />
           </NavLink>

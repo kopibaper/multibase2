@@ -47,6 +47,7 @@ import { createStudioRoutes } from './routes/studio';
 import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
 import { StudioManager } from './services/StudioManager';
+import { createOrgRoutes } from './routes/orgs';
 
 // Utils
 import { logger } from './utils/logger';
@@ -158,6 +159,7 @@ app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
+app.use('/api/orgs', createOrgRoutes());
 app.use('/api/shared', createSharedRoutes(dockerManager, studioManager));
 app.use('/api/studio', createStudioRoutes(studioManager));
 

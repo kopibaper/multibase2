@@ -1,4 +1,9 @@
-# Multibase v1.4 — Multi-Tenancy & Organisations
+---
+title: Version 1.4 - Multi-Tenancy & Organisations
+description: Organisation model, role-based access, org switcher, member invitations
+---
+
+# Version 1.4 — Multi-Tenancy & Organisations
 
 **Status:** ✅ Released  
 **Release:** March 2026  
@@ -13,13 +18,15 @@ creates their own named **Organisation**, and manages their Supabase instances w
 completely isolated from other clients. The agency's admin has a global overview of all
 organisations and can intervene at any time.
 
+> 📖 [Multi-Tenancy Reference Guide](/setup/reference/multi-tenancy)
+
 ---
 
 ## 🏢 Organisation Model
 
-### Registration Flow (New)
+### Registration Flow (Updated)
 
-The current registration flow creates a user. In v1.4 it is extended:
+The current registration flow is extended:
 
 1. User fills in: **Name**, **Email**, **Password**
 2. User fills in: **Organisation Name** (e.g. "Mustermann GmbH")
@@ -113,9 +120,6 @@ model OrgMember {
 }
 ```
 
-Migration for existing instances: all existing instances are assigned to a default
-`__system__` organisation or to the first admin user's org.
-
 ---
 
 ## 🖥️ Frontend Changes
@@ -207,7 +211,3 @@ assigned to a system org and prompted to create/join an org on next login.
 - **Billing Integration** — cost per org
 - **Audit Log per Org** — activity feed per organisation
 - **SSO / OAuth** — login with Google/GitHub mapped to org
-
----
-
-*Part of the Multibase roadmap. See [VERSION_OVERVIEW.md](./VERSION_OVERVIEW.md) for full roadmap.*

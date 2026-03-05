@@ -11,7 +11,7 @@ import {
   CloneInstanceSchema,
 } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
-import { requireViewer, requireUser } from '../middleware/authMiddleware';
+import { requireViewer, requireUser, requireAdmin, requireOrgRole } from '../middleware/authMiddleware';
 
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
@@ -21,12 +21,67 @@ export function createInstanceRoutes(
   const router = Router();
 
   /**
-   * GET /api/instances
-   * List all instances
+   * Helper: Verify that the instance identified by req.params.name belongs
+   * to the org specified in X-Org-Id. Returns 404 if not found.
+   * Global admins can always access any instance regardless of org.
    */
-  router.get('/', requireViewer, async (_req: Request, res: Response) => {
+  const verifyInstanceOrg = async (req: Request, res: Response): Promise<boolean> => {
+    const orgId = (req as any).orgId as string | undefined;
+    const name = req.params.name;
+    const isAdmin = (req as any).user?.role === 'admin';
+
+    // Admin → always allowed
+    if (isAdmin) return true;
+    if (!name) return true;
+
+    const record = await prisma.instance.findFirst({ where: { name, orgId } });
+    if (!record) {
+      res.status(404).json({ error: 'Instance not found in this organisation' });
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * GET /api/instances
+   * List instances scoped to the active organisation.
+   * Global admins without X-Org-Id see ALL instances (including unassigned).
+   * Global admins with X-Org-Id see that org's instances + unassigned ones.
+   * Org members see only their org's instances.
+   */
+  router.get('/', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
     try {
-      const instances = await instanceManager.listInstances();
+      const orgId = (req as any).orgId as string | undefined;
+      const isAdmin = req.user?.role === 'admin';
+
+      // Get all instances from filesystem
+      const allInstances = await instanceManager.listInstances();
+
+      // Admin with no org header → return everything
+      if (isAdmin && !orgId) {
+        return res.json(allInstances);
+      }
+
+      // Get instance names that belong to this org from DB
+      const whereClause: any = { orgId };
+      const orgInstanceRecords = await prisma.instance.findMany({
+        where: whereClause,
+        select: { name: true },
+      });
+      const orgInstanceNames = new Set(orgInstanceRecords.map((r) => r.name));
+
+      // Admin also sees instances with no org assigned yet (legacy / unassigned)
+      if (isAdmin) {
+        const unassigned = await prisma.instance.findMany({
+          where: { orgId: null },
+          select: { name: true },
+        });
+        unassigned.forEach((r) => orgInstanceNames.add(r.name));
+      }
+
+      // Filter to org (+ unassigned for admin) instances
+      const instances = allInstances.filter((i) => orgInstanceNames.has(i.name));
+
       return res.json(instances);
     } catch (error: any) {
       logger.error('Error listing instances:', error);
@@ -41,6 +96,7 @@ export function createInstanceRoutes(
   router.post(
     '/bulk',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_BULK_ACTION', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -101,11 +157,25 @@ export function createInstanceRoutes(
 
   /**
    * GET /api/instances/:name
-   * Get a specific instance by name
+   * Get a specific instance by name.
+   * Admins can open any instance regardless of org assignment.
+   * Non-admins: instance must belong to their active org.
    */
-  router.get('/:name', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
+      const orgId = (req as any).orgId as string | undefined;
+      const isAdmin = req.user?.role === 'admin';
+
+      if (!isAdmin) {
+        // Non-admin: instance must belong to their org
+        const dbInstance = await prisma.instance.findFirst({ where: { name, orgId } });
+        if (!dbInstance) {
+          return res.status(404).json({ error: 'Instance not found in this organisation' });
+        }
+      }
+      // Admin: no org-filter — can open any instance
+
       const instances = await instanceManager.listInstances();
       const instance = instances.find((i) => i.name === name);
 
@@ -122,11 +192,12 @@ export function createInstanceRoutes(
 
   /**
    * POST /api/instances
-   * Create a new instance
+   * Create a new instance (assigned to the active organisation)
    */
   router.post(
     '/',
     requireUser,
+    requireOrgRole('member'),
     validate(CreateInstanceSchema),
     auditLog('INSTANCE_CREATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
@@ -164,6 +235,19 @@ export function createInstanceRoutes(
         // Validation is now handled by Zod middleware
         const instance = await instanceManager.createInstance(createRequest);
 
+        // Assign instance to active organisation
+        const orgId = (req as any).orgId as string | undefined;
+        if (orgId) {
+          try {
+            await prisma.instance.updateMany({
+              where: { name: instance.name },
+              data: { orgId },
+            });
+          } catch (orgErr) {
+            logger.warn(`Failed to set orgId for instance ${instance.name}:`, orgErr);
+          }
+        }
+
         // Apply Template Overrides (Post-Processing)
         // Only apply if there are actual services or env overrides
         const hasServiceOverrides = (createRequest as any).services?.length > 0;
@@ -188,10 +272,12 @@ export function createInstanceRoutes(
   router.delete(
     '/:name',
     requireUser,
+    requireOrgRole('admin'),
     auditLog('INSTANCE_DELETE'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         const { removeVolumes } = req.query;
 
         await instanceManager.deleteInstance(name, removeVolumes === 'true');
@@ -210,10 +296,12 @@ export function createInstanceRoutes(
   router.post(
     '/:name/start',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_START'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.startInstance(name);
         res.json({ message: `Instance ${name} started successfully` });
       } catch (error: any) {
@@ -230,10 +318,12 @@ export function createInstanceRoutes(
   router.post(
     '/:name/stop',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_STOP'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         const { keepVolumes } = req.query;
 
         await instanceManager.stopInstance(name, keepVolumes !== 'false');
@@ -252,10 +342,12 @@ export function createInstanceRoutes(
   router.post(
     '/:name/restart',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_RESTART'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.restartInstance(name);
         res.json({ message: `Instance ${name} restarted successfully` });
       } catch (error: any) {
@@ -272,6 +364,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/services/:service/restart',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_SERVICE_RESTART', {
       getResource: (req) => `${req.params.name}:${req.params.service}`,
     }),
@@ -297,10 +390,12 @@ export function createInstanceRoutes(
   router.post(
     '/:name/recreate',
     requireUser,
+    requireOrgRole('member'),
     auditLog('INSTANCE_RECREATE'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.recreateInstance(name);
         res.json({ message: `Instance ${name} recreated successfully` });
       } catch (error: any) {
@@ -317,6 +412,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/credentials',
     requireUser,
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_CREDENTIALS', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -336,7 +432,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/services
    * Get services status for an instance
    */
-  router.get('/:name/services', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/services', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const services = await dockerManager.getServiceStatus(name);
@@ -354,6 +450,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/smtp',
     requireUser,
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_SMTP', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -385,7 +482,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/env
    * Get instance environment variables
    */
-  router.get('/:name/env', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/env', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { keys } = req.query; // Optional: comma-separated list of keys to fetch
@@ -427,6 +524,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/env',
     requireUser,
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_ENV', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -450,6 +548,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/resources',
     requireUser,
+    requireOrgRole('admin'),
     validate(UpdateResourceLimitsSchema),
     auditLog('INSTANCE_UPDATE_RESOURCES', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -477,6 +576,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/clone',
     requireUser,
+    requireOrgRole('member'),
     validate(CloneInstanceSchema),
     auditLog('INSTANCE_CLONE', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -502,7 +602,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/schema
    * Get database schema for an instance
    */
-  router.get('/:name/schema', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/schema', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       logger.info(`Getting schema for instance ${name}`);
@@ -521,6 +621,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/sql',
     requireUser,
+    requireOrgRole('admin'),
     auditLog('SQL_EXECUTE', { includeBody: false }),
     async (req: Request, res: Response) => {
       try {
@@ -544,6 +645,43 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error executing SQL for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to execute SQL' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/instances/:name/assign-org
+   * Admin-only: assign (or unassign) an existing instance to/from an organisation.
+   * Body: { orgId: string | null }
+   */
+  router.patch(
+    '/:name/assign-org',
+    requireAdmin,
+    auditLog('INSTANCE_ASSIGN_ORG', { includeBody: true }),
+    async (req: Request, res: Response): Promise<any> => {
+      try {
+        const { name } = req.params;
+        const { orgId } = req.body as { orgId: string | null };
+
+        // Validate org exists (if setting one)
+        if (orgId) {
+          const org = await prisma.organisation.findUnique({ where: { id: orgId } });
+          if (!org) return res.status(404).json({ error: 'Organisation not found' });
+        }
+
+        const updated = await prisma.instance.updateMany({
+          where: { name },
+          data: { orgId: orgId ?? null },
+        });
+
+        if (updated.count === 0) {
+          return res.status(404).json({ error: 'Instance not found in database' });
+        }
+
+        return res.json({ success: true, name, orgId: orgId ?? null });
+      } catch (error: any) {
+        logger.error(`Error assigning org for instance ${req.params.name}:`, error);
+        return res.status(500).json({ error: error.message || 'Failed to assign org' });
       }
     }
   );

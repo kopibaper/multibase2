@@ -159,7 +159,9 @@ A complete reference of all technical documentation available in this repository
 | [**Feature Guide v1.0**](Markdowns/README.md)                 | Complete manual for the current production version.      | ✅ Active    |
 | [**Features v1.1**](Markdowns/Readme1_1_feature.md)           | User Mgmt, Alerts, Backups, Security, Templates, SMTP.   | ✅ Released  |
 | [**Features v1.2**](Markdowns/Readme1_2_Feature.md)           | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
-| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)           | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | 🚧 Active    |
+| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)           | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | ✅ Released  |
+| [**Features v1.4**](Markdowns/Readme1_4_Feature.md)           | Multi-Tenancy, Organisations, Role-Based Access.         | ✅ Released  |
+| [**Multi-Tenancy Guide**](docs/MULTI_TENANCY.md)              | Organisation model, roles, isolation & migration guide.  | ✅ Released  |
 | [**Cloud Architecture**](Markdowns/CLOUD_ARCHITECTURE.md)     | Shared Infra design & implementation log (Phase 0-8).    | 📐 Reference |
 | [**Kong→Nginx Migration**](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status.         | ✅ Done      |
 | [**AI Chat Agent**](Markdowns/AIchat.md)                      | Deep-dive: AI assistant with 30+ tools & multi-provider. | 🤖 Tech      |

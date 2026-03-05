@@ -5,10 +5,10 @@ description: Cloud Infrastructure, Kong→Nginx Migration, Workspace, AI Chat Ag
 
 # Version 1.3 - Feature Roadmap
 
-**Release:** February 2026 (ongoing)  
-**Status:** 🚧 Active Development
+**Release:** February 2026  
+**Status:** ✅ Released
 
-> Core cloud features completed. Additional modules (Teams, Billing, GDPR) planned.
+> All core features shipped. Multi-Tenancy & Organisations continue in v1.4.
 
 ---
 

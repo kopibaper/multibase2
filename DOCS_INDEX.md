@@ -146,11 +146,11 @@ See [Markdowns/Readme1_1_feature.md](./Markdowns/Readme1_1_feature.md)
 See [Markdowns/Readme1_2_Feature.md](./Markdowns/Readme1_2_Feature.md)
 
 
-### Version 1.3 (Active)
+### Version 1.3 (Released)
 
 See [Markdowns/Readme1_3_Feature.md](./Markdowns/Readme1_3_Feature.md)
 
-### Version 1.4 - Multi-Tenancy (In Development)
+### Version 1.4 - Multi-Tenancy (Released)
 
 - Technical Spec: [Markdowns/Readme1_4_Feature.md](./Markdowns/Readme1_4_Feature.md)
 - User Guide: [docs/MULTI_TENANCY.md](./docs/MULTI_TENANCY.md)

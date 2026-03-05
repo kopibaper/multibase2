@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Save, Trash2, AlertTriangle } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Building2, Save, Trash2, AlertTriangle, Plus } from 'lucide-react';
 import { useOrg } from '../contexts/OrgContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,15 +10,88 @@ export default function OrgSettings() {
   const { activeOrg, refreshOrgs, setActiveOrg, orgs } = useOrg();
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isNew = location.pathname === '/orgs/new';
 
-  const [name, setName] = useState(activeOrg?.name || '');
-  const [description, setDescription] = useState(activeOrg?.description || '');
+  const [name, setName] = useState(isNew ? '' : activeOrg?.name || '');
+  const [description, setDescription] = useState(isNew ? '' : activeOrg?.description || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // ── Create mode ─────────────────────────────────────────────────────────
+  const handleCreate = async () => {
+    if (!name.trim()) { setError('Name is required'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/orgs`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create organisation');
+      await refreshOrgs();
+      setActiveOrg(data);
+      navigate(`/orgs/${data.slug}/settings`);
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  if (isNew) {
+    return (
+      <div className='max-w-2xl mx-auto py-10 px-4 space-y-8'>
+        <div className='flex items-center gap-3'>
+          <div className='w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center'>
+            <Building2 className='w-5 h-5 text-brand-400' />
+          </div>
+          <div>
+            <h1 className='text-xl font-bold'>New Organisation</h1>
+            <p className='text-sm text-muted-foreground'>Create a new organisation to group your instances</p>
+          </div>
+        </div>
+
+        <div className='glass-panel p-6 space-y-4 rounded-xl border border-white/10'>
+          <div className='space-y-3'>
+            <div>
+              <label className='text-sm text-muted-foreground mb-1 block'>Organisation Name *</label>
+              <input
+                autoFocus
+                className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500'
+                placeholder='e.g. Mustermann GmbH'
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              />
+            </div>
+            <div>
+              <label className='text-sm text-muted-foreground mb-1 block'>Description (optional)</label>
+              <textarea
+                className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 resize-none'
+                rows={3}
+                placeholder='Short description...'
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          {error && <p className='text-sm text-red-400'>{error}</p>}
+          <button
+            onClick={handleCreate}
+            disabled={saving || !name.trim()}
+            className='flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors disabled:opacity-50'
+          >
+            <Plus className='w-4 h-4' />
+            {saving ? 'Creating...' : 'Create Organisation'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Edit mode ────────────────────────────────────────────────────────────
   if (!activeOrg) return null;
 
   const canEdit = activeOrg.role === 'owner' || activeOrg.role === 'admin';
