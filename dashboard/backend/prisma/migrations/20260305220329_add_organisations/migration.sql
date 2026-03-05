@@ -1,5 +1,5 @@
--- AlterTable
-ALTER TABLE "GlobalSettings" ADD COLUMN "app_url" TEXT;
+-- AlterTable (app_url already exists from prior migration; skip to avoid duplicate column error)
+-- ALTER TABLE "GlobalSettings" ADD COLUMN "app_url" TEXT;
 
 -- AlterTable
 ALTER TABLE "Instance" ADD COLUMN "orgId" TEXT;
