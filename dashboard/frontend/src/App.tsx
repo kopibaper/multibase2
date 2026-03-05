@@ -23,6 +23,8 @@ import Templates from './pages/Templates';
 import Migrations from './pages/Migrations';
 import GlobalSmtpSettings from './pages/GlobalSmtpSettings';
 import SharedInfra from './pages/SharedInfra';
+import OrgMembers from './pages/OrgMembers';
+import OrgSettings from './pages/OrgSettings';
 import SetupLayout from './layouts/SetupLayout';
 import SetupPage from './pages/SetupPage';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -88,6 +90,9 @@ function AppContent() {
           <Route path='/api-docs' element={<ApiDocs />} />
           <Route path='/templates' element={<Templates />} />
           <Route path='/shared' element={<SharedInfra />} />
+          <Route path='/orgs/new' element={<OrgSettings />} />
+          <Route path='/orgs/:slug/members' element={<OrgMembers />} />
+          <Route path='/orgs/:slug/settings' element={<OrgSettings />} />
         </Route>
 
         {/* Admin Routes with Dashboard Layout */}
