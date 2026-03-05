@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, FolderKanban, LogOut, User, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import OrgSwitcher from '../components/OrgSwitcher';
 
 export default function WorkspaceLayout() {
   const navigate = useNavigate();
@@ -74,8 +75,10 @@ export default function WorkspaceLayout() {
             </nav>
           </div>
 
-          {/* Right: User Menu */}
-          <div className='relative' ref={menuRef}>
+          {/* Right: OrgSwitcher + User Menu */}
+          <div className='flex items-center gap-3'>
+            <OrgSwitcher />
+            <div className='relative' ref={menuRef}>
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className='flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
@@ -109,6 +112,7 @@ export default function WorkspaceLayout() {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
+import { OrgProvider } from './contexts/OrgContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
@@ -119,7 +120,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppContent />
+          <OrgProvider>
+            <AppContent />
+          </OrgProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
