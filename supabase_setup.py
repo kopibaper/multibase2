@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """
-Supabase Project Setup Tool
+Multibase Cloud Version - Lightweight Tenant Setup
 
-This script creates a new Supabase self-hosted deployment with custom port mappings.
+Creates a lightweight Supabase tenant project that uses the SHARED infrastructure
+(PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler, Nginx Gateway).
+
+Per-tenant containers (5 statt 13):
+  - Auth (GoTrue)
+  - REST (PostgREST)
+  - Realtime
+  - Storage
+  - Functions (Edge Runtime)
+
+API Gateway: Shared multibase-nginx-gateway container (replaces per-tenant Kong)
+
+Usage:
+    Von supabase_manager.py aufgerufen:
+    python supabase_manager.py create <name> --base-port <port>
 """
 
 import os
@@ -19,6 +33,7 @@ import base64
 import json
 import time
 
+
 def generate_jwt_token(secret, role):
     """Generate a JWT token signed with the given secret."""
     header = {'alg': 'HS256', 'typ': 'JWT'}
@@ -30,12 +45,13 @@ def generate_jwt_token(secret, role):
         'exp': now + (10 * 365 * 24 * 60 * 60)  # 10 years
     }
     
-    # Simple base64url encode without external dependencies
     def base64url_encode(data):
         return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
     
-    header_b64 = base64url_encode(json.dumps(header).encode())
-    payload_b64 = base64url_encode(json.dumps(payload).encode())
+    # Use compact separators to avoid spaces in base64-encoded header/payload
+    # (spaces in JSON cause non-standard JWT headers that some validators reject)
+    header_b64 = base64url_encode(json.dumps(header, separators=(',', ':')).encode())
+    payload_b64 = base64url_encode(json.dumps(payload, separators=(',', ':')).encode())
     
     message = f'{header_b64}.{payload_b64}'
     signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
@@ -44,13 +60,24 @@ def generate_jwt_token(secret, role):
     return f'{header_b64}.{payload_b64}.{signature_b64}'
 
 
-
 class SupabaseProjectGenerator:
+    """
+    Cloud-Version: Generiert einen Lightweight Tenant Stack.
+    
+    Statt 13 Container pro Projekt werden nur 6 tenant-spezifische Container erstellt.
+    DB, Studio, Analytics, Vector, imgproxy, Meta, Pooler kommen aus dem Shared Stack.
+    """
+    
     def __init__(self, project_name, base_port=None):
         """Initialize the generator with project name and optional base port."""
         self.project_dir = Path(project_name)
-        self.project_name = self.project_dir.name  # Use only the base name for Compose volume names
+        self.project_name = self.project_dir.name
         self.base_port = base_port
+        
+        # Shared Infrastructure Referenz
+        self.base_dir = Path(__file__).parent
+        self.shared_dir = self.base_dir / "shared"
+        self.shared_env = self._load_shared_env()
 
         # Ask if running on localhost first
         is_localhost = input("Is this setup for localhost? (Y/N): ").strip().upper()
@@ -58,100 +85,90 @@ class SupabaseProjectGenerator:
         if is_localhost == 'Y':
             protocol = 'http://'
             domain = 'localhost'
-            self.cors_origins_config = '"*"'  # Add quotes around the asterisk for YAML
+            self.cors_origins_config = '"*"'
             print("Defaulting to protocol: http")
             print("Using domain: localhost")
             print("Configuring CORS to allow all origins (*)")
         else:
-            # Prompt for CORS origin if not localhost
             protocol = input("Enter the protocol for your domain (http or https): ").strip()
             if not protocol.endswith("://"):
                 protocol += "://"
             domain = input("Enter your domain (e.g., example.com): ").strip()
-            self.cors_origins_config = f'"{protocol}{domain}"' # Add quotes around the domain for YAML
+            self.cors_origins_config = f'"{protocol}{domain}"'
 
-        self.origin = f"{protocol}{domain}" # Still set self.origin for potential other uses (.env)
+        self.origin = f"{protocol}{domain}"
 
-        # Calculate ports
+        # Cloud-Version: Weniger Ports noetig (kein DB, Analytics, Studio, Pooler Port)
         self.ports = self._calculate_ports()
         
         # Create project directory
         self._create_project_directory()
         
-        # Templates and content
+        # Templates
         self.templates = {}
         self._initialize_templates()
 
+    def _load_shared_env(self):
+        """Load the shared infrastructure .env file."""
+        env = {}
+        env_file = self.shared_dir / ".env.shared"
+        if env_file.exists():
+            for line in env_file.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    env[key.strip()] = value.strip()
+        else:
+            print("WARNING: shared/.env.shared nicht gefunden!")
+            print("   Bitte zuerst 'python setup_shared.py init' ausfuehren.")
+        return env
+
     def run(self):
         """Create project subdirectories and write template files."""
-        # Define subdirectories to create
+        # Cloud-Version: Weniger Verzeichnisse (kein db/data, analytics, logs, pooler)
         subdirs = [
             "volumes/api",
-            "volumes/db/data",
             "volumes/functions",
-            "volumes/logs",
-            "volumes/pooler",
             "volumes/storage",
-            "volumes/analytics",
-            "volumes/db"
         ]
 
-        # Create subdirectories
         for subdir in subdirs:
             dir_path = self.project_dir / subdir
             if dir_path.exists() and not dir_path.is_dir():
-                dir_path.unlink()  # Remove file if it exists
+                dir_path.unlink()
             dir_path.mkdir(parents=True, exist_ok=True)
 
-        # Ensure volumes/functions/main is a directory and add a sample function if missing
+        # Edge Functions Verzeichnis
         main_dir = self.project_dir / "volumes/functions/main"
         if main_dir.exists() and not main_dir.is_dir():
-            main_dir.unlink()  # Remove file if it exists
+            main_dir.unlink()
         main_dir.mkdir(parents=True, exist_ok=True)
-        sample_function = main_dir / "index.ts"
-        if not sample_function.exists():
-            sample_function.write_text("""// Sample Supabase Edge Function
-import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
-serve((_req) => new Response("Hello from Edge Functions!"));
-""")
 
-        # Write template files with Unix line endings for cross-platform compatibility
+        # Write template files
         self._write_with_unix_newlines(self.project_dir / "docker-compose.yml", self.templates["docker_compose"])
         self._write_with_unix_newlines(self.project_dir / ".env", self.templates["env"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/api/kong.yml", self.templates["kong"])
-        # Create docker-compose.override.yml to fix Kong YAML parsing issues
-        self._create_docker_compose_override()
-        self._write_vector_config()  # Use the dynamic vector config method
-        # CRITICAL: pooler.exs MUST have Unix line endings on Windows or container will crash
-        self._write_with_unix_newlines(self.project_dir / "volumes/pooler/pooler.exs", self.templates["pooler"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/_supabase.sql", self.templates["supabase_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/logs.sql", self.templates["logs_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/jwt.sql", self.templates["jwt_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/pooler.sql", self.templates["pooler_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/realtime.sql", self.templates["realtime_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/roles.sql", self.templates["roles_sql"])
-        self._write_with_unix_newlines(self.project_dir / "volumes/db/webhooks.sql", self.templates["webhooks_sql"])
-        # Write to index.ts file inside the main directory, not to the directory itself
+        # Kong config no longer needed - using shared nginx-gateway
+        self._generate_nginx_gateway_config()
         (self.project_dir / "volumes/functions/main/index.ts").write_text(self.templates["function_main"])
         (self.project_dir / "reset.sh").write_text(self.templates["reset_script"])
         (self.project_dir / "README.md").write_text(self.templates["readme"])
         
+        # Create project database in shared cluster
+        self._create_project_database()
+        
         # Fix Realtime healthcheck for Windows compatibility
         self._fix_realtime_healthcheck()
-        
+
     def _write_with_unix_newlines(self, path, content):
-        """Write file with Unix line endings (LF only) for cross-platform compatibility."""
-        # Convert any CRLF to LF
+        """Write file with Unix line endings (LF only)."""
         content = content.replace('\r\n', '\n')
-        # Write with binary mode to avoid automatic line ending conversion
         path.write_bytes(content.encode('utf-8'))
     
     def _fix_realtime_healthcheck(self):
-        """Fix Realtime healthcheck to use /status endpoint instead of authenticated endpoint."""
+        """Fix Realtime healthcheck to use simpler check."""
         compose_file = self.project_dir / "docker-compose.yml"
         content = compose_file.read_text()
         
-        # Replace the old healthcheck with the new one
         old_healthcheck = '''    healthcheck:
       test:
         [
@@ -177,43 +194,109 @@ serve((_req) => new Response("Hello from Edge Functions!"));
             content = content.replace(old_healthcheck, new_healthcheck)
             self._write_with_unix_newlines(compose_file, content)
             print("Fixed Realtime healthcheck for Windows compatibility")
-        
+    
     def _create_docker_compose_override(self):
-        """Create docker-compose.override.yml to fix Kong YAML parsing issues."""
-        override_content = """services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
-    entrypoint: /docker-entrypoint.sh kong docker-start
-"""
-        override_path = self.project_dir / "docker-compose.override.yml"
-        override_path.write_text(override_content)
-        print(f"Created docker-compose.override.yml to fix Kong YAML parsing issues")
+        """Create docker-compose.override.yml - no longer needed for Kong."""
+        # Kong override is no longer needed since tenants use shared nginx-gateway
+        pass
 
-    def _write_vector_config(self):
-        """Write the vector.yml config with dynamic project/service names."""
-        vector_template = self.templates["vector"]
-        project_name = self.project_name
-        analytics_service = f"{project_name}-analytics"
-        kong_service = f"{project_name}-kong"
+    def _generate_nginx_gateway_config(self):
+        """Generate Nginx gateway config for this tenant.
         
-        # Replace placeholders
-        vector_config = (
-            vector_template
-            .replace("__PROJECT__", project_name)
-            .replace("__ANALYTICS_SERVICE__", analytics_service)
-            .replace("__KONG_SERVICE__", kong_service)
-        )
+        Reads the template from templates/nginx/gateway.conf.template and
+        writes the tenant-specific config to shared/volumes/nginx/tenants/{tenant}.conf.
+        """
+        template_path = self.base_dir / "templates" / "nginx" / "gateway.conf.template"
+        if not template_path.exists():
+            print(f"WARNING: Nginx gateway template not found at {template_path}")
+            print("         Tenant will need manual Nginx config generation.")
+            return
         
-        # Write to the project directory
-        vector_path = self.project_dir / "volumes/logs/vector.yml"
-        vector_path.write_text(vector_config)
+        template_content = template_path.read_text()
+        
+        anon_key = self._extract_env_value("ANON_KEY")
+        service_key = self._extract_env_value("SERVICE_ROLE_KEY")
+        gateway_port = str(self.ports['gateway_port'])
+        tenant_id = self.project_name.replace('-', '_')
+        
+        config = template_content
+        config = config.replace('{{TENANT_NAME}}', self.project_name)
+        config = config.replace('{{TENANT_ID}}', tenant_id)
+        config = config.replace('{{ANON_KEY}}', anon_key)
+        config = config.replace('{{SERVICE_ROLE_KEY}}', service_key)
+        config = config.replace('{{GATEWAY_PORT}}', gateway_port)
+        config = config.replace('{{TIMESTAMP}}', str(Path(__file__).stat().st_mtime))
+        
+        # Write to shared volumes
+        nginx_tenants_dir = self.base_dir / "shared" / "volumes" / "nginx" / "tenants"
+        nginx_tenants_dir.mkdir(parents=True, exist_ok=True)
+        config_path = nginx_tenants_dir / f"{self.project_name}.conf"
+        self._write_with_unix_newlines(config_path, config)
+        print(f"Generated Nginx gateway config: {config_path}")
+        print(f"  Gateway port: {gateway_port}")
+        
+        # Try to reload nginx-gateway if running
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['docker', 'exec', 'multibase-nginx-gateway', 'nginx', '-s', 'reload'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                print("  Nginx gateway reloaded successfully")
+            else:
+                print(f"  Note: Nginx gateway not running yet (will apply on next start)")
+        except Exception:
+            print(f"  Note: Could not reload Nginx gateway (will apply on next start)")
+
+        # Register tenant port in shared stack (dynamic port scaling)
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).parent))
+            from setup_shared import SharedInfraManager
+            manager = SharedInfraManager()
+            added = manager.add_tenant_port(int(gateway_port))
+            if added:
+                print(f"  Port {gateway_port} registered in shared stack (docker-compose.override.yml updated)")
+            else:
+                print(f"  Port {gateway_port} already registered in shared stack")
+        except Exception as e:
+            print(f"  Note: Could not register port in shared stack: {e}")
+            print(f"        Add NGINX_PORT_N={gateway_port} to shared/.env.shared manually")
+
+
+    def _create_project_database(self):
+        """Create the project database in the shared PostgreSQL cluster."""
+        try:
+            import sys
+            sys.path.insert(0, str(Path(__file__).parent))
+            from setup_shared import SharedInfraManager
+            manager = SharedInfraManager()
+            result = manager.create_project_db(self.project_name)
+            if result is False:
+                db_name = f"project_{self.project_name}".replace('-', '_')
+                raise RuntimeError(
+                    f"Datenbank {db_name} konnte nicht erstellt werden. "
+                    f"Prüfe ob der shared Stack läuft: python setup_shared.py create-db {self.project_name}"
+                )
+        except ImportError:
+            db_name = f"project_{self.project_name}".replace('-', '_')
+            raise RuntimeError(
+                f"setup_shared.py nicht gefunden - Datenbank muss manuell erstellt werden:\n"
+                f"   docker exec -i multibase-db psql -U postgres -c 'CREATE DATABASE {db_name};'"
+            )
+        except RuntimeError:
+            raise  # Weiterleiten ohne erneutes Wrapping
+        except Exception as e:
+            raise RuntimeError(
+                f"Datenbank-Erstellung fehlgeschlagen: {e}\n"
+                f"   Manuell erstellen mit: python setup_shared.py create-db {self.project_name}"
+            ) from e
 
     def _create_project_directory(self):
         """Create the project directory if it doesn't exist."""
         if self.project_dir.exists():
             raise FileExistsError(f"Directory {self.project_dir} already exists.")
-        
         self.project_dir.mkdir(parents=True)
         print(f"Created directory: {self.project_dir}")
 
@@ -230,102 +313,56 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         return port
 
     def _calculate_ports(self):
-        """Calculate all required ports for the Supabase services."""
+        """Calculate ports for tenant-specific services only.
+        
+        Cloud-Version: Nur noch 1 Port pro Projekt (Gateway).
+        Kong wurde durch den shared Nginx-Gateway-Container ersetzt.
+        DB, Studio, Analytics, Pooler laufen im Shared Stack.
+        """
         if self.base_port is None:
-            # Find a random available base port between 3000 and 9000
             self.base_port = self._find_available_port(random.randint(3000, 9000))
         
         ports = {
-            "kong_http": self._find_available_port(self.base_port),
-            "kong_https": self._find_available_port(self.base_port + 443),
-            "postgres": self._find_available_port(self.base_port + 1000),
-            "pooler": self._find_available_port(self.base_port + 1001),
-            "studio": self._find_available_port(self.base_port + 2000),
-            "analytics": self._find_available_port(self.base_port + 3000)
+            "gateway_port": self._find_available_port(self.base_port),
+            # Backward compatibility aliases
+            "kong_http": None,
+            "kong_https": None,
         }
+        # Set aliases for backward compat (some templates may still reference these)
+        ports["kong_http"] = ports["gateway_port"]
+        ports["kong_https"] = ports["gateway_port"] + 443
         
         print(f"Using base port: {self.base_port}")
-        print(f"Kong HTTP port: {ports['kong_http']}")
-        print(f"Kong HTTPS port: {ports['kong_https']}")
-        print(f"PostgreSQL port: {ports['postgres']}")
-        print(f"Pooler port: {ports['pooler']}")
-        print(f"Studio port: {ports['studio']}")
-        print(f"Analytics port: {ports['analytics']}")
+        print(f"Gateway port: {ports['gateway_port']}")
+        print(f"[Cloud] Kong replaced by shared nginx-gateway container")
+        print(f"[Cloud] DB, Studio, Analytics, Pooler -> Shared Infrastructure")
         
         return ports
 
     def _initialize_templates(self):
-        """Initialize template content for various files."""
+        """Initialize all template content."""
         self._init_docker_compose_template()
         self._init_env_template()
-        self._init_vector_template()
-        self._init_kong_template()
-        self._init_pooler_template()
-        self._init_db_templates()
+        # Kong template no longer needed - replaced by shared nginx-gateway
         self._init_function_templates()
         self._init_misc_templates()
 
     def _init_docker_compose_template(self):
-        """Initialize docker-compose.yml template."""
+        """Initialize the LIGHTWEIGHT docker-compose.yml template.
+        
+        Cloud-Version: Nur 5 Container statt 13.
+        Entfernt: db, vector, analytics, studio, meta, imgproxy, pooler, kong
+        Kong wurde durch den shared multibase-nginx-gateway Container ersetzt.
+        """
         self.templates["docker_compose"] = f"""
+# Multibase Cloud Version - Lightweight Tenant Stack
+# Verwendet Shared Infrastructure: DB, Studio, Analytics, Vector, imgproxy, Meta, Pooler, Nginx-Gateway
+# Container: auth, rest, realtime, storage, functions (5 statt 13)
+# API Gateway: shared multibase-nginx-gateway (Port {self.ports['gateway_port']})
+
 name: {self.project_name}
 
 services:
-  studio:
-    container_name: {self.project_name}-studio
-    image: supabase/studio:latest
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "echo ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    ports:
-      - "{self.ports['studio']}:3000"
-    environment:
-      STUDIO_PG_META_URL: http://{self.project_name}-meta:8080
-      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}
-      DEFAULT_ORGANIZATION_NAME: ${{STUDIO_DEFAULT_ORGANIZATION}}
-      DEFAULT_PROJECT_NAME: ${{STUDIO_DEFAULT_PROJECT}}
-      SUPABASE_URL: http://{self.project_name}-kong:8000
-      SUPABASE_PUBLIC_URL: ${{SUPABASE_PUBLIC_URL}}
-      SUPABASE_ANON_KEY: ${{ANON_KEY}}
-      SUPABASE_SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
-      AUTH_JWT_SECRET: ${{JWT_SECRET}}
-      LOGFLARE_API_KEY: ${{LOGFLARE_API_KEY}}
-      LOGFLARE_URL: http://{self.project_name}-analytics:4000
-      NEXT_PUBLIC_ENABLE_LOGS: true
-      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
-    depends_on:
-      analytics:
-        condition: service_healthy
-
-  kong:
-    container_name: {self.project_name}-kong
-    image: kong:2.8.1
-    restart: unless-stopped
-    ports:
-      - "{self.ports['kong_http']}:8000/tcp"
-      - "{self.ports['kong_https']}:8443/tcp"
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
-    depends_on:
-      analytics:
-        condition: service_healthy
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
-      KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      SUPABASE_ANON_KEY: ${{ANON_KEY}}
-      SUPABASE_SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
-      DASHBOARD_USERNAME: ${{DASHBOARD_USERNAME}}
-      DASHBOARD_PASSWORD: ${{DASHBOARD_PASSWORD}}
-    entrypoint: bash -c 'eval "echo \\"$$(cat ~/temp.yml)\\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
-
   auth:
     container_name: {self.project_name}-auth
     image: supabase/gotrue:v2.170.0
@@ -343,18 +380,13 @@ services:
       timeout: 5s
       interval: 5s
       retries: 3
-    depends_on:
-      db:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       API_EXTERNAL_URL: ${{API_EXTERNAL_URL}}
       GOTRUE_DB_DRIVER: postgres
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
+      # Shared PostgreSQL - Projekt-spezifische Datenbank
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${{POSTGRES_PASSWORD}}@multibase-db:5432/${{PROJECT_DB}}
       GOTRUE_SITE_URL: ${{SITE_URL}}
       GOTRUE_URI_ALLOW_LIST: ${{ADDITIONAL_REDIRECT_URLS}}
       GOTRUE_DISABLE_SIGNUP: ${{DISABLE_SIGNUP}}
@@ -378,39 +410,32 @@ services:
       GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: ${{MAILER_URLPATHS_EMAIL_CHANGE}}
       GOTRUE_EXTERNAL_PHONE_ENABLED: ${{ENABLE_PHONE_SIGNUP}}
       GOTRUE_SMS_AUTOCONFIRM: ${{ENABLE_PHONE_AUTOCONFIRM}}
+    networks:
+      - multibase-shared
+      - default
 
   rest:
     container_name: {self.project_name}-rest
     image: postgrest/postgrest:v12.2.8
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
     environment:
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      PGRST_DB_URI: postgres://authenticator:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
+      # Shared PostgreSQL - Projekt-spezifische Datenbank
+      PGRST_DB_URI: postgres://authenticator:${{POSTGRES_PASSWORD}}@multibase-db:5432/${{PROJECT_DB}}
       PGRST_DB_SCHEMAS: ${{PGRST_DB_SCHEMAS}}
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${{JWT_SECRET}}
       PGRST_DB_USE_LEGACY_GUCS: "false"
       PGRST_APP_SETTINGS_JWT_SECRET: ${{JWT_SECRET}}
       PGRST_APP_SETTINGS_JWT_EXP: ${{JWT_EXPIRY}}
-    command:
-      [
-        "postgrest"
-      ]
+    command: ["postgrest"]
+    networks:
+      - multibase-shared
+      - default
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
     image: supabase/realtime:v2.34.43
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
     healthcheck:
       test:
         [
@@ -429,12 +454,12 @@ services:
       retries: 3
     environment:
       PORT: 4000
-      DB_HOST: ${{POSTGRES_HOST}}
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
+      # Shared PostgreSQL
+      DB_HOST: multibase-db
       DB_PORT: 5432
       DB_USER: supabase_admin
       DB_PASSWORD: ${{POSTGRES_PASSWORD}}
-      DB_NAME: ${{POSTGRES_DB}}
+      DB_NAME: ${{PROJECT_DB}}
       DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
       DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${{JWT_SECRET}}
@@ -445,6 +470,9 @@ services:
       APP_NAME: realtime
       SEED_SELF_HOST: true
       RUN_JANITOR: true
+    networks:
+      - multibase-shared
+      - default
 
   storage:
     container_name: {self.project_name}-storage
@@ -466,19 +494,15 @@ services:
       interval: 5s
       retries: 3
     depends_on:
-      db:
-        condition: service_healthy
       rest:
-        condition: service_started
-      imgproxy:
         condition: service_started
     environment:
       ANON_KEY: ${{ANON_KEY}}
       SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
       POSTGREST_URL: http://{self.project_name}-rest:3000
       PGRST_JWT_SECRET: ${{JWT_SECRET}}
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      DATABASE_URL: postgres://supabase_storage_admin:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
+      # Shared PostgreSQL - Projekt-spezifische Datenbank
+      DATABASE_URL: postgres://supabase_storage_admin:${{POSTGRES_PASSWORD}}@multibase-db:5432/${{PROJECT_DB}}
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
@@ -486,47 +510,11 @@ services:
       REGION: stub
       GLOBAL_S3_BUCKET: stub
       ENABLE_IMAGE_TRANSFORMATION: "true"
-      IMGPROXY_URL: http://{self.project_name}-imgproxy:5001
-
-  imgproxy:
-    container_name: {self.project_name}-imgproxy
-    image: darthsim/imgproxy:v3.8.0
-    restart: unless-stopped
-    volumes:
-      - ./volumes/storage:/var/lib/storage:z
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "imgproxy",
-          "health"
-        ]
-      timeout: 5s
-      interval: 5s
-      retries: 3
-    environment:
-      IMGPROXY_BIND: ":5001"
-      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
-      IMGPROXY_USE_ETAG: "true"
-      IMGPROXY_ENABLE_WEBP_DETECTION: ${{IMGPROXY_ENABLE_WEBP_DETECTION}}
-
-  meta:
-    container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.87.1
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
-    environment:
-      PG_META_PORT: 8080
-      PG_META_DB_HOST: ${{POSTGRES_HOST}}
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      PG_META_DB_PORT: 5432
-      PG_META_DB_NAME: ${{POSTGRES_DB}}
-      PG_META_DB_USER: supabase_admin
-      PG_META_DB_PASSWORD: ${{POSTGRES_PASSWORD}}
+      # Shared imgproxy
+      IMGPROXY_URL: http://multibase-imgproxy:5001
+    networks:
+      - multibase-shared
+      - default
 
   functions:
     container_name: {self.project_name}-edge-functions
@@ -534,269 +522,104 @@ services:
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
-    depends_on:
-      analytics:
-        condition: service_healthy
     environment:
       JWT_SECRET: ${{JWT_SECRET}}
-      SUPABASE_URL: http://{self.project_name}-kong:8000
+      SUPABASE_URL: http://multibase-nginx-gateway:{self.ports['gateway_port']}
       SUPABASE_ANON_KEY: ${{ANON_KEY}}
       SUPABASE_SERVICE_ROLE_KEY: ${{SERVICE_ROLE_KEY}}
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      SUPABASE_DB_URL: postgresql://postgres:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
+      # Shared PostgreSQL
+      SUPABASE_DB_URL: postgresql://postgres:${{POSTGRES_PASSWORD}}@multibase-db:5432/${{PROJECT_DB}}
       VERIFY_JWT: "${{FUNCTIONS_VERIFY_JWT}}"
-    command:
-      [
-        "start",
-        "--main-service",
-        "/home/deno/functions/main"
-      ]
+    command: ["start", "--main-service", "/home/deno/functions/main"]
+    networks:
+      - multibase-shared
+      - default
 
-  analytics:
-    container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.12.0
-    restart: unless-stopped
-    ports:
-      - "{self.ports['analytics']}:4000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "http://localhost:4000/health"
-        ]
-      timeout: 5s
-      interval: 5s
-      retries: 10
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      LOGFLARE_NODE_HOST: 127.0.0.1
-      DB_USERNAME: supabase_admin
-      DB_DATABASE: _supabase
-      DB_HOSTNAME: ${{POSTGRES_HOST}}
-      # Use the internal port for Postgre
-      # SQL (5432) for container-to-container communication
-      DB_PORT: 5432
-      DB_PASSWORD: ${{POSTGRES_PASSWORD}}
-      DB_SCHEMA: _analytics
-      LOGFLARE_API_KEY: ${{LOGFLARE_API_KEY}}
-      LOGFLARE_SINGLE_TENANT: true
-      LOGFLARE_SUPABASE_MODE: true
-      LOGFLARE_MIN_CLUSTER_SIZE: 1
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/_supabase
-      POSTGRES_BACKEND_SCHEMA: _analytics
-      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
-
-  db:
-    container_name: {self.project_name}-db
-    image: supabase/postgres:15.8.1.060
-    restart: unless-stopped
-    volumes:
-      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
-      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
-      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
-      - ./volumes/db/data:/var/lib/postgresql/data:Z
-      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
-      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
-      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
-      - {self.project_name}_db-config:/etc/postgresql-custom
-    healthcheck:
-      test:
-        [
-        "CMD",
-        "pg_isready",
-        "-U",
-        "postgres",
-        "-d",
-        "_supabase",
-        "-h",
-        "localhost"
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    depends_on:
-      vector:
-        condition: service_healthy
-    ports:
-      - "{self.ports['postgres']}:5432"
-    environment:
-      POSTGRES_HOST: /var/run/postgresql
-      PGPORT: 5432
-      POSTGRES_PORT: 5432
-      PGPASSWORD: ${{POSTGRES_PASSWORD}}
-      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}
-      PGDATABASE: ${{POSTGRES_DB}}
-      POSTGRES_DB: ${{POSTGRES_DB}}
-      JWT_SECRET: ${{JWT_SECRET}}
-      JWT_EXP: ${{JWT_EXPIRY}}
-    command:
-      [
-        "postgres",
-        "-c",
-        "config_file=/etc/postgresql/postgresql.conf",
-        "-c",
-        "log_min_messages=fatal"
-      ]
-
-  vector:
-    container_name: {self.project_name}-vector
-    image: timberio/vector:0.28.1-alpine
-    restart: unless-stopped
-    volumes:
-      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
-      - /var/run/docker.sock:/var/run/docker.sock:ro,z
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://{self.project_name}-vector:9001/health"
-        ]
-      timeout: 5s
-      interval: 5s
-      retries: 3
-    environment:
-      LOGFLARE_API_KEY: ${{LOGFLARE_API_KEY}}
-    command:
-      [
-        "--config",
-        "/etc/vector/vector.yml"
-      ]
-    security_opt:
-      - "label=disable"
-
-  pooler:
-    container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.4.14
-    restart: unless-stopped
-    ports:
-      - "{self.ports['pooler']}:6543"
-    volumes:
-      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-sSfL",
-          "--head",
-          "-o",
-          "/dev/null",
-          "http://127.0.0.1:4000/api/health"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      db:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
-    environment:
-      PORT: 4000
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${{POSTGRES_DB}}
-      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}
-      # Use the internal port for PostgreSQL (5432) for container-to-container communication
-      DATABASE_URL: ecto://supabase_admin:${{POSTGRES_PASSWORD}}@{self.project_name}-db:5432/_supabase
-      CLUSTER_POSTGRES: true
-      SECRET_KEY_BASE: ${{SECRET_KEY_BASE}}
-      VAULT_ENC_KEY: ${{VAULT_ENC_KEY}}
-      API_JWT_SECRET: ${{JWT_SECRET}}
-      METRICS_JWT_SECRET: ${{JWT_SECRET}}
-      REGION: local
-      ERL_AFLAGS: -proto_dist inet_tcp
-      POOLER_TENANT_ID: ${{POOLER_TENANT_ID}}
-      POOLER_DEFAULT_POOL_SIZE: ${{POOLER_DEFAULT_POOL_SIZE}}
-      POOLER_MAX_CLIENT_CONN: ${{POOLER_MAX_CLIENT_CONN}}
-      POOLER_POOL_MODE: transaction
-    command:
-      [
-        "/bin/sh",
-        "-c",
-        "/app/bin/migrate && /app/bin/supavisor eval \\"$$(cat /etc/pooler/pooler.exs)\\" && /app/bin/server"
-      ]
-
-volumes:
-  {self.project_name}_db-config:
-
+# Shared-Netzwerk (extern, von docker-compose.shared.yml erstellt)
 networks:
+  multibase-shared:
+    external: true
   default:
     name: {self.project_name}-network
 """
 
     def _init_env_template(self):
-        """Initialize .env template."""
-        # Generate a random password and JWT secret
-        password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-        jwt_secret = ''.join(random.choices(string.ascii_letters + string.digits, k=48))
+        """Initialize .env template - Cloud-Version mit Shared DB Referenz."""
+        # Tenant-Dienste verbinden sich zur Shared-DB mit dem Shared-Passwort
+        # (authenticator, supabase_storage_admin etc. haben in der Shared-DB dieses Passwort)
+        password = self.shared_env.get('SHARED_POSTGRES_PASSWORD', '').strip()
+        if not password:
+            # Fallback falls shared env nicht gesetzt
+            password = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            print("WARNING: SHARED_POSTGRES_PASSWORD nicht gefunden - zufaelliges PW wird genutzt!")
+            print("         Verbindung zur Shared-DB koennte fehlschlagen.")
+
+        # Use SHARED_JWT_SECRET so tenant services & shared Studio use the same secret.
+        # Tokens signed by shared Studio will then validate in tenant auth/rest/realtime.
+        jwt_secret = self.shared_env.get('SHARED_JWT_SECRET', '').strip()
+        if not jwt_secret:
+            jwt_secret = ''.join(random.choices(string.ascii_letters + string.digits, k=48))
+            print("WARNING: SHARED_JWT_SECRET nicht gefunden - zufaelliges JWT Secret wird genutzt!")
+            print("         Tenant-Services und Shared-Studio teilen KEIN gemeinsames JWT Secret.")
+
         secret_key_base = ''.join(random.choices(string.ascii_letters + string.digits, k=64))
-        vault_enc_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         logflare_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         
-        # Generate JWT tokens using the same secret
         anon_key = generate_jwt_token(jwt_secret, 'anon')
         service_role_key = generate_jwt_token(jwt_secret, 'service_role')
         
+        # DB-Name im Shared Cluster
+        project_db = f"project_{self.project_name}".replace('-', '_')
+        
         self.templates["env"] = f"""############
-# Secrets
-# YOU MUST CHANGE THESE BEFORE GOING INTO PRODUCTION
+# Multibase Cloud Version - Tenant Configuration
+# Dieses Projekt nutzt die Shared Infrastructure (multibase-shared)
 ############
+
+############
+# Projekt-Datenbank (im Shared PostgreSQL Cluster)
+############
+PROJECT_DB={project_db}
 POSTGRES_PASSWORD={password}
+
+############
+# Secrets
+############
 JWT_SECRET={jwt_secret}
 ANON_KEY={anon_key}
 SERVICE_ROLE_KEY={service_role_key}
 DASHBOARD_USERNAME=supabase
 DASHBOARD_PASSWORD={self.project_name}
 SECRET_KEY_BASE={secret_key_base}
-VAULT_ENC_KEY={vault_enc_key}
+
 ############
-# Database - You can change these to any PostgreSQL database that has logical replication enabled.
+# API Gateway (Nginx)
 ############
-# This is where other containers connect to the DB container internally
-POSTGRES_HOST={self.project_name}-db
-POSTGRES_DB=postgres
-# This port is used for external connections from your host
-POSTGRES_PORT={self.ports['postgres']}
-# default user is postgres
+GATEWAY_PORT={self.ports['gateway_port']}
+# Backward compatibility
+KONG_HTTP_PORT={self.ports['gateway_port']}
+KONG_HTTPS_PORT={self.ports['gateway_port'] + 443}
+
 ############
-# Supavisor -- Database pooler
-############
-POOLER_PROXY_PORT_TRANSACTION={self.ports['pooler']}
-POOLER_DEFAULT_POOL_SIZE=20
-POOLER_MAX_CLIENT_CONN=100
-POOLER_TENANT_ID=your-tenant-id
-############
-# API Proxy - Configuration for the Kong Reverse proxy.
-############
-KONG_HTTP_PORT={self.ports['kong_http']}
-KONG_HTTPS_PORT={self.ports['kong_https']}
-############
-# API - Configuration for PostgREST.
+# API - Configuration for PostgREST
 ############
 PGRST_DB_SCHEMAS=public,storage,graphql_public
+
 ############
-# Auth - Configuration for the GoTrue authentication server.
+# Auth - Configuration for GoTrue
 ############
-## General
-SITE_URL=http://localhost:{self.ports['studio']}
+SITE_URL=http://localhost:{self.ports['gateway_port']}
 ADDITIONAL_REDIRECT_URLS=
 JWT_EXPIRY=3600
 DISABLE_SIGNUP=false
-API_EXTERNAL_URL=http://localhost:{self.ports['kong_http']}
+API_EXTERNAL_URL=http://localhost:{self.ports['gateway_port']}
+
 ## Mailer Config
 MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
 MAILER_URLPATHS_INVITE="/auth/v1/verify"
 MAILER_URLPATHS_RECOVERY="/auth/v1/verify"
 MAILER_URLPATHS_EMAIL_CHANGE="/auth/v1/verify"
+
 ## Email auth
 ENABLE_EMAIL_SIGNUP=true
 ENABLE_EMAIL_AUTOCONFIRM=true
@@ -807,882 +630,38 @@ SMTP_USER=fake_mail_user
 SMTP_PASS=fake_mail_password
 SMTP_SENDER_NAME=fake_sender
 ENABLE_ANONYMOUS_USERS=false
+
 ## Phone auth
 ENABLE_PHONE_SIGNUP=true
 ENABLE_PHONE_AUTOCONFIRM=true
+
 ############
-# Studio - Configuration for the Dashboard
+# Functions
 ############
-STUDIO_DEFAULT_ORGANIZATION="{self.project_name}"
-STUDIO_DEFAULT_PROJECT="{self.project_name}"
-STUDIO_PORT={self.ports['studio']}
-# replace if you intend to use Studio outside of localhost
-SUPABASE_PUBLIC_URL=http://localhost:{self.ports['kong_http']}
-# Enable webp support
-IMGPROXY_ENABLE_WEBP_DETECTION=true
-# Add your OpenAI API key to enable SQL Editor Assistant
-OPENAI_API_KEY=
-############
-# Functions - Configuration for Functions
-############
-# NOTE: VERIFY_JWT applies to all functions. Per-function VERIFY_JWT is not supported yet.
 FUNCTIONS_VERIFY_JWT=false
+
 ############
-# Logs - Configuration for Logflare
-# Please refer to https://supabase.com/docs/reference/self-hosting-analytics/introduction
+# Shared Infrastructure Referenz
 ############
-LOGFLARE_LOGGER_BACKEND_API_KEY={logflare_key}
-# Change vector.toml sinks to reflect this change
 LOGFLARE_API_KEY={logflare_key}
-# Docker socket location - this value will differ depending on your OS
-DOCKER_SOCKET_LOCATION=/var/run/docker.sock
-# Google Cloud Project details
-GOOGLE_PROJECT_ID=GOOGLE_PROJECT_ID
-GOOGLE_PROJECT_NUMBER=GOOGLE_PROJECT_NUMBER"""
-
-    def _init_vector_template(self):
-        """Initialize vector.yml template."""
-        try:
-            # Try to read the template from the file
-            # Use path relative to this script's location
-            vector_path = Path(__file__).parent / "vector.yml"
-            if vector_path.exists():
-                self.templates["vector"] = vector_path.read_text()
-                print(f"Using vector.yml template from {vector_path}")
-            else:
-                # Fallback to the default template if file doesn't exist
-                self.templates["vector"] = """# Default Vector configuration for Supabase
-api:
-  enabled: true
-  address: 0.0.0.0:9001
-
-# Data sources
-sources:
-  docker_host:
-    type: docker_logs
-    exclude_containers:
-      - __PROJECT__-vector # Exclude vector logs from being ingested by itself
-
-# Data transformations
-transforms:
-  project_logs:
-    type: remap
-    inputs:
-      - docker_host
-    source: |-
-      .project = "__PROJECT__"
-      .event_message = del(.message)
-      .appname = del(.container_name)
-      del(.container_created_at)
-      del(.container_id)
-      del(.source_type)
-      del(.stream)
-      del(.label)
-      del(.image)
-      del(.host)
-      del(.stream)
-  router:
-    type: route
-    inputs:
-      - project_logs
-    route:
-      kong: '.appname == "__PROJECT__-kong"'
-      auth: '.appname == "__PROJECT__-auth"'
-      rest: '.appname == "__PROJECT__-rest"'
-      realtime: '.appname == "__PROJECT__-realtime"'
-      storage: '.appname == "__PROJECT__-storage"'
-      functions: '.appname == "__PROJECT__-functions"'
-      db: '.appname == "__PROJECT__-db"'
-
-# Data destinations
-sinks:
-  console_sink:
-    type: console
-    inputs:
-      - project_logs
-    encoding:
-      codec: json
-    target: stdout
-
-  analytics:
-    type: http
-    inputs:
-      - project_logs
-    encoding:
-      codec: json
-    uri: http://__ANALYTICS_SERVICE__:4000/api/logs
-    method: post
-    auth:
-      strategy: bearer
-      token: "${LOGFLARE_API_KEY}"
-    request:
-      headers:
-        Content-Type: application/json"""
-                print("Using default vector.yml template with placeholders")
-        except Exception as e:
-            print(f"Error loading vector template: {e}")
-            # Fallback to a minimal template
-            self.templates["vector"] = """# Default Vector configuration for Supabase
-api:
-  enabled: true
-  address: 0.0.0.0:9001
-
-# Data sources
-sources:
-  docker_syslog:
-    type: docker_logs
-    docker_host: unix:///var/run/docker.sock
-
-# Data transformations
-transforms:
-  parse_logs:
-    type: remap
-    inputs:
-      - docker_syslog
-    source: |
-      .parsed = .message
-      .container_name = .container_name
-      .timestamp = .timestamp
-
-# Data destinations
-sinks:
-  console:
-    type: console
-    inputs:
-      - parse_logs
-    encoding:
-      codec: json
-
-  analytics:
-    type: http
-    inputs:
-      - parse_logs
-    encoding:
-      codec: json
-    uri: http://__ANALYTICS_SERVICE__:4000/api/logs
-    method: post
-    auth:
-      strategy: bearer
-      token: "${LOGFLARE_API_KEY}"
-    request:
-      headers:
-        Content-Type: application/json"""
-            print("Using minimal vector.yml template with analytics placeholder")
-
-    def _init_kong_template(self):
-        """Initialize Kong API Gateway configuration."""
-        anon_key = self._extract_env_value("ANON_KEY")
-        service_key = self._extract_env_value("SERVICE_ROLE_KEY")
-        dashboard_username = self._extract_env_value("DASHBOARD_USERNAME")
-        dashboard_password = self._extract_env_value("DASHBOARD_PASSWORD")
-        # Use the dynamically set cors_origins_config here
-        cors_origins_setting = self.cors_origins_config 
-
-        self.templates["kong"] = f"""_format_version: '2.1'
-_transform: true
-
-consumers:
-  - username: DASHBOARD
-  - username: anon
-    keyauth_credentials:
-      - key: {anon_key}
-  - username: service_role
-    keyauth_credentials:
-      - key: {service_key}
-
-acls:
-  - consumer: anon
-    group: anon
-  - consumer: service_role
-    group: admin
-
-basicauth_credentials:
-  - consumer: DASHBOARD
-    username: {dashboard_username}
-    password: {dashboard_password}
-
-services:
-  - name: auth-v1
-    url: http://{self.project_name}-auth:9999/verify
-    routes:
-      - name: auth-v1-route
-        paths:
-          - /auth/v1/verify
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-            - prefer
-            - Range
-            - Origin
-            - Referer
-            - Access-Control-Request-Headers
-            - Access-Control-Request-Method
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-            - accept-ranges
-            - Content-Type
-            - Content-Profile
-            - Range-Unit
-          credentials: true
-          max_age: 3600
-  - name: auth-v1-api
-    url: http://{self.project_name}-auth:9999
-    routes:
-      - name: auth-v1-api-route
-        paths:
-          - /auth/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-            - prefer
-            - Range
-            - Origin
-            - Referer
-            - Access-Control-Request-Headers
-            - Access-Control-Request-Method
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-            - accept-ranges
-            - Content-Type
-            - Content-Profile
-            - Range-Unit
-          credentials: true
-          max_age: 3600
-  - name: auth-v1-admin
-    url: http://{self.project_name}-auth:9999/admin
-    routes:
-      - name: auth-v1-admin-route
-        paths:
-          - /auth/v1/admin
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-            - prefer
-            - Range
-            - Origin
-            - Referer
-            - Access-Control-Request-Headers
-            - Access-Control-Request-Method
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-            - accept-ranges
-            - Content-Type
-            - Content-Profile
-            - Range-Unit
-          credentials: true
-          max_age: 3600
-      - name: key-auth
-        config:
-          hide_credentials: true
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-  - name: rest
-    url: http://{self.project_name}-rest:3000
-    routes:
-      - name: rest-route
-        paths:
-          - /rest/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-            - prefer
-            - Range
-            - Origin
-            - Referer
-            - Access-Control-Request-Headers
-            - Access-Control-Request-Method
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-            - accept-ranges
-            - Content-Type
-            - Content-Profile
-            - Range-Unit
-          credentials: true
-          max_age: 3600
-  - name: postgrest
-    url: http://{self.project_name}-rest:3000
-    routes:
-      - name: postgrest-route
-        paths:
-          - /
-        strip_path: false
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
-  - name: realtime
-    url: http://{self.project_name}-realtime:4000/socket/
-    routes:
-      - name: realtime-route
-        paths:
-          - /realtime/v1
-        strip_path: true
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
-          
-  - name: realtime-api
-    url: http://{self.project_name}-realtime:4000
-    routes:
-      - name: realtime-api-route
-        paths:
-          - /api/tenants/realtime-dev
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - HEAD
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - apikey
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
-  - name: storage
-    url: http://{self.project_name}-storage:5000
-    routes:
-      - name: storage-route
-        paths:
-          - /storage/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
-  - name: meta
-    url: http://{self.project_name}-meta:8080
-    routes:
-      - name: meta-route
-        paths:
-          - /pg
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile
-            - content-profile
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
-      - name: key-auth
-        config:
-          hide_credentials: true
-      - name: acl
-        config:
-          hide_groups_header: true
-          allow:
-            - admin
-  - name: functions
-    url: http://{self.project_name}-edge-functions:9000
-    routes:
-      - name: functions-route
-        paths:
-          - /functions/v1
-    plugins:
-      - name: cors
-        config:
-          origins:
-            - {cors_origins_setting}
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
-          headers:
-            - Accept
-            - Authorization
-            - Content-Type
-            - X-Requested-With
-            - apikey
-            - x-supabase-api-version
-            - x-client-info
-            - accept-profile            
-            - content-profile
-          exposed_headers:
-            - Content-Length
-            - Content-Range
-          credentials: true
-          max_age: 3600
+IMGPROXY_ENABLE_WEBP_DETECTION=true
 """
 
+    # NOTE: _init_kong_template() removed – Kong replaced by shared nginx-gateway.
+    # Kong config is no longer generated per-tenant.
+    # See _generate_nginx_gateway_config() for the replacement.
+
     def _extract_env_value(self, key):
-        """Extract a value from the env template or return a placeholder."""
+        """Extract a value from the env template."""
         env = self.templates.get("env", "")
         for line in env.splitlines():
             if line.startswith(f"{key}="):
                 return line.split("=", 1)[1].strip()
         return f"missing_{key}"
 
-    def _init_pooler_template(self):
-        """Initialize pooler configuration."""
-        self.templates["pooler"] = """{:ok, _} = Application.ensure_all_started(:supavisor)
-
-{:ok, version} =
-  case Supavisor.Repo.query!("select version()") do
-    %{rows: [[ver]]} -> Supavisor.Helpers.parse_pg_version(ver)
-    _ -> nil
-  end
-
-params = %{
-  "external_id" => System.get_env("POOLER_TENANT_ID"),
-  "db_host" => "{self.project_name}-db",
-  "db_port" => System.get_env("POSTGRES_PORT"),
-  "db_database" => System.get_env("POSTGRES_DB"),
-  "require_user" => false,
-  "auth_query" => "SELECT * FROM pgbouncer.get_auth($1)",
-  "default_max_clients" => System.get_env("POOLER_MAX_CLIENT_CONN"),
-  "default_pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
-  "default_parameter_status" => %{"server_version" => version},
-  "users" => [%{
-    "db_user" => "pgbouncer",
-    "db_password" => System.get_env("POSTGRES_PASSWORD"),
-    "mode_type" => System.get_env("POOLER_POOL_MODE"),
-    "pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
-    "is_manager" => true
-  }]
-}
-
-if !Supavisor.Tenants.get_tenant_by_external_id(params["external_id"]) do
-  {:ok, _} = Supavisor.Tenants.create_tenant(params)
-end
-"""
-
-    def _init_db_templates(self):
-        """Initialize database SQL templates."""
-        self.templates["supabase_sql"] = """\\set pguser `echo "$POSTGRES_USER"`
-
-CREATE DATABASE _supabase WITH OWNER :pguser;"""
-
-        self.templates["logs_sql"] = """\\set pguser `echo "$POSTGRES_USER"`
-
-\\c _supabase
-create schema if not exists _analytics;
-alter schema _analytics owner to :pguser;
-\\c postgres"""
-
-        self.templates["jwt_sql"] = """\\set jwt_secret `echo "$JWT_SECRET"`
-\\set jwt_exp `echo "$JWT_EXP"`
-
-ALTER DATABASE postgres SET "app.settings.jwt_secret" TO :'jwt_secret';
-ALTER DATABASE postgres SET "app.settings.jwt_exp" TO :'jwt_exp';"""
-
-        self.templates["pooler_sql"] = """\\set pguser `echo "$POSTGRES_USER"`
-
-\\c _supabase
-create schema if not exists _supavisor;
-alter schema _supavisor owner to :pguser;
-\\c postgres"""
-
-        self.templates["realtime_sql"] = """\\set pguser `echo "$POSTGRES_USER"`
-
-create schema if not exists _realtime;
-alter schema _realtime owner to :pguser;"""
-
-        self.templates["roles_sql"] = """-- NOTE: change to your own passwords for production environments
-\\set pgpass `echo "$POSTGRES_PASSWORD"`
-
-ALTER USER authenticator WITH PASSWORD :'pgpass';
-ALTER USER pgbouncer WITH PASSWORD :'pgpass';
-ALTER USER supabase_auth_admin WITH PASSWORD :'pgpass';
-ALTER USER supabase_functions_admin WITH PASSWORD :'pgpass';
-ALTER USER supabase_storage_admin WITH PASSWORD :'pgpass';"""
-
-        self.templates["webhooks_sql"] = """BEGIN;
-  -- Create pg_net extension
-  CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;
-  -- Create supabase_functions schema
-  CREATE SCHEMA supabase_functions AUTHORIZATION supabase_admin;
-  GRANT USAGE ON SCHEMA supabase_functions TO postgres, anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
-  -- supabase_functions.migrations definition
-  CREATE TABLE supabase_functions.migrations (
-    version text PRIMARY KEY,
-    inserted_at timestamptz NOT NULL DEFAULT NOW()
-  );
-  -- Initial supabase_functions migration
-  INSERT INTO supabase_functions.migrations (version) VALUES ('initial');
-  -- supabase_functions.hooks definition
-  CREATE TABLE supabase_functions.hooks (
-    id bigserial PRIMARY KEY,
-    hook_table_id integer NOT NULL,
-    hook_name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT NOW(),
-    request_id bigint
-  );
-  CREATE INDEX supabase_functions_hooks_request_id_idx ON supabase_functions.hooks USING btree (request_id);
-  CREATE INDEX supabase_functions_hooks_h_table_id_h_name_idx ON supabase_functions.hooks USING btree (hook_table_id, hook_name);
-  COMMENT ON TABLE supabase_functions.hooks IS 'Supabase Functions Hooks: Audit trail for triggered hooks.';
-  CREATE FUNCTION supabase_functions.http_request()
-    RETURNS trigger
-    LANGUAGE plpgsql
-    AS $function$
-    DECLARE
-      request_id bigint;
-      payload jsonb;
-      url text := TG_ARGV[0]::text;
-      method text := TG_ARGV[1]::text;
-      headers jsonb DEFAULT '{}'::jsonb;
-      params jsonb DEFAULT '{}'::jsonb;
-      timeout_ms integer DEFAULT 1000;
-    BEGIN
-      IF url IS NULL OR url = 'null' THEN
-        RAISE EXCEPTION 'url argument is missing';
-      END IF;
-
-      IF method IS NULL OR method = 'null' THEN
-        RAISE EXCEPTION 'method argument is missing';
-      END IF;
-
-      IF TG_ARGV[2] IS NULL OR TG_ARGV[2] = 'null' THEN
-        headers = '{"Content-Type": "application/json"}'::jsonb;
-      ELSE
-        headers = TG_ARGV[2]::jsonb;
-      END IF;
-
-      IF TG_ARGV[3] IS NULL OR TG_ARGV[3] = 'null' THEN
-        params = '{}'::jsonb;
-      ELSE
-        params = TG_ARGV[3]::jsonb;
-      END IF;
-
-      IF TG_ARGV[4] IS NULL OR TG_ARGV[4] = 'null' THEN
-        timeout_ms = 1000;
-      ELSE
-        timeout_ms = TG_ARGV[4]::integer;
-      END IF;
-
-      CASE
-        WHEN method = 'GET' THEN
-          SELECT http_get INTO request_id FROM net.http_get(
-            url,
-            params,
-            headers,
-            timeout_ms
-          );
-        WHEN method = 'POST' THEN
-          payload = jsonb_build_object(
-            'old_record', OLD,
-            'record', NEW,
-            'type', TG_OP,
-            'table', TG_TABLE_NAME,
-            'schema', TG_TABLE_SCHEMA
-          );
-
-          SELECT http_post INTO request_id FROM net.http_post(
-            url,
-            payload,
-            params,
-            headers,
-            timeout_ms
-          );
-        ELSE
-          RAISE EXCEPTION 'method argument % is invalid', method;
-      END CASE;
-
-      INSERT INTO supabase_functions.hooks
-        (hook_table_id, hook_name, request_id)
-      VALUES
-        (TG_RELID, TG_NAME, request_id);
-
-      RETURN NEW;
-    END
-  $function$;
-  -- Supabase super admin
-  DO
-  $$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_roles
-      WHERE rolname = 'supabase_functions_admin'
-    )
-    THEN
-      CREATE USER supabase_functions_admin NOINHERIT CREATEROLE LOGIN NOREPLICATION;
-    END IF;
-  END
-  $$;
-  GRANT ALL PRIVILEGES ON SCHEMA supabase_functions TO supabase_functions_admin;
-  GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA supabase_functions TO supabase_functions_admin;
-  GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA supabase_functions TO supabase_functions_admin;
-  ALTER USER supabase_functions_admin SET search_path = "supabase_functions";
-  ALTER table "supabase_functions".migrations OWNER TO supabase_functions_admin;
-  ALTER table "supabase_functions".hooks OWNER TO supabase_functions_admin;
-  ALTER function "supabase_functions".http_request() OWNER TO supabase_functions_admin;
-  GRANT supabase_functions_admin TO postgres;
-  -- Remove unused supabase_pg_net_admin role
-  DO
-  $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1
-      FROM pg_roles
-      WHERE rolname = 'supabase_pg_net_admin'
-    )
-    THEN
-      REASSIGN OWNED BY supabase_pg_net_admin TO supabase_admin;
-      DROP OWNED BY supabase_pg_net_admin;
-      DROP ROLE supabase_pg_net_admin;
-    END IF;
-  END
-  $$;
-  -- pg_net grants when extension is already enabled
-  DO
-  $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1
-      FROM pg_extension
-      WHERE extname = 'pg_net'
-    )
-    THEN
-      GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-      REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-      REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-      GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-      GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-    END IF;
-  END
-  $$;
-  -- Event trigger for pg_net
-  CREATE OR REPLACE FUNCTION extensions.grant_pg_net_access()
-  RETURNS event_trigger
-  LANGUAGE plpgsql
-  AS $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1
-      FROM pg_event_trigger_ddl_commands() AS ev
-      JOIN pg_extension AS ext
-      ON ev.objid = ext.oid
-      WHERE ext.extname = 'pg_net'
-    )
-    THEN
-      GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;
-      ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-      ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;
-      REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-      REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;
-      GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-      GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;
-    END IF;
-  END;
-  $$;
-  COMMENT ON FUNCTION extensions.grant_pg_net_access IS 'Grants access to pg_net';
-  DO
-  $$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_event_trigger
-      WHERE evtname = 'issue_pg_net_access'
-    ) THEN
-      CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end WHEN TAG IN ('CREATE EXTENSION')
-      EXECUTE PROCEDURE extensions.grant_pg_net_access();
-    END IF;
-  END
-  $$;
-  INSERT INTO supabase_functions.migrations (version) VALUES ('20210809183423_update_grants');
-  ALTER function supabase_functions.http_request() SECURITY DEFINER;
-  ALTER function supabase_functions.http_request() SET search_path = supabase_functions;
-  REVOKE ALL ON FUNCTION supabase_functions.http_request() FROM PUBLIC;
-  GRANT EXECUTE ON FUNCTION supabase_functions.http_request() TO postgres, anon, authenticated, service_role;
-COMMIT;"""
-
     def _init_function_templates(self):
         """Initialize Edge Function templates."""
-        self.templates["function_main"] = """// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
+        self.templates["function_main"] = """import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
 
 console.log("Hello from Functions!");
 
@@ -1698,54 +677,86 @@ serve(async (req) => {
   );
 });"""
 
-        self.templates["function_hello"] = f"""// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-import {{ serve }} from "https://deno.land/std@0.131.0/http/server.ts";
-
-console.log("Hello from Functions!");
-
-serve(async (req) => {{
-  const {{ name }} = await req.json();
-  const data = {{
-    message: `Hello ${{name || "World"}}!`,
-    timestamp: new Date().toISOString(),
-    projectName: "{self.project_name}",
-  }};
-
-  return new Response(
-    JSON.stringify(data),
-    {{ headers: {{ "Content-Type": "application/json" }} }},
-  );
-}});"""
-
     def _init_misc_templates(self):
-        """Initialize miscellaneous templates."""
-        self.templates["reset_script"] = """#!/bin/sh
-# Reset script for Supabase project
+        """Initialize reset script and readme."""
+        project_db = f"project_{self.project_name}".replace('-', '_')
+        
+        self.templates["reset_script"] = f"""#!/bin/sh
+# Reset script for Cloud Version Supabase tenant
+# DB bleibt im Shared Cluster - nur tenant-Container werden zurueckgesetzt
 
-echo "Stopping all containers..."
+echo "Stopping tenant containers..."
 docker compose down -v --remove-orphans
 
-echo "Removing database data..."
-rm -rf ./volumes/db/data
+echo "Removing tenant storage data..."
+rm -rf ./volumes/storage/*
 
-echo "Recreating database data directory..."
-mkdir -p ./volumes/db/data
+echo "Reset complete."
+echo "To also reset the database, run:"
+echo "  python setup_shared.py drop-db {self.project_name}"
+echo "  python setup_shared.py create-db {self.project_name}"
+echo ""
+echo "To restart: docker compose up -d"
+"""
 
-echo "Reset complete. You can now start the project with: docker compose up"""
+        self.templates["readme"] = f"""# Supabase Tenant: {self.project_name}
 
-        self.templates["readme"] = f"""# Supabase Project: {self.project_name}
+**Multibase Cloud Version** - Lightweight Tenant Stack
 
-This is a self-hosted Supabase deployment with custom port configurations.
+## Architektur
+
+Dieses Projekt nutzt die **Shared Infrastructure** (multibase-shared).
+
+### Tenant-Container (5):
+- **Auth** - GoTrue Authentifizierung
+- **REST** - PostgREST API
+- **Realtime** - WebSocket Subscriptions
+- **Storage** - Datei-Storage
+- **Functions** - Edge Runtime
+
+### Shared Container (vom multibase-shared Stack):
+- PostgreSQL, Studio, Analytics, Vector, imgproxy, Meta, Pooler
+- **Nginx Gateway** - API Gateway (ersetzt per-Tenant Kong, ~20 MB statt ~1.7 GiB)
 
 ## Port Configuration
+- API Gateway: {self.ports['gateway_port']} (via shared nginx-gateway)
 
-- Kong HTTP API: {self.ports['kong_http']}
-- Kong HTTPS API: {self.ports['kong_https']}
-- PostgreSQL: {self.ports['postgres']}
-- Pooler (Connection Pooler): {self.ports['pooler']}
-- Studio Dashboard: {self.ports['studio']}
-- Analytics: {self.ports['analytics']}
+## Quick Start
+```bash
+# Shared Infrastructure muss laufen!
+docker compose up -d
+```
+
+## Projekt-Datenbank
+- DB-Name: {project_db}
+- Host: multibase-db (Shared)
+- Port: 5432 (intern)
 """
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description='Create lightweight Supabase tenant (Cloud Version)')
+    parser.add_argument('project_name', help='Name of the project')
+    parser.add_argument('--base-port', type=int, default=None, help='Base port number')
+    args = parser.parse_args()
+    
+    try:
+        generator = SupabaseProjectGenerator(
+            project_name=args.project_name,
+            base_port=args.base_port
+        )
+        generator.run()
+        print(f"\n=== Tenant '{args.project_name}' erfolgreich erstellt ===")
+        print(f"Container: 5 (statt 13 im Full-Stack, Kong durch shared Nginx ersetzt)")
+        print(f"Gateway Port: {generator.ports['gateway_port']} (via multibase-nginx-gateway)")
+        print(f"DB:        project_{args.project_name.replace('-', '_')} (Shared Cluster)")
+        print(f"\nStart mit: cd {args.project_name} && docker compose up -d")
+        print(f"(Shared Infrastructure muss laufen: cd shared && docker compose up -d)")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

@@ -28,7 +28,10 @@ export function isPortInUse(port: number, host: string = '127.0.0.1'): Promise<b
 /**
  * Find an available port starting from basePort
  */
-export async function findAvailablePort(basePort: number, maxTries: number = 1000): Promise<number> {
+export async function findAvailablePort(
+  basePort: number,
+  maxTries: number = 1000
+): Promise<number> {
   let port = basePort;
   let tries = 0;
 
@@ -42,14 +45,19 @@ export async function findAvailablePort(basePort: number, maxTries: number = 100
     tries++;
   }
 
-  throw new Error(`Could not find available port starting from ${basePort} after ${maxTries} attempts`);
+  throw new Error(
+    `Could not find available port starting from ${basePort} after ${maxTries} attempts`
+  );
 }
 
 /**
  * Calculate all required ports for a Supabase instance
  */
 export async function calculatePorts(basePort: number): Promise<{
+  gateway_port: number;
+  /** @deprecated Use gateway_port */
   kong_http: number;
+  /** @deprecated Use gateway_port */
   kong_https: number;
   studio: number;
   postgres: number;
@@ -58,13 +66,17 @@ export async function calculatePorts(basePort: number): Promise<{
 }> {
   logger.info(`Calculating ports starting from base port ${basePort}`);
 
+  const gatewayPort = await findAvailablePort(basePort);
+
   const ports = {
-    kong_http: await findAvailablePort(basePort),
-    kong_https: await findAvailablePort(basePort + 443),
+    gateway_port: gatewayPort,
+    // Backward compatibility aliases
+    kong_http: gatewayPort,
+    kong_https: gatewayPort + 443,
     studio: await findAvailablePort(basePort + 2000),
     postgres: await findAvailablePort(basePort + 1000),
     pooler: await findAvailablePort(basePort + 1001),
-    analytics: await findAvailablePort(basePort + 3000)
+    analytics: await findAvailablePort(basePort + 3000),
   };
 
   logger.info('Port allocation complete:', ports);

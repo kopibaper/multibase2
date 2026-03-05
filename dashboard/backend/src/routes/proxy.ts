@@ -27,7 +27,8 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
         health: instance.health,
         ports: instance.ports,
         services: instance.services,
-        kongUrl: `http://localhost:${instance.ports.kong_http}`,
+        gatewayUrl: `http://localhost:${instance.ports.gateway_port}`,
+        /** @deprecated */ kongUrl: `http://localhost:${instance.ports.gateway_port}`,
         studioUrl: `http://localhost:${instance.ports.studio}`,
         studioProxyUrl: `/api/proxy/${instanceName}/studio`,
       });
@@ -107,10 +108,16 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
           },
           proxyRes: (proxyRes: IncomingMessage, _req: IncomingMessage, _res: ServerResponse) => {
             logger.debug(`Proxy response status: ${proxyRes.statusCode}`);
-            
+
             // Rewrite Location header for redirects
             const location = proxyRes.headers['location'];
-            if (location && (proxyRes.statusCode === 301 || proxyRes.statusCode === 302 || proxyRes.statusCode === 307 || proxyRes.statusCode === 308)) {
+            if (
+              location &&
+              (proxyRes.statusCode === 301 ||
+                proxyRes.statusCode === 302 ||
+                proxyRes.statusCode === 307 ||
+                proxyRes.statusCode === 308)
+            ) {
               // If Location is a relative path, prepend the proxy path
               if (location.startsWith('/')) {
                 const newLocation = `/api/proxy/${instanceName}/studio${location}`;
@@ -134,7 +141,7 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
   });
 
   /**
-   * Proxy to instance API (Kong Gateway)
+   * Proxy to instance API (Nginx Gateway)
    * Route: /api/proxy/:instanceName/api/*
    */
   router.use('/:instanceName/api', async (req: Request, res: Response, next: NextFunction) => {
@@ -152,7 +159,7 @@ export function createProxyRoutes(instanceManager: InstanceManager): Router {
         });
       }
 
-      const targetUrl = `http://localhost:${instance.ports.kong_http}`;
+      const targetUrl = `http://localhost:${instance.ports.gateway_port}`;
 
       const proxyOptions: Options = {
         target: targetUrl,

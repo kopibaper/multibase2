@@ -12,6 +12,8 @@ import {
   InstanceCredentials,
   PortMapping,
   ResourceLimits,
+  StackType,
+  SHARED_SERVICES,
 } from '../types';
 import { generateAllKeys } from '../utils/keyGenerator';
 import { calculatePorts, getRandomBasePort } from '../utils/portManager';
@@ -25,6 +27,11 @@ import {
 import { logger } from '../utils/logger';
 import DockerManager from './DockerManager';
 import { RedisCache } from './RedisCache';
+import {
+  generateAndWriteTenantConfig,
+  reloadNginxGateway,
+  removeNginxTenantConfig,
+} from './NginxGatewayGenerator';
 
 const execAsync = promisify(exec);
 
@@ -51,6 +58,308 @@ export class InstanceManager {
     if (!fs.existsSync(this.projectsPath)) {
       fs.mkdirSync(this.projectsPath, { recursive: true });
       logger.info(`Created projects directory: ${this.projectsPath}`);
+    }
+  }
+
+  /**
+   * Detect if an instance uses the cloud (shared) or classic stack.
+   * Cloud instances have PROJECT_DB in .env and no POSTGRES_PORT.
+   */
+  private detectStackType(envConfig: Record<string, string>): StackType {
+    if (envConfig['PROJECT_DB'] && !envConfig['POSTGRES_PORT']) {
+      return 'cloud';
+    }
+    return 'classic';
+  }
+
+  /**
+   * Get shared PostgreSQL connection config for cloud instances.
+   */
+  private getSharedDbConfig(envConfig: Record<string, string>) {
+    const sharedEnvPath = path.resolve(this.templatesPath, 'shared', '.env.shared');
+    let sharedPassword = envConfig['POSTGRES_PASSWORD'];
+    let sharedPort = 5432;
+
+    if (fs.existsSync(sharedEnvPath)) {
+      const sharedEnv = parseEnvFile(sharedEnvPath);
+      sharedPassword = sharedEnv['SHARED_POSTGRES_PASSWORD'] || sharedPassword;
+      sharedPort = parseInt(sharedEnv['SHARED_PG_PORT'] || '5432', 10);
+    }
+
+    const projectDb = envConfig['PROJECT_DB'] || 'postgres';
+    return { host: 'localhost', port: sharedPort, database: projectDb, password: sharedPassword };
+  }
+
+  private getDbConnectionCandidates(
+    envConfig: Record<string, string>,
+    stackType: StackType
+  ): {
+    host: string;
+    port: number;
+    database: string;
+    password: string;
+    users: string[];
+  } {
+    if (stackType === 'cloud') {
+      const sharedDb = this.getSharedDbConfig(envConfig);
+      const users = [envConfig['POSTGRES_USER'] || '', 'supabase_admin', 'postgres'].filter(
+        (value, index, arr) => value && arr.indexOf(value) === index
+      );
+
+      return {
+        host: sharedDb.host,
+        port: sharedDb.port,
+        database: sharedDb.database,
+        password: sharedDb.password,
+        users,
+      };
+    }
+
+    return {
+      host: 'localhost',
+      port: parseInt(envConfig['POSTGRES_PORT'] || '5432', 10),
+      database: envConfig['POSTGRES_DB'] || 'postgres',
+      password: envConfig['POSTGRES_PASSWORD'] || '',
+      users: [envConfig['POSTGRES_USER'] || 'postgres'],
+    };
+  }
+
+  private async connectToInstanceDb(
+    envConfig: Record<string, string>,
+    stackType: StackType
+  ): Promise<Client> {
+    const config = this.getDbConnectionCandidates(envConfig, stackType);
+
+    if (!config.password) {
+      throw new Error('Database password not found');
+    }
+
+    let lastError: any;
+
+    for (const user of config.users) {
+      const client = new Client({
+        user,
+        host: config.host,
+        database: config.database,
+        password: config.password,
+        port: config.port,
+      });
+
+      try {
+        await client.connect();
+        return client;
+      } catch (error: any) {
+        lastError = error;
+        await client.end().catch(() => {});
+      }
+    }
+
+    throw new Error(lastError?.message || 'Failed to connect to database');
+  }
+
+  private async runCloudPsql(
+    database: string,
+    sql: string,
+    options?: { csv?: boolean; tuplesOnly?: boolean }
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const args = [
+        'exec',
+        'multibase-db',
+        'psql',
+        '-U',
+        'supabase_admin',
+        '-d',
+        database,
+        '-v',
+        'ON_ERROR_STOP=1',
+      ];
+
+      if (options?.csv) {
+        args.push('--csv');
+      }
+
+      if (options?.tuplesOnly) {
+        args.push('-t', '-A');
+      }
+
+      args.push('-c', sql);
+
+      const proc = spawn('docker', args, { windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+
+      proc.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+
+      proc.on('error', (error) => reject(error));
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
+          return;
+        }
+
+        reject(new Error(stderr.trim() || stdout.trim() || `psql exited with code ${code}`));
+      });
+    });
+  }
+
+  private parseCsvLine(line: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const next = line[index + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        values.push(current);
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    values.push(current);
+    return values;
+  }
+
+  private parsePgArray(value: string): string[] {
+    const trimmed = value.slice(1, -1);
+    if (!trimmed) {
+      return [];
+    }
+
+    const parts: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let index = 0; index < trimmed.length; index += 1) {
+      const char = trimmed[index];
+      const next = trimmed[index + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    parts.push(current);
+    return parts;
+  }
+
+  private coercePsqlValue(value: string): any {
+    if (value === '') {
+      return null;
+    }
+
+    if (value === 't') {
+      return true;
+    }
+
+    if (value === 'f') {
+      return false;
+    }
+
+    if (/^-?\d+$/.test(value)) {
+      return Number(value);
+    }
+
+    if (/^-?\d+\.\d+$/.test(value)) {
+      return Number(value);
+    }
+
+    if (value.startsWith('{') && value.endsWith('}')) {
+      return this.parsePgArray(value);
+    }
+
+    return value;
+  }
+
+  private parseCsvResult(csvOutput: string): any[] {
+    if (!csvOutput) {
+      return [];
+    }
+
+    const lines = csvOutput
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length < 2) {
+      return [];
+    }
+
+    const headers = this.parseCsvLine(lines[0]);
+    return lines.slice(1).map((line) => {
+      const values = this.parseCsvLine(line);
+      const row: Record<string, any> = {};
+
+      headers.forEach((header, index) => {
+        row[header] = this.coercePsqlValue(values[index] ?? '');
+      });
+
+      return row;
+    });
+  }
+
+  /**
+   * Read the shared JWT secret from shared/.env.shared.
+   * Cloud tenants must use the same JWT secret as shared infrastructure so that
+   * tokens issued by the shared Studio validate inside tenant services.
+   */
+  private getSharedJwtSecret(): string | undefined {
+    const sharedEnvPath = path.resolve(this.templatesPath, 'shared', '.env.shared');
+    if (fs.existsSync(sharedEnvPath)) {
+      const secret = parseEnvFile(sharedEnvPath)['SHARED_JWT_SECRET'];
+      if (secret) return secret;
+    }
+    logger.warn(
+      'SHARED_JWT_SECRET not found in shared/.env.shared – cloud tenant gets an isolated JWT secret'
+    );
+    return undefined;
+  }
+
+  /**
+   * Check if shared infrastructure is running.
+   */
+  async isSharedInfraRunning(): Promise<boolean> {
+    try {
+      const containers = await this.dockerManager.listAllContainers();
+      return containers.some((c: any) => c.Names?.some((n: string) => n.includes('multibase-db')));
+    } catch {
+      return false;
     }
   }
 
@@ -113,7 +422,8 @@ export class InstanceManager {
           if (!fs.existsSync(envPath)) return null;
 
           const envConfig = parseEnvFile(envPath);
-          const ports = extractPorts(envConfig);
+          const stackType = this.detectStackType(envConfig);
+          const ports = this.normalizePortsForDisplay(extractPorts(envConfig), stackType);
           return { name, ports };
         } catch (e) {
           return null;
@@ -142,7 +452,8 @@ export class InstanceManager {
       // Parse .env file
       const envConfig = parseEnvFile(envPath);
       const credentials = extractCredentials(envConfig);
-      const ports = extractPorts(envConfig);
+      const stackType = this.detectStackType(envConfig);
+      const ports = this.normalizePortsForDisplay(extractPorts(envConfig), stackType);
 
       // Get service status from Docker
       const services = await this.dockerManager.getServiceStatus(name);
@@ -214,7 +525,8 @@ export class InstanceManager {
         id: name,
         name,
         status: overallStatus,
-        basePort: ports.kong_http,
+        stackType,
+        basePort: ports.gateway_port,
         ports,
         credentials,
         services,
@@ -232,6 +544,20 @@ export class InstanceManager {
       logger.error(`Error getting instance ${name}:`, error);
       return null;
     }
+  }
+
+  private normalizePortsForDisplay(ports: PortMapping, stackType: StackType): PortMapping {
+    if (stackType === 'cloud') {
+      return ports;
+    }
+
+    return {
+      ...ports,
+      studio: ports.studio ?? 3000,
+      postgres: ports.postgres ?? 5432,
+      pooler: ports.pooler ?? 6543,
+      analytics: ports.analytics ?? 4000,
+    };
   }
 
   /**
@@ -284,6 +610,7 @@ export class InstanceManager {
         const child = spawn(pythonCmd, [setupScript, ...args], {
           cwd: this.templatesPath,
           stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
         });
 
         let stdout = '';
@@ -359,7 +686,7 @@ export class InstanceManager {
       }
 
       // Generate Nginx Config
-      await this.createNginxConfig(instance);
+      await this.createNginxConfig(instance, request.deploymentType);
 
       // Store instance in database for metrics and tracking
       try {
@@ -397,7 +724,10 @@ export class InstanceManager {
   /**
    * Generate Nginx configuration for the instance
    */
-  private async createNginxConfig(instance: SupabaseInstance): Promise<void> {
+  private async createNginxConfig(
+    instance: SupabaseInstance,
+    deploymentType: 'localhost' | 'cloud'
+  ): Promise<void> {
     try {
       // Target: multibase/nginx/sites-enabled
       const nginxDir = path.resolve(this.templatesPath, 'nginx', 'sites-enabled');
@@ -405,14 +735,51 @@ export class InstanceManager {
         fs.mkdirSync(nginxDir, { recursive: true });
       }
 
-      const domain = 'backend.tyto-design.de';
-      const dashboardUrl = process.env.DASHBOARD_URL || 'https://multibase.tyto-design.de';
-      const backendUrl = process.env.BACKEND_URL || 'https://backend.tyto-design.de';
+      const domain = process.env.BACKEND_DOMAIN || 'localhost';
+      // ROOT_DOMAIN: 2nd-level base domain for instance subdomains (e.g. tyto-design.de)
+      // Derived from BACKEND_DOMAIN by stripping the leftmost subdomain label.
+      // backend.tyto-design.de → tyto-design.de  |  tyto-design.de → tyto-design.de
+      const rootDomain =
+        process.env.ROOT_DOMAIN ||
+        (() => {
+          const parts = domain.split('.');
+          return parts.length >= 3 ? parts.slice(-2).join('.') : domain;
+        })();
+      const dashboardUrl = process.env.DASHBOARD_URL || `https://${process.env.FRONTEND_DOMAIN || domain}`;
+      const backendUrl = process.env.BACKEND_URL || `https://${domain}`;
 
-      const configContent = `# Auto-generated config for ${instance.name} with authentication
+      // Cloud-Version: Studio Proxy zeigt auf Shared Studio
+      const studioPort =
+        instance.stackType === 'cloud'
+          ? process.env.SHARED_STUDIO_PORT || '3000'
+          : instance.ports.studio || '3000';
+
+      // Wildcard cert path — *.rootDomain covers all instance subdomains
+      const certDir = `/etc/letsencrypt/live/${rootDomain}`;
+      const wildcardCertExists =
+        deploymentType === 'cloud' && fs.existsSync(`${certDir}/fullchain.pem`);
+
+      // SSL block reused for both Studio and API server blocks
+      const sslBlock = wildcardCertExists
+        ? `    ssl_certificate ${certDir}/fullchain.pem;
+    ssl_certificate_key ${certDir}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+`
+        : '';
+
+      const configContent = `# Auto-generated config for ${instance.name}
+# Instance subdomain uses ROOT_DOMAIN (${rootDomain}) so the wildcard cert covers it.
 server {
     listen 80;
-    server_name ${instance.name}.${domain};
+    server_name ${instance.name}.${rootDomain};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${instance.name}.${rootDomain};
+${sslBlock}
     client_max_body_size 100M;
 
     # Security headers
@@ -441,7 +808,7 @@ server {
 
     # Storage endpoint - NO auth_request, Supabase validates SERVICE_ROLE_KEY itself
     location /storage/ {
-        proxy_pass http://127.0.0.1:${instance.ports.kong_http}/storage/;
+        proxy_pass http://127.0.0.1:${instance.ports.gateway_port}/storage/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -461,7 +828,7 @@ server {
         error_page 401 = @error401;
         error_page 403 = @error403;
 
-        proxy_pass http://127.0.0.1:${instance.ports.studio};
+        proxy_pass http://127.0.0.1:${studioPort};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -484,7 +851,14 @@ server {
 
 server {
     listen 80;
-    server_name ${instance.name}-api.${domain};
+    server_name ${instance.name}-api.${rootDomain};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${instance.name}-api.${rootDomain};
+${sslBlock}
     client_max_body_size 100M;
 
     # Security headers
@@ -520,7 +894,7 @@ server {
         error_page 401 = @error401;
         error_page 403 = @error403;
 
-        proxy_pass http://127.0.0.1:${instance.ports.kong_http};
+        proxy_pass http://127.0.0.1:${instance.ports.gateway_port};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -564,21 +938,18 @@ server {
         // If reload fails, Certbot might also fail if it relies on the running server
       }
 
-      // Run Certbot for SSL
-      // Note: This requires the backend process to have sudo permissions without password
-      try {
-        const studioDomain = `${instance.name}.${domain}`;
-        const apiDomain = `${instance.name}-api.${domain}`;
-        const email = 'notification@tyto-design.de';
-
-        logger.info('Starting Certbot for auto-SSL...');
-        await execAsync(
-          `sudo certbot --nginx -d ${studioDomain} -d ${apiDomain} --non-interactive --agree-tos --redirect --email ${email}`
-        );
-        logger.info(`Certbot finished successfully for ${studioDomain} and ${apiDomain}`);
-      } catch (certbotError) {
-        logger.error('Certbot failed to generate SSL certificates:', certbotError);
-        // Do not throw, allow instance creation to complete (user can fix SSL manually)
+      // SSL: wildcard cert *.rootDomain covers all instance subdomains automatically.
+      // No per-instance Certbot run needed.
+      if (deploymentType === 'cloud') {
+        if (wildcardCertExists) {
+          logger.info(`Wildcard cert at ${certDir} covers ${instance.name}.${rootDomain} — no Certbot needed.`);
+        } else {
+          logger.warn(
+            `No wildcard cert found at ${certDir}. ` +
+            `Ensure ROOT_DOMAIN=${rootDomain} is set and a wildcard cert exists. ` +
+            `Instance ${instance.name} will serve HTTP only until SSL is configured.`
+          );
+        }
       }
     } catch (error) {
       logger.error(`Failed to create Nginx config for ${instance.name}:`, error);
@@ -809,21 +1180,30 @@ server {
       const newBasePort = getRandomBasePort();
       const newPorts = await calculatePorts(newBasePort);
 
-      // Generate new keys
-      const newKeys = generateAllKeys();
-
-      // Update .env file with new values
+      // Detect source stack type first to decide which JWT secret to use
       const envPath = path.join(targetPath, '.env');
       if (fs.existsSync(envPath)) {
         const envContent = parseEnvFile(envPath);
+        const stackType = this.detectStackType(envContent);
 
-        // Update ports
-        envContent['KONG_HTTP_PORT'] = newPorts.kong_http.toString();
-        envContent['KONG_HTTPS_PORT'] = newPorts.kong_https.toString();
-        envContent['POSTGRES_PORT'] = newPorts.postgres.toString();
-        envContent['POOLER_PORT'] = newPorts.pooler.toString();
-        envContent['STUDIO_PORT'] = newPorts.studio.toString();
-        envContent['ANALYTICS_PORT'] = newPorts.analytics.toString();
+        // Cloud tenants must share the same JWT secret as shared infrastructure
+        const jwtSecretOverride = stackType === 'cloud' ? this.getSharedJwtSecret() : undefined;
+        const newKeys = generateAllKeys(jwtSecretOverride);
+
+        // Update ports - Cloud instances only have gateway port
+        envContent['GATEWAY_PORT'] = newPorts.gateway_port.toString();
+        // Keep KONG_HTTP_PORT for backward compatibility during migration
+        envContent['KONG_HTTP_PORT'] = newPorts.gateway_port.toString();
+        if (stackType === 'classic') {
+          envContent['POSTGRES_PORT'] = newPorts.postgres?.toString() || '';
+          envContent['POOLER_PORT'] = newPorts.pooler?.toString() || '';
+          envContent['STUDIO_PORT'] = newPorts.studio?.toString() || '';
+          envContent['ANALYTICS_PORT'] = newPorts.analytics?.toString() || '';
+        } else {
+          // Cloud: Update PROJECT_DB for the new tenant
+          const newDbName = `project_${newName}`.replace(/-/g, '_');
+          envContent['PROJECT_DB'] = newDbName;
+        }
 
         // Update keys
         envContent['JWT_SECRET'] = newKeys.jwt_secret;
@@ -841,9 +1221,9 @@ server {
           : envContent['SITE_URL']?.split('://')[1]?.split(':')[0] || 'localhost';
 
         if (domain === 'localhost') {
-          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
-          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
-          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.kong_http}`;
+          envContent['SITE_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
+          envContent['API_EXTERNAL_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
+          envContent['SUPABASE_PUBLIC_URL'] = `${protocol}://${domain}:${newPorts.gateway_port}`;
           envContent['STUDIO_DEFAULT_ORGANIZATION'] = newName;
           envContent['STUDIO_DEFAULT_PROJECT'] = newName;
         }
@@ -901,6 +1281,7 @@ server {
 
   /**
    * Get database schema for an instance
+   * Cloud-Version: Uses shared PostgreSQL with project-specific database
    * @param name Instance name
    */
   async getSchema(name: string): Promise<any[]> {
@@ -912,20 +1293,61 @@ server {
     }
 
     const env = parseEnvFile(envPath);
-    const port = env['POSTGRES_PORT'] || '5432';
-    const password = env['POSTGRES_PASSWORD'];
+    const stackType = this.detectStackType(env);
 
-    if (!password) {
-      throw new Error('Database password not found');
+    if (stackType === 'cloud') {
+      try {
+        const sharedDb = this.getSharedDbConfig(env);
+        const schemaSql = `
+          SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)::text
+          FROM (
+            SELECT
+              tbl.table_schema as schema,
+              tbl.table_name as name,
+              tbl.table_type as type,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'column_name', c.column_name,
+                  'data_type', c.data_type,
+                  'is_nullable', c.is_nullable,
+                  'column_default', c.column_default,
+                  'is_primary_key', (
+                    SELECT EXISTS (
+                      SELECT 1
+                      FROM information_schema.key_column_usage kcu
+                      JOIN information_schema.table_constraints tc
+                        ON kcu.constraint_name = tc.constraint_name
+                        AND kcu.table_schema = tc.table_schema
+                      WHERE kcu.table_schema = c.table_schema
+                        AND kcu.table_name = c.table_name
+                        AND kcu.column_name = c.column_name
+                        AND tc.constraint_type = 'PRIMARY KEY'
+                    )
+                  )
+                ) ORDER BY c.ordinal_position)
+                FROM information_schema.columns c
+                WHERE c.table_schema = tbl.table_schema
+                  AND c.table_name = tbl.table_name
+              ), '[]'::json) as columns
+            FROM information_schema.tables tbl
+            WHERE tbl.table_schema = 'public'
+            ORDER BY tbl.table_name
+          ) t;
+        `;
+
+        const rawJson = await this.runCloudPsql(sharedDb.database, schemaSql, { tuplesOnly: true });
+        if (!rawJson) {
+          return [];
+        }
+
+        return JSON.parse(rawJson);
+      } catch (error: any) {
+        logger.error(`Failed to get schema for ${name}:`, error.message);
+        return [];
+      }
     }
 
-    const client = new Client({
-      user: 'postgres',
-      host: 'localhost',
-      database: 'postgres',
-      password: password,
-      port: parseInt(port, 10),
-    });
+    const client = await this.connectToInstanceDb(env, stackType);
 
     try {
       await client.connect();
@@ -979,6 +1401,7 @@ server {
 
   /**
    * Execute SQL query on an instance database
+   * Cloud-Version: Uses shared PostgreSQL with project-specific database
    * @param name Instance name
    * @param sql SQL query to execute
    */
@@ -991,20 +1414,21 @@ server {
     }
 
     const env = parseEnvFile(envPath);
-    const port = env['POSTGRES_PORT'] || '5432';
-    const password = env['POSTGRES_PASSWORD'];
+    const stackType = this.detectStackType(env);
 
-    if (!password) {
-      throw new Error('Database password not found');
+    if (stackType === 'cloud') {
+      try {
+        const sharedDb = this.getSharedDbConfig(env);
+        const csvOutput = await this.runCloudPsql(sharedDb.database, sql, { csv: true });
+        const rows = this.parseCsvResult(csvOutput);
+        return { rows };
+      } catch (error: any) {
+        logger.error(`SQL execution failed for ${name}:`, error.message);
+        return { rows: [], error: error.message };
+      }
     }
 
-    const client = new Client({
-      user: 'postgres',
-      host: 'localhost',
-      database: 'postgres',
-      password: password,
-      port: parseInt(port, 10),
-    });
+    const client = await this.connectToInstanceDb(env, stackType);
 
     try {
       await client.connect();
@@ -1036,8 +1460,9 @@ server {
       PROJECT_NAME: projectName,
 
       // Ports
-      KONG_HTTP_PORT: `${ports.kong_http}`,
-      KONG_HTTPS_PORT: `${ports.kong_https}`,
+      GATEWAY_PORT: `${ports.gateway_port}`,
+      // Keep KONG_HTTP_PORT for backward compatibility during migration
+      KONG_HTTP_PORT: `${ports.gateway_port}`,
       STUDIO_PORT: `${ports.studio}`,
       POSTGRES_PORT: `${ports.postgres}`,
       POOLER_PORT: `${ports.pooler}`,
@@ -1172,31 +1597,31 @@ server {
   }
 
   /**
-   * Create Kong configuration
+   * Create Nginx gateway config for this tenant
+   * (replaces createKongConfig)
    */
-  private async createKongConfig(
+  private async createNginxGatewayConfig(
     projectPath: string,
     _apiUrl: string,
-    corsOrigins: string[]
+    _corsOrigins: string[]
   ): Promise<void> {
-    const templatePath = path.join(this.templatesPath, 'volumes/api/kong.yml');
-    const targetPath = path.join(projectPath, 'volumes/api/kong.yml');
+    const projectName = path.basename(projectPath);
+    const sharedDir = path.resolve(this.projectsPath, '..', 'shared');
 
-    if (!fs.existsSync(templatePath)) {
-      logger.warn('Kong template not found, skipping');
-      return;
+    try {
+      await generateAndWriteTenantConfig(projectName, this.projectsPath, sharedDir);
+      logger.info(`Nginx gateway config generated for ${projectName}`);
+
+      // Try to reload nginx-gateway if it's running
+      try {
+        await reloadNginxGateway();
+      } catch {
+        logger.debug('Nginx gateway not running yet, config will be applied on next start');
+      }
+    } catch (error: any) {
+      logger.warn(`Failed to create Nginx gateway config for ${projectName}: ${error.message}`);
+      // Non-fatal: tenant still works, gateway config can be regenerated later
     }
-
-    let content = fs.readFileSync(templatePath, 'utf8');
-
-    // Update CORS origins if specified
-    if (corsOrigins.length > 0) {
-      const originsStr = corsOrigins.join(',');
-      content = content.replace(/origins: .*/, `origins: ${originsStr}`);
-    }
-
-    fs.writeFileSync(targetPath, content, 'utf8');
-    logger.info('Created Kong configuration');
   }
 
   /**
@@ -1221,19 +1646,12 @@ server {
   }
 
   /**
-   * Create docker-compose.override.yml for Kong YAML parsing fix
+   * Create docker-compose.override.yml (no longer needed for Kong)
+   * Kept as no-op for backward compatibility.
    */
-  private async createDockerComposeOverride(projectPath: string): Promise<void> {
-    const overrideContent = `# Override for Kong YAML environment variable substitution
-services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
-`;
-
-    const targetPath = path.join(projectPath, 'docker-compose.override.yml');
-    fs.writeFileSync(targetPath, overrideContent, 'utf8');
-    logger.info('Created docker-compose.override.yml');
+  private async createDockerComposeOverride(_projectPath: string): Promise<void> {
+    // Kong override no longer needed since tenants use shared nginx-gateway
+    logger.debug('createDockerComposeOverride: no-op (Kong removed)');
   }
 
   /**
@@ -1386,8 +1804,11 @@ services:
       const envConfig = parseEnvFile(envPath);
 
       if (regenerateKeys) {
-        // Generate new keys
-        const keys = generateAllKeys();
+        // For cloud tenants, use shared JWT secret so tokens stay compatible
+        // with the shared Studio and Kong
+        const stackType = this.detectStackType(envConfig);
+        const jwtSecretOverride = stackType === 'cloud' ? this.getSharedJwtSecret() : undefined;
+        const keys = generateAllKeys(jwtSecretOverride);
         envConfig.JWT_SECRET = keys.jwt_secret;
         envConfig.ANON_KEY = keys.anon_key;
         envConfig.SERVICE_ROLE_KEY = keys.service_role_key;

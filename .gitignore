@@ -10,6 +10,25 @@ supabase/
 # Projects directory (contains deployment secrets)
 projects/
 *projects/*
+
+# Shared infrastructure – only the Compose definition is tracked,
+# not secrets, generated configs or runtime volumes
+shared/*
+!shared/docker-compose.shared.yml
+!shared/config/
+!shared/config/vector.yml
+!shared/volumes/
+!shared/volumes/db/
+!shared/volumes/db/init/
+!shared/volumes/db/init/*.sql
+!shared/volumes/nginx/
+!shared/volumes/nginx/nginx.conf
+!shared/volumes/nginx/tenants/
+shared/volumes/nginx/tenants/*.conf
+shared/volumes/nginx/tenants/*.backup
+!shared/volumes/pooler/
+!shared/volumes/pooler/pooler.exs
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -65,6 +84,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .pnpm-store/
+/package-lock.json
 
 # Build outputs (Node.js/Frontend)
 dist/

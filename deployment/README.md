@@ -16,8 +16,10 @@ For the full installation guide, see [INSTALL.md](../INSTALL.md) in the repo roo
 | ---------------------------------------------- | ------------------------------------------ |
 | `sudo bash install.sh`                         | Fresh installation with interactive wizard |
 | `sudo bash install.sh --update`                | Update existing installation               |
-| `sudo bash install.sh --uninstall`             | Remove installation                        |
-| `sudo bash install.sh --uninstall --keep-data` | Remove but keep project data               |
+| `sudo bash uninstall.sh`                       | Remove installation                        |
+| `sudo bash uninstall.sh --keep-data`           | Remove but keep project data + database    |
+| `sudo bash uninstall.sh --del-all`             | Also remove system packages (Node, Docker) |
+| `sudo bash uninstall.sh --yes`                 | Skip confirmation prompt                   |
 
 ## What the Installer Does
 

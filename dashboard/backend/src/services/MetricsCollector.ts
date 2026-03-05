@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { PrismaClient } from '@prisma/client';
-import { SystemMetrics } from '../types';
+import * as os from 'os';
+import { SystemMetrics, SHARED_SERVICES } from '../types';
 import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
 import { RedisCache } from './RedisCache';
@@ -70,7 +71,7 @@ export class MetricsCollector extends EventEmitter {
   }
 
   /**
-   * Collect metrics for all instances
+   * Collect metrics for all instances + shared infrastructure
    */
   private async collectAllMetrics(): Promise<void> {
     try {
@@ -80,6 +81,14 @@ export class MetricsCollector extends EventEmitter {
       let totalMemory = 0;
       let totalDisk = 0;
       let runningCount = 0;
+
+      // Collect shared infrastructure metrics
+      const sharedMetrics = await this.collectSharedInfraMetrics();
+      if (sharedMetrics) {
+        totalCpu += sharedMetrics.cpu;
+        totalMemory += sharedMetrics.memory;
+        totalDisk += sharedMetrics.disk;
+      }
 
       for (const instance of instances) {
         // Nur Metriken von laufenden Instanzen sammeln
@@ -95,14 +104,16 @@ export class MetricsCollector extends EventEmitter {
         }
       }
 
-      // Store system-wide metrics
+      // Store system-wide metrics (including shared infra)
+      const hostTotalMemoryMB = Math.round(os.totalmem() / 1024 / 1024);
       const systemMetrics: SystemMetrics = {
         totalCpu: isNaN(totalCpu) ? 0 : totalCpu,
         totalMemory: isNaN(totalMemory) ? 0 : totalMemory,
         totalDisk: isNaN(totalDisk) ? 0 : totalDisk,
+        hostTotalMemory: hostTotalMemoryMB,
         instanceCount: instances.length,
         runningCount,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.storeSystemMetrics(systemMetrics);
@@ -115,9 +126,55 @@ export class MetricsCollector extends EventEmitter {
   }
 
   /**
+   * Collect metrics for shared infrastructure containers
+   */
+  async collectSharedInfraMetrics(): Promise<{ cpu: number; memory: number; disk: number } | null> {
+    try {
+      const sharedContainers = await this.dockerManager.listSharedContainers();
+      let sharedCpu = 0;
+      let sharedMemory = 0;
+      let sharedDisk = 0;
+
+      for (const container of sharedContainers) {
+        if (container.State !== 'running') continue;
+
+        const metrics = await this.dockerManager.getContainerStats(container.Id);
+        if (metrics) {
+          sharedCpu += metrics.cpu;
+          sharedMemory += metrics.memory;
+          sharedDisk += metrics.diskRead + metrics.diskWrite;
+
+          const containerName = container.Names[0].replace('/', '');
+          await this.redisCache.setMetrics('shared-infra', containerName, metrics);
+        }
+      }
+
+      // Cache aggregate shared metrics
+      await this.redisCache.set(
+        'shared:metrics',
+        JSON.stringify({
+          cpu: sharedCpu,
+          memory: sharedMemory,
+          disk: sharedDisk,
+          containerCount: sharedContainers.filter((c) => c.State === 'running').length,
+          timestamp: new Date(),
+        }),
+        60
+      );
+
+      return { cpu: sharedCpu, memory: sharedMemory, disk: sharedDisk };
+    } catch (error) {
+      logger.error('Error collecting shared infra metrics:', error);
+      return null;
+    }
+  }
+
+  /**
    * Collect metrics for a specific instance
    */
-  async collectInstanceMetrics(instanceName: string): Promise<{ cpu: number; memory: number; disk: number } | null> {
+  async collectInstanceMetrics(
+    instanceName: string
+  ): Promise<{ cpu: number; memory: number; disk: number } | null> {
     try {
       const containers = await this.dockerManager.listProjectContainers(instanceName);
 
@@ -148,7 +205,7 @@ export class MetricsCollector extends EventEmitter {
       return {
         cpu: instanceCpu,
         memory: instanceMemory,
-        disk: instanceDisk
+        disk: instanceDisk,
       };
     } catch (error) {
       logger.error(`Error collecting metrics for ${instanceName}:`, error);
@@ -159,17 +216,25 @@ export class MetricsCollector extends EventEmitter {
   /**
    * Store metrics in database
    */
-  private async storeMetrics(instanceName: string, serviceName: string, metrics: any): Promise<void> {
+  private async storeMetrics(
+    instanceName: string,
+    serviceName: string,
+    metrics: any
+  ): Promise<void> {
     try {
-      // Check if instance exists in database first
-      const instance = await this.prisma.instance.findUnique({
-        where: { id: instanceName }
+      await this.prisma.instance.upsert({
+        where: { id: instanceName },
+        update: {
+          status: 'running',
+          updatedAt: new Date(),
+        },
+        create: {
+          id: instanceName,
+          name: instanceName,
+          basePort: 0,
+          status: 'running',
+        },
       });
-
-      if (!instance) {
-        logger.warn(`Instance ${instanceName} not found in database, skipping metrics storage`);
-        return;
-      }
 
       await this.prisma.metric.create({
         data: {
@@ -181,8 +246,8 @@ export class MetricsCollector extends EventEmitter {
           networkTx: isNaN(metrics.networkTx) ? 0 : metrics.networkTx,
           diskRead: isNaN(metrics.diskRead) ? 0 : metrics.diskRead,
           diskWrite: isNaN(metrics.diskWrite) ? 0 : metrics.diskWrite,
-          timestamp: metrics.timestamp
-        }
+          timestamp: metrics.timestamp,
+        },
       });
     } catch (error) {
       // If instance doesn't exist in DB, create it
@@ -193,8 +258,8 @@ export class MetricsCollector extends EventEmitter {
               id: instanceName,
               name: instanceName,
               basePort: 0, // Will be updated later
-              status: 'running'
-            }
+              status: 'running',
+            },
           });
 
           // Retry storing metrics
@@ -220,8 +285,8 @@ export class MetricsCollector extends EventEmitter {
           totalDisk: metrics.totalDisk,
           instanceCount: metrics.instanceCount,
           runningCount: metrics.runningCount,
-          timestamp: metrics.timestamp
-        }
+          timestamp: metrics.timestamp,
+        },
       });
     } catch (error) {
       logger.error('Error storing system metrics:', error);
@@ -239,7 +304,7 @@ export class MetricsCollector extends EventEmitter {
   ): Promise<any[]> {
     try {
       const where: any = {
-        instanceId: instanceName
+        instanceId: instanceName,
       };
 
       if (serviceName) {
@@ -248,16 +313,16 @@ export class MetricsCollector extends EventEmitter {
 
       if (since) {
         where.timestamp = {
-          gte: since
+          gte: since,
         };
       }
 
       const metrics = await this.prisma.metric.findMany({
         where,
         orderBy: {
-          timestamp: 'desc'
+          timestamp: 'desc',
         },
-        take: limit
+        take: limit,
       });
 
       return metrics.reverse(); // Return in chronological order
@@ -276,19 +341,19 @@ export class MetricsCollector extends EventEmitter {
 
       if (since) {
         where.timestamp = {
-          gte: since
+          gte: since,
         };
       }
 
       const metrics = await this.prisma.systemMetric.findMany({
         where,
         orderBy: {
-          timestamp: 'desc'
+          timestamp: 'desc',
         },
-        take: limit
+        take: limit,
       });
 
-      return metrics.reverse() as SystemMetrics[];
+      return metrics.reverse() as unknown as SystemMetrics[];
     } catch (error) {
       logger.error('Error getting system metrics history:', error);
       return [];
@@ -306,9 +371,9 @@ export class MetricsCollector extends EventEmitter {
       const result = await this.prisma.metric.deleteMany({
         where: {
           timestamp: {
-            lt: cutoffDate
-          }
-        }
+            lt: cutoffDate,
+          },
+        },
       });
 
       logger.info(`Cleaned up ${result.count} old metric records`);

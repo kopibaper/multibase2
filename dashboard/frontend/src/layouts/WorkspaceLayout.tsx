@@ -1,5 +1,4 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import OrgSwitcher from '../components/OrgSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, FolderKanban, LogOut, User, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -75,11 +74,6 @@ export default function WorkspaceLayout() {
             </nav>
           </div>
 
-          {/* Org Switcher */}
-          <div className="hidden sm:flex items-center">
-            <OrgSwitcher />
-          </div>
-
           {/* Right: User Menu */}
           <div className='relative' ref={menuRef}>
             <button
@@ -119,10 +113,36 @@ export default function WorkspaceLayout() {
         </div>
       </header>
 
-      {/* Content */}
-      <main className='relative z-10'>
+      {/* Content – extra bottom padding on mobile for bottom nav */}
+      <main className='relative z-10 pb-16 sm:pb-0'>
         <Outlet />
       </main>
+
+      {/* Mobile Bottom Navigation (only visible on sm-) */}
+      <nav className='sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/95 backdrop-blur-md flex'>
+        <button
+          onClick={() => navigate('/workspace')}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+            location.pathname.startsWith('/workspace')
+              ? 'text-brand-400'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FolderKanban className='w-5 h-5' />
+          Workspace
+        </button>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+            location.pathname.startsWith('/dashboard')
+              ? 'text-red-400'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <LayoutDashboard className='w-5 h-5' />
+          Dashboard
+        </button>
+      </nav>
     </div>
   );
 }

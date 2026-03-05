@@ -5,22 +5,131 @@ import { DockerManager } from './DockerManager';
 const VOLUMES_DIR = process.env.VOLUMES_DIR || path.join(process.cwd(), 'volumes');
 
 export class FunctionService {
-  constructor(private dockerManager: DockerManager) {}
+  constructor(
+    private dockerManager: DockerManager,
+    private projectsPath: string = path.resolve(path.join(process.cwd(), '../../projects'))
+  ) {}
 
-  private getFunctionsDir(instanceName: string): string {
+  private getFunctionsRootDir(instanceName: string): string {
+    const projectFunctionsMainDir = path.join(
+      this.projectsPath,
+      instanceName,
+      'volumes',
+      'functions',
+      'main'
+    );
+    if (fs.existsSync(projectFunctionsMainDir)) {
+      return path.dirname(projectFunctionsMainDir);
+    }
+
+    const projectFunctionsDir = path.join(this.projectsPath, instanceName, 'volumes', 'functions');
+    if (fs.existsSync(projectFunctionsDir)) {
+      return projectFunctionsDir;
+    }
+
+    const legacyFunctionsMainDir = path.join(VOLUMES_DIR, instanceName, 'functions', 'main');
+    if (fs.existsSync(legacyFunctionsMainDir)) {
+      return path.dirname(legacyFunctionsMainDir);
+    }
+
     return path.join(VOLUMES_DIR, instanceName, 'functions');
   }
 
+  private getLegacyMainDir(functionsRootDir: string): string {
+    return path.join(functionsRootDir, 'main');
+  }
+
+  private sanitizeFunctionName(name: string): string {
+    const normalized = name.trim();
+    if (
+      !normalized ||
+      normalized.includes('..') ||
+      normalized.includes('\\') ||
+      normalized.includes('/')
+    ) {
+      throw new Error('Invalid function name');
+    }
+
+    return normalized;
+  }
+
+  private resolveFunctionPath(functionsRootDir: string, name: string): string {
+    const safeName = this.sanitizeFunctionName(name);
+    const legacyMainDir = this.getLegacyMainDir(functionsRootDir);
+
+    if (safeName.endsWith('.ts') || safeName.endsWith('.js')) {
+      const directPath = path.join(functionsRootDir, safeName);
+      const legacyPath = path.join(legacyMainDir, safeName);
+
+      if (fs.existsSync(directPath) || !fs.existsSync(legacyPath)) {
+        return directPath;
+      }
+
+      return legacyPath;
+    }
+
+    const directDirPath = path.join(functionsRootDir, safeName, 'index.ts');
+    const legacyDirPath = path.join(legacyMainDir, safeName, 'index.ts');
+
+    if (fs.existsSync(directDirPath) || !fs.existsSync(legacyDirPath)) {
+      return directDirPath;
+    }
+
+    return legacyDirPath;
+  }
+
   async listFunctions(instanceName: string): Promise<string[]> {
-    const dir = this.getFunctionsDir(instanceName);
-    await fs.ensureDir(dir);
-    const files = await fs.readdir(dir);
-    // Filter for .ts or .js files, maybe directories later
-    return files.filter((f) => f.endsWith('.ts') || f.endsWith('.js'));
+    const functionsRootDir = this.getFunctionsRootDir(instanceName);
+    await fs.ensureDir(functionsRootDir);
+
+    const mainDir = this.getLegacyMainDir(functionsRootDir);
+    const entries = await fs.readdir(functionsRootDir, { withFileTypes: true });
+    const functions: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.name === 'main') {
+        continue;
+      }
+
+      if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.js'))) {
+        functions.push(entry.name);
+      }
+
+      if (entry.isDirectory()) {
+        const indexTs = path.join(functionsRootDir, entry.name, 'index.ts');
+        const indexJs = path.join(functionsRootDir, entry.name, 'index.js');
+        if ((await fs.pathExists(indexTs)) || (await fs.pathExists(indexJs))) {
+          functions.push(entry.name);
+        }
+      }
+    }
+
+    if (functions.length === 0 && (await fs.pathExists(mainDir))) {
+      const legacyEntries = await fs.readdir(mainDir, { withFileTypes: true });
+      for (const entry of legacyEntries) {
+        if (entry.name === 'index.ts' || entry.name === 'index.js') {
+          continue;
+        }
+
+        if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.js'))) {
+          functions.push(entry.name);
+        }
+
+        if (entry.isDirectory()) {
+          const indexTs = path.join(mainDir, entry.name, 'index.ts');
+          const indexJs = path.join(mainDir, entry.name, 'index.js');
+          if ((await fs.pathExists(indexTs)) || (await fs.pathExists(indexJs))) {
+            functions.push(entry.name);
+          }
+        }
+      }
+    }
+
+    return functions.sort((a, b) => a.localeCompare(b));
   }
 
   async getFunction(instanceName: string, name: string): Promise<string> {
-    const filePath = path.join(this.getFunctionsDir(instanceName), name);
+    const filePath = this.resolveFunctionPath(this.getFunctionsRootDir(instanceName), name);
     if (!(await fs.pathExists(filePath))) {
       throw new Error(`Function ${name} not found`);
     }
@@ -28,20 +137,34 @@ export class FunctionService {
   }
 
   async saveFunction(instanceName: string, name: string, code: string): Promise<void> {
-    const dir = this.getFunctionsDir(instanceName);
-    await fs.ensureDir(dir);
-    // Ensure name has extension
-    let fileName = name;
-    if (!fileName.endsWith('.ts') && !fileName.endsWith('.js')) {
-      fileName += '.ts';
+    const functionsRootDir = this.getFunctionsRootDir(instanceName);
+    await fs.ensureDir(functionsRootDir);
+
+    const safeName = this.sanitizeFunctionName(name);
+    let filePath: string;
+
+    if (safeName.endsWith('.ts') || safeName.endsWith('.js')) {
+      filePath = path.join(functionsRootDir, safeName);
+    } else {
+      filePath = path.join(functionsRootDir, safeName, 'index.ts');
     }
-    await fs.writeFile(path.join(dir, fileName), code);
+
+    await fs.ensureDir(path.dirname(filePath));
+    await fs.writeFile(filePath, code);
   }
 
   async deleteFunction(instanceName: string, name: string): Promise<void> {
-    const filePath = path.join(this.getFunctionsDir(instanceName), name);
+    const filePath = this.resolveFunctionPath(this.getFunctionsRootDir(instanceName), name);
     if (await fs.pathExists(filePath)) {
       await fs.unlink(filePath);
+    }
+
+    if (!name.endsWith('.ts') && !name.endsWith('.js')) {
+      const functionDir = path.dirname(filePath);
+      const remaining = await fs.readdir(functionDir).catch(() => []);
+      if (remaining.length === 0) {
+        await fs.rmdir(functionDir).catch(() => {});
+      }
     }
   }
 

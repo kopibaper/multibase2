@@ -42,8 +42,11 @@ import { UptimeService } from './services/UptimeService';
 import { FunctionService } from './services/FunctionService';
 import { StorageService } from './services/StorageService';
 import { createStorageRoutes } from './routes/storage';
+import { createSharedRoutes } from './routes/shared';
+import { createStudioRoutes } from './routes/studio';
 import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
+import { StudioManager } from './services/StudioManager';
 
 // Utils
 import { logger } from './utils/logger';
@@ -52,7 +55,7 @@ import AuthService from './services/AuthService';
 // Load environment variables
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 // Parse CORS origins - supports comma-separated list for multiple origins
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
@@ -126,8 +129,9 @@ const metricsCollector = new MetricsCollector(
   METRICS_INTERVAL
 );
 const uptimeService = new UptimeService(prisma, instanceManager);
-const functionService = new FunctionService(dockerManager);
+const functionService = new FunctionService(dockerManager, PROJECTS_PATH);
 const storageService = new StorageService(instanceManager);
+const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -154,6 +158,8 @@ app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
+app.use('/api/shared', createSharedRoutes(dockerManager, studioManager));
+app.use('/api/studio', createStudioRoutes(studioManager));
 
 // AI Agent
 const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {
@@ -359,8 +365,8 @@ async function start() {
 
     await startServices();
 
-    httpServer.listen(PORT, () => {
-      logger.info(`🚀 Multibase Dashboard API running on port ${PORT}`, {
+    httpServer.listen(PORT, '127.0.0.1', () => {
+      logger.info(`🚀 Multibase Dashboard API running on 127.0.0.1:${PORT}`, {
         service: 'multibase-dashboard',
       });
       logger.info(`📂 Projects Path: ${PROJECTS_PATH} (resolved: ${path.resolve(PROJECTS_PATH)})`, {

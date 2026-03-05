@@ -10,7 +10,7 @@ export function generateSecureRandom(length: number): string {
 
 /**
  * Generate a secure password
- * Avoids characters that cause issues in docker-compose .env files: $ ` " \ 
+ * Avoids characters that cause issues in docker-compose .env files: $ ` " \
  */
 export function generatePassword(length: number = 32): string {
   const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%^&*-_=+';
@@ -38,14 +38,14 @@ export function generateJwtSecret(length: number = 48): string {
 export function generateJwtToken(secret: string, role: 'anon' | 'service_role'): string {
   const header = {
     alg: 'HS256',
-    typ: 'JWT'
+    typ: 'JWT',
   };
 
   const payload = {
     role: role,
     iss: 'supabase',
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (10 * 365 * 24 * 60 * 60) // 10 years
+    exp: Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 60 * 60, // 10 years
   };
 
   // Base64URL encode
@@ -88,10 +88,10 @@ export interface GeneratedKeys {
   logflare_api_key: string;
 }
 
-export function generateAllKeys(): GeneratedKeys {
+export function generateAllKeys(overrideJwtSecret?: string): GeneratedKeys {
   logger.info('Generating secure keys for new instance');
 
-  const jwtSecret = generateJwtSecret(48);
+  const jwtSecret = overrideJwtSecret || generateJwtSecret(48);
 
   const keys: GeneratedKeys = {
     postgres_password: generatePassword(32),
@@ -102,7 +102,7 @@ export function generateAllKeys(): GeneratedKeys {
     dashboard_password: generatePassword(24),
     secret_key_base: generateSecureRandom(64),
     vault_enc_key: generateSecureRandom(32),
-    logflare_api_key: crypto.randomBytes(16).toString('hex')
+    logflare_api_key: crypto.randomBytes(16).toString('hex'),
   };
 
   logger.info('Successfully generated all keys');
@@ -118,6 +118,6 @@ export function regenerateKeys(currentJwtSecret?: string): Partial<GeneratedKeys
   return {
     jwt_secret: jwtSecret,
     anon_key: generateJwtToken(jwtSecret, 'anon'),
-    service_role_key: generateJwtToken(jwtSecret, 'service_role')
+    service_role_key: generateJwtToken(jwtSecret, 'service_role'),
   };
 }

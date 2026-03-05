@@ -1,5 +1,5 @@
 import Docker from 'dockerode';
-import { ContainerStats, ServiceStatus, ResourceMetrics } from '../types';
+import { ContainerStats, ServiceStatus, ResourceMetrics, SHARED_SERVICES } from '../types';
 import { logger } from '../utils/logger';
 
 export class DockerManager {
@@ -35,14 +35,105 @@ export class DockerManager {
   }
 
   /**
+   * List all Docker containers (for shared infra detection)
+   */
+  async listAllContainers(): Promise<Docker.ContainerInfo[]> {
+    try {
+      return await this.docker.listContainers({ all: true });
+    } catch (error) {
+      logger.error('Error listing all containers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * List shared infrastructure containers (multibase-*)
+   */
+  async listSharedContainers(): Promise<Docker.ContainerInfo[]> {
+    try {
+      const containers = await this.docker.listContainers({ all: true });
+      return containers.filter((container) =>
+        container.Names.some((name) => {
+          const cleanName = name.replace('/', '');
+          return SHARED_SERVICES.some((s) => cleanName === s);
+        })
+      );
+    } catch (error) {
+      logger.error('Error listing shared containers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get shared infrastructure service status
+   */
+  async getSharedServiceStatus(): Promise<ServiceStatus[]> {
+    try {
+      const containers = await this.listSharedContainers();
+
+      const serviceStatusPromises = containers.map(async (container) => {
+        const containerName = container.Names[0].replace('/', '');
+        const serviceName = containerName.replace('multibase-', '');
+
+        const containerObj = this.docker.getContainer(container.Id);
+        const inspect = await containerObj.inspect();
+
+        let health: 'healthy' | 'unhealthy' | 'unknown' = 'unknown';
+        if (inspect.State.Health) {
+          health = inspect.State.Health.Status === 'healthy' ? 'healthy' : 'unhealthy';
+        } else if (inspect.State.Running) {
+          health = 'healthy';
+        }
+
+        const startedAt = new Date(inspect.State.StartedAt);
+        const uptime = inspect.State.Running
+          ? Math.floor((Date.now() - startedAt.getTime()) / 1000)
+          : 0;
+
+        const metrics = inspect.State.Running ? await this.getContainerStats(container.Id) : null;
+
+        let status: 'running' | 'stopped' | 'healthy' | 'unhealthy' | 'starting' = 'stopped';
+        if (inspect.State.Running) {
+          status = 'running';
+        }
+
+        return {
+          name: serviceName,
+          containerName,
+          status,
+          health,
+          uptime,
+          cpu: metrics?.cpu || 0,
+          memory: metrics?.memory || 0,
+        };
+      });
+
+      return await Promise.all(serviceStatusPromises);
+    } catch (error) {
+      logger.error('Error getting shared service status:', error);
+      return [];
+    }
+  }
+
+  /**
    * List all containers for a specific project
    */
   async listProjectContainers(projectName: string): Promise<Docker.ContainerInfo[]> {
     try {
       const containers = await this.docker.listContainers({ all: true });
-      return containers.filter((container) =>
-        container.Names.some((name) => name.includes(projectName))
-      );
+      return containers.filter((container) => {
+        // Use Docker Compose project label for exact matching to avoid substring
+        // collisions (e.g. "cloud-test" matching "cloud-test-2")
+        const composeProject = container.Labels?.['com.docker.compose.project'];
+        if (composeProject !== undefined) {
+          return composeProject === projectName;
+        }
+        // Fallback: exact name match (container name is "/<projectName>-<service>-<n>")
+        return container.Names.some((name) => {
+          const stripped = name.startsWith('/') ? name.slice(1) : name;
+          return stripped === projectName || stripped.startsWith(`${projectName}-`);
+        });
+      });
     } catch (error) {
       logger.error(`Error listing containers for project ${projectName}:`, error);
       throw error;

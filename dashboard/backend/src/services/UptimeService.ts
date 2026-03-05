@@ -8,14 +8,41 @@ export class UptimeService {
     private instanceManager: InstanceManager
   ) {}
 
+  private async ensureInstanceRecord(
+    instanceName: string
+  ): Promise<{ id: string; status: string }> {
+    const config = (await this.instanceManager.listInstanceConfigs()).find(
+      (instance) => instance.name === instanceName
+    );
+
+    const basePort = config?.ports?.gateway_port || config?.ports?.kong_http || config?.ports?.studio || 0;
+
+    const instance = await this.prisma.instance.upsert({
+      where: { id: instanceName },
+      update: {
+        name: instanceName,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: instanceName,
+        name: instanceName,
+        basePort,
+        status: 'running',
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return instance;
+  }
+
   /**
    * Check uptime for all instances
    */
   async checkAllInstances(): Promise<void> {
     try {
-      // Get all instances from DB to check status
-      const dbInstances = await this.prisma.instance.findMany();
-
       // Get configs for ports
       const distinctConfigs = await this.instanceManager.listInstanceConfigs();
 
@@ -23,9 +50,7 @@ export class UptimeService {
 
       // Filter and map
       const checks = distinctConfigs.map(async (config) => {
-        // Check if instance exists in DB (required for foreign key)
-        const dbInstance = dbInstances.find((i) => i.name === config.name);
-        if (!dbInstance) return;
+        const dbInstance = await this.ensureInstanceRecord(config.name);
 
         // Skip if explicitly stopped
         if (dbInstance.status === 'stopped') {
@@ -50,20 +75,34 @@ export class UptimeService {
     let responseTime = 0;
 
     try {
-      // Check Studio port instead of Kong (Kong returns 404 on /health by default)
-      // Studio serves the UI on / and should return 200
-      const port = instance.ports.studio;
+      // Port priority:
+      //   Cloud stack:   gateway_port (Nginx gateway, replaces Kong) → /rest/v1/
+      //   Classic stack: studio port → /
+      //   Fallback:      kong_http (legacy field name) → /rest/v1/
+      const gatewayPort = instance.ports.gateway_port || instance.ports.kong_http;
+      const studioPort = instance.ports.studio;
+
+      // Prefer gateway (cloud) if available; fall back to studio (classic)
+      const port = gatewayPort || studioPort;
+      const healthPath = studioPort && !gatewayPort ? '/' : '/rest/v1/';
+
+      if (!port) {
+        logger.warn(`UptimeService: no valid port found for instance "${instance.name}", skipping check`);
+        return;
+      }
+
       // Using 5s timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`http://localhost:${port}/`, {
+      const response = await fetch(`http://localhost:${port}${healthPath}`, {
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
-      if (response.ok) {
+      if (response.ok || response.status === 401) {
+        // 401 means the gateway is up but requires auth — still counts as "up"
         status = 'up';
       }
 
@@ -96,9 +135,12 @@ export class UptimeService {
 
     try {
       // Find instance by name to get its ID
-      const instance = await this.prisma.instance.findUnique({
-        where: { name: instanceName },
-      });
+      let instance = await this.prisma.instance.findUnique({ where: { name: instanceName } });
+
+      if (!instance) {
+        const ensured = await this.ensureInstanceRecord(instanceName);
+        instance = await this.prisma.instance.findUnique({ where: { id: ensured.id } });
+      }
 
       if (!instance) {
         throw new Error(`Instance not found: ${instanceName}`);
