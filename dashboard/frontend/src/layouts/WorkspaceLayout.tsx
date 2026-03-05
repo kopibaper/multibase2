@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import OrgSwitcher from '../components/OrgSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, FolderKanban, LogOut, User, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -72,6 +73,11 @@ export default function WorkspaceLayout() {
                 <span className={location.pathname.startsWith('/dashboard') ? 'text-red-400' : ''}>Dashboard</span>
               </button>
             </nav>
+          </div>
+
+          {/* Org Switcher */}
+          <div className="hidden sm:flex items-center">
+            <OrgSwitcher />
           </div>
 
           {/* Right: User Menu */}

@@ -72,16 +72,24 @@
 
 ---
 
-### 🔮 Version 1.3 - Future
+### 🚀 Version 1.3 - Released / Active
 
-**Planned Release:** Q4 2026  
-**Status:** 💡 Planning Phase
+**Release:** February 2026  
+**Status:** 🚧 Active Development
 
 [📄 Go to Documentation →](./Readme1_3_Feature.md)
 
-**Feature Ideas:**
+**Implemented Features:**
 
-- 🏢 Multi-Tenancy/Teams
+- ✅ 🤖 **AI Chat Agent** – Multi-provider LLM assistant with 30+ tools
+- ✅ ☁️ **Cloud Architecture** – Shared Infrastructure (8 shared + 5 per-tenant containers)
+- ✅ 🔀 **Kong → Nginx Migration** – Single Nginx gateway, ~7 GiB RAM saved
+- ✅ 🖥️ **Workspace Page** – Unified project management
+- ✅ 📊 **SharedInfra Dashboard** – Resource monitoring with GaugeCharts
+
+**Planned:**
+
+- 🏢 Multi-Tenancy/Teams (→ v1.4)
 - 💰 Cost Tracking & Billing
 - 🔒 GDPR/Compliance Features
 
@@ -152,6 +160,26 @@ gantt
 
 ---
 
+
+---
+
+### 🏗️ Version 1.4 - Multi-Tenancy / Organisations
+
+**Planned Release:** Q2 2026  
+**Status:** 🔨 In Development
+
+[📄 Go to Documentation →](./Readme1_4_Feature.md)
+
+**Features:**
+
+- 🏢 **Organisations** – Create and manage orgs, assign instances per org
+- 👥 **Member Management** – Invite users, assign roles (owner/admin/member/viewer)
+- 🔀 **Org Switcher** – Switch between organisations in the dashboard header
+- 🔒 **Role-Based Access** – Web agency use case: manage client instances per org
+- 📋 **Org Settings** – Rename, delete organisations
+
+---
+
 ## 📝 Version History
 
 ### v1.0.0 (2025-12-25)
@@ -201,4 +229,4 @@ Suggestions for new features or improvements can be submitted as an Issue or Pul
 
 ---
 
-**Last Update:** December 25, 2025
+**Last Update:** March 5, 2026

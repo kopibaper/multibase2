@@ -2,6 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
+import { OrgProvider } from './contexts/OrgContext';
+import OrgSettings from './pages/OrgSettings';
+import OrgMembers from './pages/OrgMembers';
 import DashboardLayout from './layouts/DashboardLayout';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
@@ -65,6 +68,8 @@ function AppContent() {
           }
         >
           <Route path='/workspace' element={<WorkspacePage />} />
+          <Route path='/orgs/:slug/settings' element={<OrgSettings />} />
+          <Route path='/orgs/:slug/members' element={<OrgMembers />} />
         </Route>
 
         {/* Protected Routes with Dashboard Layout */}
@@ -119,7 +124,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppContent />
+          <OrgProvider>
+            <AppContent />
+          </OrgProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
