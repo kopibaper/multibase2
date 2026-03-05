@@ -32,6 +32,11 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
+# Multibase brand colors (matching frontend)
+MB_GREEN='\033[38;2;62;207;142m'    # #3ecf8e - Supabase/Multibase Green
+MB_GREEN_BOLD='\033[1;38;2;62;207;142m'
+MB_DARK='\033[38;2;163;163;163m'    # #a3a3a3 - muted foreground
+MB_WHITE='\033[38;2;237;237;237m'   # #ededed - base text
 
 # --- State Variables (populated by wizard) ---
 DEPLOY_MODE=""          # single, split-frontend, split-backend
@@ -63,7 +68,7 @@ log() {
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
     echo ""
-    echo -e "${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}]${NC} ${BOLD}$1${NC}"
+    echo -e "${MB_GREEN}[${CURRENT_STEP}/${TOTAL_STEPS}]${NC} ${BOLD}$1${NC}"
     log "STEP ${CURRENT_STEP}/${TOTAL_STEPS}: $1"
 }
 
@@ -218,19 +223,18 @@ preflight_checks() {
 
 show_banner() {
     echo ""
-    echo -e "${CYAN}======================================================${NC}"
-    echo -e "${BOLD}"
-    echo "    __  __       _ _   _ _"
-    echo "   |  \/  |_   _| | |_(_) |__   __ _ ___  ___"
-    echo "   | |\/| | | | | | __| | '_ \ / _\` / __|/ _ \\"
-    echo "   | |  | | |_| | | |_| | |_) | (_| \__ \  __/"
-    echo "   |_|  |_|\__,_|_|\__|_|_.__/ \__,_|___/\___|"
-    echo -e "${NC}"
-    echo -e "   ${DIM}Dashboard Installer v${SCRIPT_VERSION}${NC}"
-    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${MB_GREEN}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${MB_GREEN}║${NC}                                                      ${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}    __  __       _ _   _ _                        ${NC}${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}   |  \/  |_   _| | |_(_) |__   __ _ ___  ___     ${NC}${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}   | |\/| | | | | | __| | '_ \ / _\` / __|/ _ \\   ${NC}${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}   | |  | | |_| | | |_| | |_) | (_| \__ \  __/   ${NC}${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}   |_|  |_|\__,_|_|\__|_|_.__/ \__,_|___/\___|   ${NC}${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}                                                      ${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_DARK}  Dashboard Installer v${SCRIPT_VERSION}${NC}                       ${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}╚══════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "  Welcome! This script will set up Multibase"
-    echo -e "  on your server."
+    echo -e "  ${MB_WHITE}Welcome! This script will set up Multibase on your server.${NC}"
     echo ""
     echo -ne "  Press ${BOLD}Enter${NC} to continue..."
     tty_read _ack ""
@@ -1641,9 +1645,9 @@ verify_installation() {
 
 show_completion() {
     echo ""
-    echo -e "${CYAN}======================================================${NC}"
-    echo -e "  ${GREEN}${BOLD}Installation Complete!${NC}"
-    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${MB_GREEN}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${MB_GREEN}║${NC}  ${MB_GREEN_BOLD}✓  Installation Complete!${NC}                           ${MB_GREEN}║${NC}"
+    echo -e "${MB_GREEN}╚══════════════════════════════════════════════════════╝${NC}"
     echo ""
 
     case "$DEPLOY_MODE" in
@@ -1718,7 +1722,7 @@ show_completion() {
 
     echo ""
     echo -e "  ${DIM}Install log: ${LOG_FILE}${NC}"
-    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${MB_GREEN}╚══════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
