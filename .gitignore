@@ -30,6 +30,7 @@ shared/volumes/nginx/tenants/*.backup
 !shared/volumes/pooler/pooler.exs
 
 __pycache__/
+_ARCHIVE
 *.py[cod]
 *$py.class
 *.so
