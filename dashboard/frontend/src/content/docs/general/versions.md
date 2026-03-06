@@ -1,6 +1,6 @@
 # Multibase Dashboard - Version Overview
 
-**Last Update:** January 2026
+**Last Update:** March 2026
 
 ---
 
@@ -69,10 +69,10 @@
 
 ---
 
-## Version 1.3 - In Progress
+## Version 1.3 - Released
 
-**Release:** February 2026 (ongoing)  
-**Status:** 🚧 Active Development
+**Release:** February 2026  
+**Status:** ✅ Released
 
 [📄 See Full Roadmap →](/setup/features/roadmap-1.3)
 
@@ -84,12 +84,32 @@
 - [x] 🖥️ **Workspace Page** - Unified project management (Studio, Keys, SMTP, Manager)
 - [x] 📊 **SharedInfra Dashboard** - Resource monitoring with GaugeCharts for CPU/RAM
 
-### Planned Features
+### Completed Features
 
-- [ ] 🏢 Multi-Tenancy/Teams - Organization support
-- [ ] 💰 Cost Tracking & Billing - Usage-based billing
-- [ ] 🔒 GDPR/Compliance Features - Data privacy tools
-- [ ] 💾 S3 Storage Integration
+- [x] 🏢 AI Chat Agent - Multi-provider LLM assistant with 30+ tools
+- [x] ☁️ Cloud Architecture - Shared Infrastructure (8 shared + 5 per-tenant containers)
+- [x] 🔀 Kong → Nginx Migration - Single Nginx gateway (~7 GiB RAM saved)
+- [x] 🖥️ Workspace Page - Unified project management (Studio, Keys, SMTP, Manager)
+- [x] 📊 SharedInfra Dashboard - Resource monitoring with GaugeCharts
+
+---
+
+## Version 1.4 — Multi-Tenancy & Organisations
+
+**Release:** March 2026  
+**Status:** ✅ Released
+
+[📄 See Full Roadmap →](/setup/features/roadmap-1.4)  
+[📖 Multi-Tenancy Guide →](/setup/reference/multi-tenancy)
+
+### Implemented Features
+
+- [x] 🏢 **Organisation Model** – Named organisations created at registration
+- [x] 👥 **Role-Based Access** – `owner`, `admin`, `member`, `viewer` roles per org
+- [x] 🔀 **Org Switcher** – GitHub-style navbar dropdown for multi-org users
+- [x] 🔒 **Instance Isolation** – Middleware-level org-scoping for all API routes
+- [x] ✉️ **Member Invitations** – Invite by email with selectable role
+- [x] 🛠️ **Migration Script** – `migrate-v1.3-to-v1.4.js` auto-migrates existing data
 
 ---
 
@@ -99,12 +119,21 @@
 v1.0 (Dec 2025)  ████████████████████████ 100% Released
 v1.1 (Jan 2026)  ████████████████████████ 100% Released
 v1.2 (Feb 2026)  ████████████████████████ 100% Released
-v1.3 (Feb 2026)  ████████████████░░░░░░░░  65% Active
+v1.3 (Feb 2026)  ████████████████████████ 100% Released
+v1.4 (Mar 2026)  ████████████████████████ 100% Released
 ```
 
 ---
 
 ## Version History
+
+### v1.4.0 (March 2026)
+
+- [x] Organisation model & registration flow
+- [x] Role-based access control per org
+- [x] Org switcher in navbar
+- [x] Member invitation system
+- [x] Migration script (v1.3 → v1.4)
 
 ### v1.3.0 (February 2026)
 
@@ -162,6 +191,8 @@ v1.3 (Feb 2026)  ████████████████░░░░░
 - [v1.1 Feature Details](/setup/features/roadmap-1.1) - v1.1 Specifications
 - [v1.2 Released Features](/setup/features/roadmap-1.2) - v1.2 Overview
 - [v1.3 Feature Roadmap](/setup/features/roadmap-1.3) - Cloud, Nginx, Workspace, AI Chat
+- [v1.4 Feature Roadmap](/setup/features/roadmap-1.4) - Multi-Tenancy & Organisations
+- [Multi-Tenancy Guide](/setup/reference/multi-tenancy) - Orgs, Roles, Instance Isolation
 - [Cloud Architecture](/setup/reference/cloud-architecture) - Shared Infrastructure Implementation Log
 - [Kong→Nginx Migration](/setup/reference/kong-nginx-migration) - Migration Reference & Howto
 

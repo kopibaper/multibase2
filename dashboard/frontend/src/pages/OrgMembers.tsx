@@ -118,7 +118,7 @@ export default function OrgMembers() {
               onKeyDown={e => e.key === 'Enter' && handleInvite()}
             />
             <select
-              className='bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500'
+              className='bg-input text-foreground border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
               value={inviteRole}
               onChange={e => setInviteRole(e.target.value as Role)}
             >
@@ -159,7 +159,7 @@ export default function OrgMembers() {
                 <div className='flex items-center gap-2'>
                   {canManage && m.role !== 'owner' && m.user.id !== user?.id ? (
                     <select
-                      className='bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs focus:outline-none'
+                      className='bg-input text-foreground border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary'
                       value={m.role}
                       onChange={e => handleRoleChange(m.id, e.target.value as Role)}
                     >

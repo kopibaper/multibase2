@@ -20,10 +20,26 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 // Generic fetch helper
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('auth_token');
-  const headers = {
+  const activeOrgSlug = localStorage.getItem('activeOrgSlug');
+
+  // Resolve org ID from cached orgs data (stored by OrgContext)
+  let orgId: string | null = null;
+  if (activeOrgSlug) {
+    try {
+      const cachedOrgs = localStorage.getItem('cachedOrgs');
+      if (cachedOrgs) {
+        const orgs = JSON.parse(cachedOrgs);
+        const match = orgs.find((o: any) => o.slug === activeOrgSlug);
+        if (match) orgId = match.id;
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options?.headers,
+    ...(orgId ? { 'X-Org-Id': orgId } : {}),
+    ...(options?.headers as Record<string, string> || {}),
   };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -164,6 +180,14 @@ export const instancesApi = {
     return fetchApi(`/api/instances/${name}/sql`, {
       method: 'POST',
       body: JSON.stringify({ query }),
+    });
+  },
+
+  /** Admin-only: assign an existing instance to an organisation (or unassign with null) */
+  assignOrg: (name: string, orgId: string | null): Promise<{ success: boolean; name: string; orgId: string | null }> => {
+    return fetchApi(`/api/instances/${name}/assign-org`, {
+      method: 'PATCH',
+      body: JSON.stringify({ orgId }),
     });
   },
 };

@@ -17,7 +17,17 @@ export default function OrgSwitcher() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  if (!activeOrg) return null;
+  if (!activeOrg) {
+    return (
+      <button
+        onClick={() => navigate('/orgs/new')}
+        className='flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-dashed border-white/20 text-muted-foreground hover:text-foreground hover:bg-white/5'
+      >
+        <Building2 className='w-4 h-4' />
+        Create Organisation
+      </button>
+    );
+  }
 
   return (
     <div className='relative' ref={ref}>

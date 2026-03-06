@@ -28,6 +28,7 @@ import {
   Copy,
   Code,
   Cloud,
+  Building2,
 } from 'lucide-react';
 import ServicesTab from '../components/ServicesTab';
 import MetricsTab from '../components/MetricsTab';
@@ -43,6 +44,9 @@ import DeleteInstanceModal from '../components/DeleteInstanceModal';
 import CloneInstanceModal from '../components/CloneInstanceModal';
 import PageHeader from '../components/PageHeader';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrg } from '../contexts/OrgContext';
+import { instancesApi } from '../lib/api';
 
 type TabType =
   | 'services'
@@ -62,6 +66,9 @@ export default function InstanceDetail() {
   const [activeTab, setActiveTab] = useState<TabType>('services');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCloneModal, setShowCloneModal] = useState(false);
+  const [assigningOrg, setAssigningOrg] = useState(false);
+  const { isAdmin } = useAuth();
+  const { orgs } = useOrg();
 
   const { data: instance, isLoading, error } = useInstance(name!);
   const startMutation = useStartInstance();
@@ -289,6 +296,61 @@ export default function InstanceDetail() {
         {activeTab === 'storage' && <StorageSettingsTab instance={instance} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}
         {activeTab === 'environment' && <EnvironmentTab instance={instance} />}
+
+        {/* Admin: Assign Organisation Section */}
+        {isAdmin && (
+          <div className='mt-8 pt-6 border-t border-border'>
+            <div className='bg-muted/30 border rounded-lg p-4 sm:p-6'>
+              <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+                <div>
+                  <h3 className='text-lg font-semibold flex items-center gap-2'>
+                    <Building2 className='w-5 h-5 text-primary' />
+                    Organisation Assignment
+                  </h3>
+                  <p className='mt-1 text-sm text-muted-foreground'>
+                    Assign this instance to an organisation so its members can access it.
+                  </p>
+                </div>
+                <form
+                  className='flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:flex-shrink-0'
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    const selected = fd.get('orgId') as string;
+                    const orgId = selected === '__none__' ? null : selected;
+                    setAssigningOrg(true);
+                    try {
+                      await instancesApi.assignOrg(instance.name, orgId);
+                      toast.success(orgId ? 'Instance assigned to organisation' : 'Instance unassigned from organisation');
+                    } catch (err: any) {
+                      toast.error(err.message || 'Failed to assign org');
+                    } finally {
+                      setAssigningOrg(false);
+                    }
+                  }}
+                >
+                  <select
+                    name='orgId'
+                    className='px-3 py-2 rounded-md border bg-background text-sm min-w-[200px]'
+                    defaultValue='__none__'
+                  >
+                    <option value='__none__'>— Unassigned —</option>
+                    {orgs.map((org) => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type='submit'
+                    disabled={assigningOrg}
+                    className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm'
+                  >
+                    {assigningOrg ? 'Saving…' : 'Save'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Delete Instance Section */}
         <div className='mt-12 pt-8 border-t border-border'>
