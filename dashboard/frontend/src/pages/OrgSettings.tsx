@@ -8,7 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function OrgSettings() {
   const { activeOrg, refreshOrgs, setActiveOrg, orgs } = useOrg();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isNew = location.pathname === '/orgs/new';
@@ -95,7 +95,8 @@ export default function OrgSettings() {
   if (!activeOrg) return null;
 
   const canEdit = activeOrg.role === 'owner' || activeOrg.role === 'admin';
-  const canDelete = activeOrg.role === 'owner';
+  // Server admins (user.role === 'admin') can always delete; org owners can always delete
+  const canDelete = activeOrg.role === 'owner' || user?.role === 'admin';
 
   const handleSave = async () => {
     setSaving(true); setError(''); setSuccess('');
