@@ -2,7 +2,7 @@ name: Deploy Multibase Dashboard
 
 on:
   push:
-    branches: [main, master]
+    branches: [cloud-version]
   workflow_dispatch:
 
 jobs:
