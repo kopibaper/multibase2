@@ -150,7 +150,7 @@ export class InstanceManager {
         return client;
       } catch (error: any) {
         lastError = error;
-        await client.end().catch(() => {});
+        await client.end().catch(() => { });
       }
     }
 
@@ -650,7 +650,43 @@ export class InstanceManager {
       logger.info(`Script output: ${stdout}`);
       logger.info(`Successfully created instance: ${name}`);
 
-      // Apply Environment Overrides (e.g. Public URLs)
+      // -------------------------------------------------------
+      // Automatisch SUPABASE_PUBLIC_URL setzen basierend auf
+      // DEPLOYMENT_MODE. Muss VOR den user-overrides geschehen,
+      // damit der User es bei Bedarf noch überschreiben kann.
+      // -------------------------------------------------------
+      {
+        const mode = process.env.DEPLOYMENT_MODE || 'cloud';
+        const envPath = path.join(projectPath, '.env');
+        if (fs.existsSync(envPath)) {
+          const currentEnv = parseEnvFile(envPath);
+          const gatewayPort =
+            currentEnv['GATEWAY_PORT'] ||
+            currentEnv['KONG_HTTP_PORT'] ||
+            String(basePort ? basePort + 40 : 8000);
+
+          let publicUrl: string;
+          if (mode === 'local') {
+            // Browser erreicht Kong direkt über localhost
+            publicUrl = `http://localhost:${gatewayPort}`;
+          } else {
+            // Cloud: Browser geht über nginx + echte Domain
+            const domain = process.env.BACKEND_DOMAIN || 'localhost';
+            const rootDomain = process.env.ROOT_DOMAIN ||
+              (() => {
+                const parts = domain.split('.');
+                return parts.length >= 3 ? parts.slice(-2).join('.') : domain;
+              })();
+            publicUrl = `https://${name}-api.${rootDomain}`;
+          }
+
+          const updatedEnv = { ...currentEnv, SUPABASE_PUBLIC_URL: publicUrl };
+          writeEnvFile(envPath, updatedEnv);
+          logger.info(`[DEPLOYMENT_MODE=${mode}] Set SUPABASE_PUBLIC_URL=${publicUrl} for ${name}`);
+        }
+      }
+
+      // Apply user-provided Environment Overrides (can still override SUPABASE_PUBLIC_URL)
       if (request.env && Object.keys(request.env).length > 0) {
         try {
           const envPath = path.join(projectPath, '.env');
@@ -722,12 +758,28 @@ export class InstanceManager {
   }
 
   /**
-   * Generate Nginx configuration for the instance
+   * Generate Nginx configuration for the instance.
+   *
+   * DEPLOYMENT_MODE=local  → skip entirely (Studio/Kong direkt über localhost:<port>)
+   * DEPLOYMENT_MODE=cloud  → nginx-Config mit Domain + SSL schreiben + reload
    */
   private async createNginxConfig(
     instance: SupabaseInstance,
     deploymentType: 'localhost' | 'cloud'
   ): Promise<void> {
+    const mode = process.env.DEPLOYMENT_MODE || 'cloud';
+
+    // ── LOCAL MODE ──────────────────────────────────────────────────────────
+    if (mode === 'local') {
+      logger.info(
+        `[local] Skipping nginx config for "${instance.name}" — ` +
+        `Studio: http://localhost:${instance.ports.studio ?? 3000}, ` +
+        `API/Kong: http://localhost:${instance.ports.gateway_port ?? 8000}`
+      );
+      return;
+    }
+
+    // ── CLOUD MODE ──────────────────────────────────────────────────────────
     try {
       // Target: multibase/nginx/sites-enabled
       const nginxDir = path.resolve(this.templatesPath, 'nginx', 'sites-enabled');
@@ -1395,7 +1447,7 @@ ${sslBlock}
       logger.error(`Failed to get schema for ${name}:`, error.message);
       return [];
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 
@@ -1438,7 +1490,7 @@ ${sslBlock}
       logger.error(`SQL execution failed for ${name}:`, error.message);
       return { rows: [], error: error.message };
     } finally {
-      await client.end().catch(() => {});
+      await client.end().catch(() => { });
     }
   }
 

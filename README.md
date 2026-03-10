@@ -186,6 +186,56 @@ A complete reference of all technical documentation available in this repository
 
 ---
 
+## 💻 Local Development Setup
+
+If you want to clone the repository and run Multibase locally for development (not on a VPS), follow these steps:
+
+### 1. Start Shared Infrastructure
+
+Multibase requires a shared database cluster and gateway.
+
+```bash
+# Copy the example environment file
+cp shared/.env.shared.example shared/.env.shared
+
+# Start the shared infrastructure
+docker compose -f shared/docker-compose.shared.yml up -d
+```
+
+### 2. Configure & Start Backend
+
+```bash
+cd dashboard/backend
+
+# Copy the example environment file
+# (This contains 'DEPLOYMENT_MODE=local' by default)
+cp .env.example .env
+
+# Install dependencies and start
+npm install
+npm run build
+npm start
+```
+
+### 3. Configure & Start Frontend
+
+In a new terminal:
+
+```bash
+cd dashboard/frontend
+
+# Copy the example environment file
+cp .env.example .env
+
+# Install dependencies and start
+npm install
+npm run dev
+```
+
+The dashboard will be available at `http://localhost:5173`. When creating instances locally, the system automatically detects `DEPLOYMENT_MODE=local` and skips Nginx domain configurations, binding ports directly to localhost.
+
+---
+
 ## 🚀 Quick Start & Installation
 
 ### One-Line Installation
