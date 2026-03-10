@@ -70,6 +70,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOrg() {
   const ctx = useContext(OrgContext);
   if (!ctx) throw new Error('useOrg must be used within OrgProvider');
