@@ -1,11 +1,16 @@
 import { EventEmitter } from 'events';
 import { PrismaClient } from '@prisma/client';
 import * as os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { SystemMetrics, SHARED_SERVICES } from '../types';
 import DockerManager from './DockerManager';
 import InstanceManager from './InstanceManager';
 import { RedisCache } from './RedisCache';
 import { logger } from '../utils/logger';
+
+const execAsync = promisify(exec);
+const execFileAsync = execAsync; // alias kept for clarity
 
 export class MetricsCollector extends EventEmitter {
   private dockerManager: DockerManager;
@@ -15,6 +20,10 @@ export class MetricsCollector extends EventEmitter {
   private interval: NodeJS.Timeout | null = null;
   private collectionInterval: number;
   private isRunning: boolean = false;
+
+  // In-memory disk usage cache: key → { valueMB, expiresAt }
+  private diskUsageCache = new Map<string, { valueMB: number; expiresAt: number }>();
+  private readonly DISK_CACHE_TTL_MS = 1800 * 1000; // 30 minutes
 
   constructor(
     dockerManager: DockerManager,
@@ -400,6 +409,72 @@ export class MetricsCollector extends EventEmitter {
     }
 
     return containerName;
+  }
+
+  /**
+   * Get disk usage for a specific instance by summing SizeRootFs of all its containers.
+   * Uses docker inspect --size (Docker API). Cached for DISK_CACHE_TTL_MS (30 min).
+   * Returns megabytes, or null if not determinable.
+   */
+  async getDiskUsageForInstance(instanceName: string): Promise<number | null> {
+    const cacheKey = `instance:${instanceName}`;
+    const cached = this.diskUsageCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.valueMB;
+    }
+
+    try {
+      const containers = await this.dockerManager.listProjectContainers(instanceName);
+      if (containers.length === 0) return null;
+
+      let totalBytes = 0;
+      for (const c of containers) {
+        const container = (this.dockerManager as any).docker.getContainer(c.Id);
+        const info = await container.inspect({ size: true });
+        totalBytes += (info.SizeRootFs || 0);
+      }
+
+      const mb = Math.round(totalBytes / 1024 / 1024);
+      this.diskUsageCache.set(cacheKey, { valueMB: mb, expiresAt: Date.now() + this.DISK_CACHE_TTL_MS });
+      logger.debug(`[Disk Usage] ${instanceName}: ${mb} MB (${containers.length} containers)`);
+      return mb;
+    } catch (err) {
+      logger.debug(`[Disk Usage] Could not determine disk usage for ${instanceName}: ${err}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get disk usage for the shared infrastructure by summing SizeRootFs of all shared containers.
+   * Uses docker inspect --size (Docker API). Cached for DISK_CACHE_TTL_MS (30 min).
+   * Returns megabytes, or null if not determinable.
+   */
+  async getDiskUsageForShared(): Promise<number | null> {
+    const cacheKey = 'shared';
+    const cached = this.diskUsageCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.valueMB;
+    }
+
+    try {
+      const containers = await this.dockerManager.listSharedContainers();
+      if (containers.length === 0) return null;
+
+      let totalBytes = 0;
+      for (const c of containers) {
+        const container = (this.dockerManager as any).docker.getContainer(c.Id);
+        const info = await container.inspect({ size: true });
+        totalBytes += (info.SizeRootFs || 0);
+      }
+
+      const mb = Math.round(totalBytes / 1024 / 1024);
+      this.diskUsageCache.set(cacheKey, { valueMB: mb, expiresAt: Date.now() + this.DISK_CACHE_TTL_MS });
+      logger.debug(`[Disk Usage] shared: ${mb} MB (${containers.length} containers)`);
+      return mb;
+    } catch (err) {
+      logger.debug(`[Disk Usage] Could not determine shared disk usage: ${err}`);
+      return null;
+    }
   }
 }
 

@@ -74,6 +74,28 @@ export default function MetricsTab({ instance }: MetricsTabProps) {
             color='green'
             size='lg'
           />
+          {instance.metrics.diskUsedMB != null ? (
+            <GaugeChart
+              label='Disk Storage'
+              value={0}
+              displayValue={
+                instance.metrics.diskUsedMB >= 1024
+                  ? `${(instance.metrics.diskUsedMB / 1024).toFixed(1)} GB`
+                  : `${instance.metrics.diskUsedMB} MB`
+              }
+              icon={HardDrive}
+              color='yellow'
+              size='lg'
+            />
+          ) : (
+            <div className='flex flex-col items-center justify-center opacity-40'>
+              <div className='w-28 h-28 rounded-full border-4 border-dashed border-muted-foreground/30 flex items-center justify-center'>
+                <HardDrive className='w-8 h-8 text-muted-foreground' />
+              </div>
+              <p className='text-sm text-muted-foreground mt-3'>Disk Storage</p>
+              <p className='text-xs text-muted-foreground/60 mt-1'>Computing… (30 min cache)</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -112,11 +134,10 @@ export default function MetricsTab({ instance }: MetricsTabProps) {
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  timeRange === range
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${timeRange === range
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
               >
                 {range.toUpperCase()}
               </button>
@@ -256,9 +277,8 @@ export default function MetricsTab({ instance }: MetricsTabProps) {
                   </td>
                   <td className='px-6 py-4 whitespace-nowrap'>
                     <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        service.health === 'healthy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${service.health === 'healthy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}
                     >
                       {service.health}
                     </span>

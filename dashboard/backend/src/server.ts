@@ -138,7 +138,7 @@ const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
 SchedulerService.registerUptimeService(uptimeService);
 
 // API Routes
-app.use('/api/instances', createInstanceRoutes(instanceManager, dockerManager, prisma));
+app.use('/api/instances', createInstanceRoutes(instanceManager, dockerManager, prisma, metricsCollector));
 app.use('/api/metrics', createMetricsRoutes(metricsCollector, redisCache));
 app.use('/api/health', createHealthRoutes(healthMonitor, prisma, redisCache, dockerManager));
 app.use('/api/logs', createLogsRoutes(dockerManager));
@@ -160,7 +160,7 @@ app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 app.use('/api/orgs', createOrgRoutes());
-app.use('/api/shared', createSharedRoutes(dockerManager, studioManager));
+app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
 
 // AI Agent

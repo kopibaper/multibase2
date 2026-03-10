@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { CreateInstanceRequest } from '../types';
 import InstanceManager from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
+import MetricsCollector from '../services/MetricsCollector';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
 import {
@@ -16,7 +17,8 @@ import { requireViewer, requireUser, requireAdmin, requireOrgRole } from '../mid
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
   dockerManager: DockerManager,
-  prisma: PrismaClient
+  prisma: PrismaClient,
+  metricsCollector?: MetricsCollector
 ): Router {
   const router = Router();
 
@@ -59,6 +61,17 @@ export function createInstanceRoutes(
 
       // Admin with no org header → return everything
       if (isAdmin && !orgId) {
+        // Enrich with diskUsedMB in parallel
+        if (metricsCollector) {
+          await Promise.all(
+            allInstances.map(async (inst) => {
+              if (inst.metrics) {
+                inst.metrics.diskUsedMB =
+                  (await metricsCollector.getDiskUsageForInstance(inst.name)) ?? undefined;
+              }
+            })
+          );
+        }
         return res.json(allInstances);
       }
 
@@ -81,6 +94,18 @@ export function createInstanceRoutes(
 
       // Filter to org (+ unassigned for admin) instances
       const instances = allInstances.filter((i) => orgInstanceNames.has(i.name));
+
+      // Enrich with diskUsedMB in parallel
+      if (metricsCollector) {
+        await Promise.all(
+          instances.map(async (inst) => {
+            if (inst.metrics) {
+              inst.metrics.diskUsedMB =
+                (await metricsCollector.getDiskUsageForInstance(inst.name)) ?? undefined;
+            }
+          })
+        );
+      }
 
       return res.json(instances);
     } catch (error: any) {
@@ -181,6 +206,12 @@ export function createInstanceRoutes(
 
       if (!instance) {
         return res.status(404).json({ error: 'Instance not found' });
+      }
+
+      // Enrich with diskUsedMB from MetricsCollector (cached, fast)
+      if (metricsCollector && instance.metrics) {
+        instance.metrics.diskUsedMB =
+          (await metricsCollector.getDiskUsageForInstance(name)) ?? undefined;
       }
 
       return res.json(instance);

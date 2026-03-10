@@ -65,6 +65,7 @@ export interface ResourceMetrics {
   networkTx: number;
   diskRead: number;
   diskWrite: number;
+  diskUsedMB?: number; // Total used disk space of instance volumes (cached, slow to compute)
   timestamp: Date;
 }
 
@@ -143,12 +144,12 @@ export interface AlertRule {
   instanceId: string;
   name: string;
   rule:
-    | 'service_down'
-    | 'high_cpu'
-    | 'high_memory'
-    | 'high_disk'
-    | 'error_rate'
-    | 'connection_count';
+  | 'service_down'
+  | 'high_cpu'
+  | 'high_memory'
+  | 'high_disk'
+  | 'error_rate'
+  | 'connection_count';
   condition: AlertCondition;
   threshold?: number;
   duration?: number; // seconds
@@ -239,6 +240,11 @@ export interface SharedServiceStatus {
   uptime?: number;
   cpu?: number;
   memory?: number;
+}
+
+export interface SharedInfraDiskUsage {
+  diskUsedMB: number; // Total disk used by shared/volumes/ directory
+  cachedAt: Date;
 }
 
 export interface SharedDatabase {

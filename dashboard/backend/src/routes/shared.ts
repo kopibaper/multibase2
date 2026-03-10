@@ -18,6 +18,7 @@ import fs from 'fs';
 import { Pool } from 'pg';
 import DockerManager from '../services/DockerManager';
 import { StudioManager } from '../services/StudioManager';
+import MetricsCollector from '../services/MetricsCollector';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
 import { requireAuth } from '../middleware/authMiddleware';
@@ -26,7 +27,8 @@ const execAsync = promisify(exec);
 
 export function createSharedRoutes(
   dockerManager: DockerManager,
-  studioManager?: StudioManager
+  studioManager?: StudioManager,
+  metricsCollector?: MetricsCollector
 ): Router {
   const router = Router();
 
@@ -86,6 +88,12 @@ export function createSharedRoutes(
         meta: parseInt(sharedEnv?.META_PORT || '8080', 10),
       };
 
+      // Optionally append shared disk usage (cached 30 min, may be null on first call)
+      let diskUsedMB: number | null = null;
+      if (metricsCollector) {
+        diskUsedMB = await metricsCollector.getDiskUsageForShared();
+      }
+
       res.json({
         status,
         services,
@@ -93,6 +101,7 @@ export function createSharedRoutes(
         totalServices: total,
         runningServices: running,
         activeTenant: studioManager?.getActiveTenant() || null,
+        diskUsedMB,
       });
     } catch (error: any) {
       logger.error('Error getting shared status:', error);

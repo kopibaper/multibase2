@@ -145,9 +145,8 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                 e.stopPropagation();
                 onToggleSelect(instance.name);
               }}
-              className={`mr-3 flex-shrink-0 w-5 h-5 rounded border-2 cursor-pointer transition-colors flex items-center justify-center ${
-                isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'
-              }`}
+              className={`mr-3 flex-shrink-0 w-5 h-5 rounded border-2 cursor-pointer transition-colors flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary/60'
+                }`}
             >
               {isSelected && (
                 <svg className='w-3 h-3 text-primary-foreground' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
@@ -225,7 +224,7 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
 
         {/* Metrics */}
         {instance.metrics && (
-          <div className='grid grid-cols-2 gap-4 mb-4'>
+          <div className={`grid gap-4 mb-4 ${instance.metrics.diskUsedMB != null ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div>
               <p className='text-xs text-muted-foreground'>CPU</p>
               <p className='text-lg font-semibold'>{instance.metrics.cpu.toFixed(1)}%</p>
@@ -234,6 +233,16 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
               <p className='text-xs text-muted-foreground'>Memory</p>
               <p className='text-lg font-semibold'>{(instance.metrics.memory / 1024).toFixed(1)} GB</p>
             </div>
+            {instance.metrics.diskUsedMB != null && (
+              <div>
+                <p className='text-xs text-muted-foreground'>Disk</p>
+                <p className='text-lg font-semibold'>
+                  {instance.metrics.diskUsedMB >= 1024
+                    ? `${(instance.metrics.diskUsedMB / 1024).toFixed(1)} GB`
+                    : `${instance.metrics.diskUsedMB} MB`}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

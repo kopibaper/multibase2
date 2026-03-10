@@ -65,6 +65,7 @@ export interface ResourceMetrics {
   networkTx: number;
   diskRead: number;
   diskWrite: number;
+  diskUsedMB?: number; // Total used disk space of instance volumes (cached 30 min)
   timestamp: string;
 }
 
@@ -220,6 +221,7 @@ export interface SharedInfraStatus {
   ports: SharedPorts;
   totalServices: number;
   runningServices: number;
+  diskUsedMB?: number | null; // Total disk used by shared/volumes/ (cached 30 min)
 }
 
 export interface SharedServiceStatus {
