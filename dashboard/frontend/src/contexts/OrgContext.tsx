@@ -46,7 +46,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
       const savedSlug = localStorage.getItem('activeOrgSlug');
       const saved = data.find((o: Organisation) => o.slug === savedSlug);
-      setActiveOrgState(saved || data[0] || null);
+      const orgToSet = saved || data[0] || null;
+      if (orgToSet) {
+        setActiveOrg(orgToSet);
+      } else {
+        setActiveOrgState(null);
+      }
     } catch (e) {
       console.error('Failed to fetch orgs', e);
     } finally {
