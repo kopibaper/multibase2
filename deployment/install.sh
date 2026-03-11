@@ -335,13 +335,24 @@ wizard_admin() {
     prompt ADMIN_EMAIL "Email" "${ADMIN_EMAIL:-}"
     [ -z "$ADMIN_EMAIL" ] && error_exit "Admin email is required"
 
-    if [ "$ADMIN_PASS" = "__existing__" ]; then
+    if [ -n "${ADMIN_PASS:-}" ] && [ "${ADMIN_PASS:-}" != "__existing__" ]; then
         echo -e "  ${DIM}Password: keeping existing (leave blank to auto-generate new one)${NC}"
         local _newpass=""
         echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
         tty_read -s _newpass ""
         echo ""
-        [ -n "$_newpass" ] && ADMIN_PASS="$_newpass" || ADMIN_PASS=""
+        if [ -n "$_newpass" ]; then
+            ADMIN_PASS="$_newpass"
+        fi
+    elif [ "${ADMIN_PASS:-}" = "__existing__" ]; then
+        echo -e "  ${DIM}Password: keeping existing database password (leave blank to auto-generate new one)${NC}"
+        local _newpass=""
+        echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
+        tty_read -s _newpass ""
+        echo ""
+        if [ -n "$_newpass" ]; then
+            ADMIN_PASS="$_newpass"
+        fi
     else
         prompt_password ADMIN_PASS "Password"
     fi
@@ -514,13 +525,19 @@ load_existing_config() {
     prev_ssl_type=$(_get SSL_TYPE)
     prev_backend_url=$(_get BACKEND_URL)
     prev_frontend_url=$(_get CORS_ORIGIN)
+    prev_admin_pass=$(_get DEFAULT_ADMIN_PASSWORD)
     [ -n "$prev_frontend" ]     && FRONTEND_DOMAIN="$prev_frontend"
     [ -n "$prev_backend" ]      && BACKEND_DOMAIN="$prev_backend"
     [ -n "$prev_ssl_email" ]    && SSL_EMAIL="$prev_ssl_email"
     [ -n "$prev_ssl_type" ]     && SSL_TYPE="$prev_ssl_type"
     [ -n "$prev_backend_url" ]  && BACKEND_URL="$prev_backend_url"
     [ -n "$prev_frontend_url" ] && FRONTEND_URL="$prev_frontend_url"
-    ADMIN_PASS="__existing__"
+    
+    if [ -n "$prev_admin_pass" ]; then
+        ADMIN_PASS="$prev_admin_pass"
+    else
+        ADMIN_PASS="__existing__"
+    fi
 
     # Ask user what to do
     echo ""
@@ -739,7 +756,7 @@ clone_repo() {
         rm -rf "$tmp_dir"
 
         chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
-        chmod 750 "$INSTALL_DIR"
+        chmod 755 "$INSTALL_DIR"
         usermod -aG "$INSTALL_USER" www-data 2>/dev/null || true
         step_ok "Repository cloned to $INSTALL_DIR"
     fi
@@ -1525,7 +1542,7 @@ create_admin() {
     fi
 
     # No admin or only the hardcoded default exists — create/update with wizard credentials
-    if [ -z "$ADMIN_PASS" ]; then
+    if [ -z "$ADMIN_PASS" ] || [ "$ADMIN_PASS" = "__existing__" ]; then
         step_skip "Admin account (no password provided — keeping existing credentials)"
         return
     fi
