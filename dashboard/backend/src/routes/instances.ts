@@ -492,12 +492,12 @@ export function createInstanceRoutes(
         // Construct env updates
         const configUpdates: Record<string, string> = {};
 
-        if (smtp_host) configUpdates.SMTP_HOST = smtp_host;
-        if (smtp_port) configUpdates.SMTP_PORT = String(smtp_port);
-        if (smtp_user) configUpdates.SMTP_USER = smtp_user;
-        if (smtp_pass && smtp_pass !== '********') configUpdates.SMTP_PASS = smtp_pass;
-        if (smtp_sender_name) configUpdates.SMTP_SENDER_NAME = smtp_sender_name;
-        if (smtp_admin_email) configUpdates.SMTP_ADMIN_EMAIL = smtp_admin_email;
+        if (smtp_host !== undefined) configUpdates.SMTP_HOST = smtp_host;
+        if (smtp_port !== undefined) configUpdates.SMTP_PORT = String(smtp_port);
+        if (smtp_user !== undefined) configUpdates.SMTP_USER = smtp_user;
+        if (smtp_pass !== undefined && smtp_pass !== '********') configUpdates.SMTP_PASS = smtp_pass;
+        if (smtp_sender_name !== undefined) configUpdates.SMTP_SENDER_NAME = smtp_sender_name;
+        if (smtp_admin_email !== undefined) configUpdates.SMTP_ADMIN_EMAIL = smtp_admin_email;
 
         await instanceManager.updateInstanceConfig(name, configUpdates);
 
