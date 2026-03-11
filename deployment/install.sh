@@ -1181,11 +1181,11 @@ server {
     root ${INSTALL_DIR}/dashboard/frontend/dist;
 
     # Security headers
-    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;
-    add_header X-Frame-Options \"SAMEORIGIN\" always;
-    add_header X-Content-Type-Options \"nosniff\" always;
-    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
-    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     # HTTPS redirect
     if (\$scheme != "https") {
