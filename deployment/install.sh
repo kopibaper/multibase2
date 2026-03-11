@@ -739,7 +739,8 @@ clone_repo() {
         rm -rf "$tmp_dir"
 
         chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
-        chmod 700 "$INSTALL_DIR"
+        chmod 750 "$INSTALL_DIR"
+        usermod -aG "$INSTALL_USER" www-data 2>/dev/null || true
         step_ok "Repository cloned to $INSTALL_DIR"
     fi
 }
@@ -855,6 +856,9 @@ build_frontend() {
 
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
+
+    # Remove node_modules after build to save disk space
+    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
 }
 
 # =============================================================================
@@ -1768,6 +1772,7 @@ run_update() {
     cd "$INSTALL_DIR/dashboard/frontend"
     sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
 
     step "Restarting services..."
@@ -1955,10 +1960,10 @@ main() {
     setup_sudoers
     clone_repo
     setup_python
+    generate_configs
     build_backend
     setup_shared_infra
     build_frontend
-    generate_configs
     run_db_migrations
     start_redis
     configure_nginx
