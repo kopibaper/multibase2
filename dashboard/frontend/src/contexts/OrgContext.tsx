@@ -24,11 +24,14 @@ interface OrgContextType {
 
 const OrgContext = createContext<OrgContextType | undefined>(undefined);
 
+import { useQueryClient } from '@tanstack/react-query';
+
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated } = useAuth();
   const [orgs, setOrgs] = useState<Organisation[]>([]);
   const [activeOrg, setActiveOrgState] = useState<Organisation | null>(null);
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const fetchOrgs = useCallback(async () => {
     if (!token) return;
@@ -66,6 +69,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const setActiveOrg = (org: Organisation) => {
     setActiveOrgState(org);
     localStorage.setItem('activeOrgSlug', org.slug);
+    queryClient.invalidateQueries(); // Refresh all data for new org
   };
 
   return (

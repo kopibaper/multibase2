@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
 import { Save, Loader2, Info, Settings } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,6 +19,24 @@ export default function SmtpTab({ instance }: SmtpTabProps) {
     smtp_sender_name: '',
     smtp_admin_email: '',
   });
+
+  const { data: envConfig } = useQuery({
+    queryKey: ['instance-env', instance.name],
+    queryFn: () => instancesApi.getEnv(instance.name),
+  });
+
+  React.useEffect(() => {
+    if (envConfig) {
+      setFormData({
+        smtp_host: envConfig.SMTP_HOST || '',
+        smtp_port: parseInt(envConfig.SMTP_PORT || '0', 10),
+        smtp_user: envConfig.SMTP_USER || '',
+        smtp_pass: envConfig.SMTP_PASS ? '********' : '',
+        smtp_sender_name: envConfig.SMTP_SENDER_NAME || '',
+        smtp_admin_email: envConfig.SMTP_ADMIN_EMAIL || '',
+      });
+    }
+  }, [envConfig]);
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => instancesApi.updateSmtp(instance.name, data),
@@ -41,18 +59,14 @@ export default function SmtpTab({ instance }: SmtpTabProps) {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const payload: any = {};
-    if (formData.smtp_host) payload.smtp_host = formData.smtp_host;
-    if (formData.smtp_port) payload.smtp_port = formData.smtp_port;
-    if (formData.smtp_user) payload.smtp_user = formData.smtp_user;
-    if (formData.smtp_pass) payload.smtp_pass = formData.smtp_pass;
-    if (formData.smtp_sender_name) payload.smtp_sender_name = formData.smtp_sender_name;
-    if (formData.smtp_admin_email) payload.smtp_admin_email = formData.smtp_admin_email;
-
-    if (Object.keys(payload).length === 0) {
-      toast.info('No changes to save');
-      return;
-    }
+    const payload: any = {
+      smtp_host: formData.smtp_host,
+      smtp_port: formData.smtp_port,
+      smtp_user: formData.smtp_user,
+      smtp_pass: formData.smtp_pass,
+      smtp_sender_name: formData.smtp_sender_name,
+      smtp_admin_email: formData.smtp_admin_email,
+    };
 
     updateMutation.mutate(payload);
   };

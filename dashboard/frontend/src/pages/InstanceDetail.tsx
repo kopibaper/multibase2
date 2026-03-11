@@ -269,11 +269,10 @@ export default function InstanceDetail() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 text-sm ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 text-sm ${activeTab === tab.id
                       ? 'border-primary text-primary font-medium'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
-                  }`}
+                    }`}
                 >
                   <Icon className='w-4 h-4' />
                   <span className='hidden sm:inline'>{tab.label}</span>
@@ -322,6 +321,7 @@ export default function InstanceDetail() {
                     try {
                       await instancesApi.assignOrg(instance.name, orgId);
                       toast.success(orgId ? 'Instance assigned to organisation' : 'Instance unassigned from organisation');
+                      window.location.reload(); // Temporary quick fix to reload, or better use queryClient
                     } catch (err: any) {
                       toast.error(err.message || 'Failed to assign org');
                     } finally {
@@ -332,7 +332,7 @@ export default function InstanceDetail() {
                   <select
                     name='orgId'
                     className='px-3 py-2 rounded-md border bg-background text-sm min-w-[200px]'
-                    defaultValue='__none__'
+                    defaultValue={instance.orgId || '__none__'}
                   >
                     <option value='__none__'>— Unassigned —</option>
                     {orgs.map((org) => (

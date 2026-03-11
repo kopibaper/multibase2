@@ -14,6 +14,7 @@ export interface SupabaseInstance {
   services: ServiceStatus[];
   health: HealthStatus;
   metrics?: ResourceMetrics;
+  orgId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
