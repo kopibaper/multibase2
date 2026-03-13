@@ -48,6 +48,14 @@ import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
 import { StudioManager } from './services/StudioManager';
 import { createOrgRoutes } from './routes/orgs';
+import { createWebhookRoutes } from './routes/webhooks';
+import { createCronRoutes } from './routes/cron';
+import { createVectorRoutes } from './routes/vectors';
+import { createQueueRoutes } from './routes/queues';
+import { WebhookService } from './services/WebhookService';
+import { CronService } from './services/CronService';
+import { VectorService } from './services/VectorService';
+import { QueueService } from './services/QueueService';
 
 // Utils
 import { logger } from './utils/logger';
@@ -133,6 +141,10 @@ const uptimeService = new UptimeService(prisma, instanceManager);
 const functionService = new FunctionService(dockerManager, PROJECTS_PATH);
 const storageService = new StorageService(instanceManager);
 const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
+const webhookService = new WebhookService(instanceManager);
+const cronService = new CronService(instanceManager);
+const vectorService = new VectorService(instanceManager);
+const queueService = new QueueService(instanceManager);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -160,6 +172,10 @@ app.use('/api/instances', createUptimeRoutes(uptimeService));
 app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 app.use('/api/orgs', createOrgRoutes());
+app.use('/api/instances/:name/webhooks', createWebhookRoutes(webhookService));
+app.use('/api/instances/:name/cron', createCronRoutes(cronService));
+app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
+app.use('/api/instances/:name/queues', createQueueRoutes(queueService));
 app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
 

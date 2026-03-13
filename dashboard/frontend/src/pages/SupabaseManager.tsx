@@ -17,6 +17,10 @@ import {
   RefreshCw,
   Trash2,
   Shield,
+  Webhook,
+  Clock,
+  Brain,
+  ListOrdered,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { toast } from 'sonner';
@@ -26,8 +30,12 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import PoliciesTab from '../components/PoliciesTab';
 import FunctionsTab from '../components/FunctionsTab';
 import StorageTab from '../components/StorageTab';
+import WebhooksTab from '../components/WebhooksTab';
+import CronJobsTab from '../components/CronJobsTab';
+import VectorsTab from '../components/VectorsTab';
+import QueuesTab from '../components/QueuesTab';
 
-type TabType = 'functions' | 'database' | 'policies' | 'storage';
+type TabType = 'functions' | 'database' | 'policies' | 'storage' | 'webhooks' | 'cron' | 'vectors' | 'queues';
 
 export default function SupabaseManager() {
   const { name } = useParams<{ name: string }>();
@@ -63,6 +71,10 @@ export default function SupabaseManager() {
     { id: 'storage' as TabType, label: 'Storage', icon: Server },
     { id: 'policies' as TabType, label: 'RLS Policies', icon: Shield },
     { id: 'functions' as TabType, label: 'Edge Functions', icon: Cloud },
+    { id: 'webhooks' as TabType, label: 'Webhooks', icon: Webhook },
+    { id: 'cron' as TabType, label: 'Cron Jobs', icon: Clock },
+    { id: 'vectors' as TabType, label: 'Vectors', icon: Brain },
+    { id: 'queues' as TabType, label: 'Queues', icon: ListOrdered },
   ];
 
   return (
@@ -115,6 +127,10 @@ export default function SupabaseManager() {
         {activeTab === 'database' && <DatabaseTab instanceName={name!} />}
         {activeTab === 'policies' && <PoliciesTab instanceName={name!} />}
         {activeTab === 'storage' && <StorageTab instanceName={name!} />}
+        {activeTab === 'webhooks' && <WebhooksTab instanceName={name!} />}
+        {activeTab === 'cron' && <CronJobsTab instanceName={name!} />}
+        {activeTab === 'vectors' && <VectorsTab instanceName={name!} />}
+        {activeTab === 'queues' && <QueuesTab instanceName={name!} />}
       </main>
     </div>
   );

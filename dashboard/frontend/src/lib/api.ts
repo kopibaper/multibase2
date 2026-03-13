@@ -655,3 +655,162 @@ export const sharedApi = {
   deleteDatabase: (name: string): Promise<{ success: boolean; database: string }> =>
     fetchApi(`/api/shared/databases/${name}`, { method: 'DELETE' }),
 };
+
+// =====================================================
+// Webhooks API
+// =====================================================
+export const webhooksApi = {
+  list: (instanceName: string): Promise<{ webhooks: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/webhooks`),
+
+  create: (instanceName: string, data: {
+    name: string;
+    tableSchema?: string;
+    tableName: string;
+    events: string[];
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    timeoutMs?: number;
+  }): Promise<{ id: number; hasTrigger: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/webhooks`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (instanceName: string, webhookId: number): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/webhooks/${webhookId}`, { method: 'DELETE' }),
+
+  toggle: (instanceName: string, webhookId: number, enabled: boolean): Promise<any> =>
+    fetchApi(`/api/instances/${instanceName}/webhooks/${webhookId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    }),
+};
+
+// =====================================================
+// Cron Jobs API
+// =====================================================
+export const cronApi = {
+  getStatus: (instanceName: string): Promise<{ enabled: boolean; extension: any }> =>
+    fetchApi(`/api/instances/${instanceName}/cron/status`),
+
+  list: (instanceName: string): Promise<{ jobs: any[]; enabled: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/cron`),
+
+  create: (instanceName: string, data: { name: string; schedule: string; command: string }): Promise<{ jobid: number }> =>
+    fetchApi(`/api/instances/${instanceName}/cron`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (instanceName: string, jobId: number): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/cron/${jobId}`, { method: 'DELETE' }),
+
+  toggle: (instanceName: string, jobId: number, active: boolean): Promise<any> =>
+    fetchApi(`/api/instances/${instanceName}/cron/${jobId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    }),
+
+  runNow: (instanceName: string, jobId: number): Promise<{ success: boolean; rows: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/cron/${jobId}/run`, { method: 'POST' }),
+
+  getRuns: (instanceName: string, jobId: number, limit?: number): Promise<{ runs: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/cron/${jobId}/runs${limit ? `?limit=${limit}` : ''}`),
+};
+
+// =====================================================
+// Vectors / pgvector API
+// =====================================================
+export const vectorsApi = {
+  getStatus: (instanceName: string): Promise<{ enabled: boolean; extension: any }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/status`),
+
+  enable: (instanceName: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/enable`, { method: 'POST' }),
+
+  listColumns: (instanceName: string): Promise<{ columns: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/columns`),
+
+  addColumn: (instanceName: string, data: {
+    tableSchema?: string;
+    tableName: string;
+    columnName: string;
+    dimension: number;
+  }): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/columns`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  listIndexes: (instanceName: string): Promise<{ indexes: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/indexes`),
+
+  createIndex: (instanceName: string, data: {
+    tableSchema?: string;
+    tableName: string;
+    columnName: string;
+    indexType: 'ivfflat' | 'hnsw';
+    metric: 'cosine' | 'l2' | 'ip';
+    lists?: number;
+  }): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/indexes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  dropIndex: (instanceName: string, indexName: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/indexes/${indexName}`, { method: 'DELETE' }),
+
+  search: (instanceName: string, data: {
+    tableSchema?: string;
+    tableName: string;
+    columnName: string;
+    vector: number[];
+    k: number;
+    metric?: 'cosine' | 'l2' | 'ip';
+  }): Promise<{ results: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/vectors/search`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+// =====================================================
+// Message Queues / pgmq API
+// =====================================================
+export const queuesApi = {
+  getStatus: (instanceName: string): Promise<{ enabled: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/status`),
+
+  enable: (instanceName: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/enable`, { method: 'POST' }),
+
+  list: (instanceName: string): Promise<{ queues: any[]; enabled: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/queues`),
+
+  create: (instanceName: string, queueName: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/queues`, {
+      method: 'POST',
+      body: JSON.stringify({ queueName }),
+    }),
+
+  drop: (instanceName: string, queueName: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/${queueName}`, { method: 'DELETE' }),
+
+  readMessages: (instanceName: string, queueName: string, limit?: number): Promise<{ messages: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/${queueName}/messages${limit ? `?limit=${limit}` : ''}`),
+
+  sendMessage: (instanceName: string, queueName: string, message: object): Promise<{ msgId: number }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/${queueName}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  purge: (instanceName: string, queueName: string): Promise<{ deleted: number }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/${queueName}/purge`, { method: 'POST' }),
+
+  getMetrics: (instanceName: string, queueName: string): Promise<{ metrics: any }> =>
+    fetchApi(`/api/instances/${instanceName}/queues/${queueName}/metrics`),
+};
