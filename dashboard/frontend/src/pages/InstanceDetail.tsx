@@ -171,7 +171,7 @@ export default function InstanceDetail() {
           </div>
           <div className='flex flex-wrap gap-2 mt-4 lg:mt-0'>
             <Link
-              to={`/instances/${instance.name}/supabase`}
+              to={`/workspace/projects/${instance.name}`}
               className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors text-sm'
               title='Manage Edge Functions & Database'
             >

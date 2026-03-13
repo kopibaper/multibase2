@@ -7,6 +7,9 @@ import DashboardLayout from './layouts/DashboardLayout';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
 import WorkspacePage from './pages/WorkspacePage';
+import WorkspaceOrgsPage from './pages/WorkspaceOrgsPage';
+import WorkspaceProjectsPage from './pages/WorkspaceProjectsPage';
+import WorkspaceProjectPage from './pages/WorkspaceProjectPage';
 import InstanceDetail from './pages/InstanceDetail';
 import SupabaseManager from './pages/SupabaseManager';
 import Alerts from './pages/Alerts';
@@ -67,7 +70,12 @@ function AppContent() {
             </ProtectedRoute>
           }
         >
-          <Route path='/workspace' element={<WorkspacePage />} />
+          <Route path='/workspace' element={<WorkspaceOrgsPage />} />
+          <Route path='/workspace/projects' element={<WorkspaceProjectsPage />} />
+          <Route path='/workspace/projects/:project' element={<WorkspaceProjectPage />} />
+          <Route path='/workspace/projects/:project/:tab' element={<WorkspaceProjectPage />} />
+          {/* Legacy workspace route kept as alias */}
+          <Route path='/workspace/legacy' element={<WorkspacePage />} />
         </Route>
 
         {/* Protected Routes with Dashboard Layout */}

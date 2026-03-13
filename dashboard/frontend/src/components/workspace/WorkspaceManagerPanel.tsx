@@ -72,7 +72,7 @@ export default function WorkspaceManagerPanel({ instanceName }: WorkspaceManager
 }
 
 // Embedded Database Panel (same logic as SupabaseManager's DatabaseTab)
-function DatabasePanel({ instanceName }: { instanceName: string }) {
+export function DatabasePanel({ instanceName }: { instanceName: string }) {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; tableName: string | null }>({
