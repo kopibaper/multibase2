@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Organisation {
@@ -49,6 +48,8 @@ model Instance {
   alerts      Alert[]
   alertRules  AlertRule[]
   uptime      UptimeRecord[]
+  readReplicas ReadReplica[]
+  logDrains   LogDrain[]
 
   @@index([name])
   @@index([status])
@@ -379,4 +380,35 @@ model CustomDomain {
 
   @@unique([instanceName, domain])
   @@index([instanceName])
+}
+
+model ReadReplica {
+  id          String   @id @default(uuid())
+  instanceId  String
+  name        String
+  url         String
+  status      String   @default("provisioning") // 'provisioning' | 'active' | 'error' | 'syncing'
+  lagBytes    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
+}
+
+model LogDrain {
+  id           String    @id @default(uuid())
+  instanceId   String
+  name         String
+  url          String
+  services     String    @default("[]") // JSON array of service names ['db', 'auth', 'storage', 'realtime']
+  format       String    @default("json") // 'json' | 'ndjson' | 'logfmt'
+  enabled      Boolean   @default(true)
+  lastStatus   String?   // 'ok' | 'error'
+  lastDelivery DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  instance     Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
 }
