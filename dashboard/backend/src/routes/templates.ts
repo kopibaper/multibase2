@@ -1,13 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
 import InstanceManager from '../services/InstanceManager';
 import { logger } from '../utils/logger';
 import { CreateInstanceRequest } from '../types';
-
-const prisma = new PrismaClient();
 
 // Validation Schemas
 const createTemplateSchema = z.object({

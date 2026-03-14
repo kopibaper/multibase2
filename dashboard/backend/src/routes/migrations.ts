@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
@@ -7,8 +7,6 @@ import fs from 'fs';
 import path from 'path';
 import { Client } from 'pg';
 import { parseEnvFile } from '../utils/envParser';
-
-const prisma = new PrismaClient();
 
 // In-memory migration history (in production, this would be stored in DB)
 const migrationHistory: Array<{

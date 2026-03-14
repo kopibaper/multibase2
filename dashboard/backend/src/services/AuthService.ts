@@ -1,14 +1,12 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger';
 import EmailService from './EmailService';
-
-const prisma = new PrismaClient();
 
 export interface LoginCredentials {
   email: string;

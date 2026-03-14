@@ -1,12 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import BackupService from './BackupService';
 import { logger } from '../utils/logger';
 import { calculateNextRun } from '../utils/cron';
 import { createAuditLogEntry } from '../middleware/auditLog';
 
 import { UptimeService } from './UptimeService';
-
-const prisma = new PrismaClient();
 
 export class SchedulerService {
   private intervalId: NodeJS.Timeout | null = null;

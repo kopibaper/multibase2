@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
-
-const prisma = new PrismaClient();
 
 export function createAlertRoutes(): Router {
   const router = Router();

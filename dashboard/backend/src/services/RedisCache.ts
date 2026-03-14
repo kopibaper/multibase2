@@ -21,7 +21,6 @@ export class RedisCache {
         return delay;
       },
       maxRetriesPerRequest: 3,
-      enableOfflineQueue: false,
       lazyConnect: true, // Don't connect immediately
     });
 
@@ -150,6 +149,7 @@ export class RedisCache {
    * Set a generic key-value pair
    */
   async set(key: string, value: string, ttl?: number): Promise<void> {
+    if (!this.isConnected()) return;
     try {
       if (ttl) {
         await this.redis.setex(key, ttl, value);
@@ -165,6 +165,7 @@ export class RedisCache {
    * Get a value by key
    */
   async get(key: string): Promise<string | null> {
+    if (!this.isConnected()) return null;
     try {
       return await this.redis.get(key);
     } catch (error) {

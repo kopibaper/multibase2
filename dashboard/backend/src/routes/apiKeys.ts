@@ -1,10 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
-
-const prisma = new PrismaClient();
 
 /**
  * Hash an API key for storage

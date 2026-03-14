@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { promises as fs } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -9,7 +9,6 @@ import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
 
 const execAsync = promisify(exec);
-const prisma = new PrismaClient();
 
 export interface BackupOptions {
   type: 'full' | 'instance' | 'database';

@@ -1,11 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { calculateNextRun } from '../utils/cron';
 import { auditLog } from '../middleware/auditLog';
-
-const prisma = new PrismaClient();
 
 /**
  * Middleware to check authentication

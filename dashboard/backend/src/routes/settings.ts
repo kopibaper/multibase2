@@ -1,11 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
 import { auditLog } from '../middleware/auditLog';
 import { requireAdmin } from '../middleware/authMiddleware';
-
-const prisma = new PrismaClient();
 
 export function createSettingsRoutes() {
   const router = Router();

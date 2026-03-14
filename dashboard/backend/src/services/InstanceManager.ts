@@ -1475,7 +1475,6 @@ ${sslBlock}
         const rows = this.parseCsvResult(csvOutput);
         return { rows };
       } catch (error: any) {
-        logger.error(`SQL execution failed for ${name}:`, error.message);
         return { rows: [], error: error.message };
       }
     }
@@ -1487,7 +1486,6 @@ ${sslBlock}
       const result = await client.query(sql);
       return { rows: result.rows };
     } catch (error: any) {
-      logger.error(`SQL execution failed for ${name}:`, error.message);
       return { rows: [], error: error.message };
     } finally {
       await client.end().catch(() => { });
