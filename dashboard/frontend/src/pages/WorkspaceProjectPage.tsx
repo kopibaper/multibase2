@@ -31,6 +31,9 @@ import {
   Globe,
   KeyRound,
   ShieldCheck,
+  Radio,
+  GitBranch,
+  ArrowUpFromLine,
 } from 'lucide-react';
 import StorageTab from '../components/StorageTab';
 import PoliciesTab from '../components/PoliciesTab';
@@ -46,6 +49,9 @@ import AuthTab from '../components/AuthTab';
 import DomainsPanel from '../components/workspace/DomainsPanel';
 import VaultPanel from '../components/workspace/VaultPanel';
 import SecurityPanel from '../components/workspace/SecurityPanel';
+import RealtimePanel from '../components/workspace/RealtimePanel';
+import ReplicasPanel from '../components/workspace/ReplicasPanel';
+import LogDrainsPanel from '../components/workspace/LogDrainsPanel';
 import type { SupabaseInstance } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -66,7 +72,10 @@ type TabId =
   | 'auth'
   | 'domains'
   | 'vault'
-  | 'security';
+  | 'security'
+  | 'realtime'
+  | 'replicas'
+  | 'log-drains';
 
 const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -80,6 +89,9 @@ const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[
   { id: 'vectors', label: 'Vectors', icon: Brain },
   { id: 'queues', label: 'Queues', icon: ListOrdered },
   { id: 'api', label: 'API & GraphQL', icon: Plug },
+  { id: 'realtime', label: 'Realtime', icon: Radio },
+  { id: 'replicas', label: 'Read Replicas', icon: GitBranch },
+  { id: 'log-drains', label: 'Log Drains', icon: ArrowUpFromLine },
   null,
   { id: 'smtp', label: 'SMTP Settings', icon: Mail },
   { id: 'keys', label: 'API Keys', icon: Key },
@@ -272,6 +284,9 @@ export default function WorkspaceProjectPage() {
           {tab === 'domains' && <DomainsPanel instance={instance} />}
           {tab === 'vault' && <VaultPanel instanceName={project!} />}
           {tab === 'security' && <SecurityPanel instanceName={project!} />}
+          {tab === 'realtime' && <RealtimePanel instanceName={project!} />}
+          {tab === 'replicas' && <ReplicasPanel instanceName={project!} />}
+          {tab === 'log-drains' && <LogDrainsPanel instanceName={project!} />}
         </div>
       </main>
     </div>

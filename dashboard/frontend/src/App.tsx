@@ -30,6 +30,7 @@ import OrgMembers from './pages/OrgMembers';
 import OrgSettings from './pages/OrgSettings';
 import SetupLayout from './layouts/SetupLayout';
 import SetupPage from './pages/SetupPage';
+import McpSettingsPage from './pages/McpSettingsPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Create React Query client
@@ -98,6 +99,7 @@ function AppContent() {
           <Route path='/api-docs' element={<ApiDocs />} />
           <Route path='/templates' element={<Templates />} />
           <Route path='/shared' element={<SharedInfra />} />
+          <Route path='/settings/mcp' element={<McpSettingsPage />} />
           <Route path='/orgs/new' element={<OrgSettings />} />
           <Route path='/orgs/:slug/members' element={<OrgMembers />} />
           <Route path='/orgs/:slug/settings' element={<OrgSettings />} />

@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import prisma from './lib/prisma';
 
 // Services
 import DockerManager from './services/DockerManager';
@@ -58,6 +58,12 @@ import { CustomDomainService } from './services/CustomDomainService';
 import { createDomainRoutes } from './routes/domains';
 import { createVaultRoutes } from './routes/vault';
 import { createSecurityRoutes } from './routes/security';
+import { createRealtimeRoutes } from './routes/realtime';
+import { createReplicaRoutes } from './routes/replicas';
+import { createLogDrainRoutes } from './routes/log-drains';
+import { createMcpRoutes } from './routes/mcp';
+import McpService from './services/McpService';
+import { LogDrainService } from './services/LogDrainService';
 import { VectorService } from './services/VectorService';
 import { QueueService } from './services/QueueService';
 
@@ -124,7 +130,6 @@ app.use((req, _res, next) => {
 app.use(apiKeyAuth);
 
 // Initialize services
-const prisma = new PrismaClient();
 const dockerManager = new DockerManager(DOCKER_SOCKET_PATH);
 const redisCache = new RedisCache();
 const instanceManager = new InstanceManager(PROJECTS_PATH, dockerManager, prisma, redisCache);
@@ -150,6 +155,8 @@ const cronService = new CronService(instanceManager);
 const customDomainService = new CustomDomainService(prisma, PROJECTS_PATH);
 const vectorService = new VectorService(instanceManager);
 const queueService = new QueueService(instanceManager);
+const logDrainService = new LogDrainService(prisma, dockerManager);
+const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -174,7 +181,7 @@ app.use('/api/migrations', createMigrationRoutes());
 app.use('/api/deployments', createDeploymentsRoutes());
 app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
-app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
+app.use('/api/instances/:name/functions', createFunctionRoutes(functionService, instanceManager));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 app.use('/api/orgs', createOrgRoutes());
 app.use('/api/instances/:name/webhooks', createWebhookRoutes(webhookService));
@@ -184,6 +191,10 @@ app.use('/api/instances/:name/security', createSecurityRoutes(instanceManager, P
 app.use('/api/instances/:name/cron', createCronRoutes(cronService));
 app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
 app.use('/api/instances/:name/queues', createQueueRoutes(queueService));
+app.use('/api/instances/:name/realtime', createRealtimeRoutes(instanceManager, dockerManager));
+app.use('/api/instances/:name/replicas', createReplicaRoutes(instanceManager, prisma));
+app.use('/api/instances/:name/log-drains', createLogDrainRoutes(prisma, instanceManager, logDrainService));
+app.use('/api/mcp', createMcpRoutes(mcpService));
 app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
 
@@ -330,6 +341,9 @@ async function startServices() {
 
     // Start backup scheduler
     SchedulerService.start();
+
+    // Start log drain delivery
+    logDrainService.start();
 
     logger.info('Background services started successfully');
   } catch (error) {

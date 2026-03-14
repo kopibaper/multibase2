@@ -22,6 +22,7 @@ import {
   Plus,
   UserCircle2,
   SlidersHorizontal,
+  Server,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
 
@@ -228,6 +229,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
             </SidebarLink>
             <SidebarLink to='/api-docs' icon={FileText}>
               API Docs
+            </SidebarLink>
+            <SidebarLink to='/settings/mcp' icon={Server}>
+              MCP Server
             </SidebarLink>
           </SidebarGroup>
 

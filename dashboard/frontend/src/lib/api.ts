@@ -545,6 +545,32 @@ export const functionsApi = {
   getLogs: (instanceName: string, functionName: string): Promise<{ logs: string[] }> => {
     return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/logs`);
   },
+
+  getEnv: (instanceName: string, functionName: string): Promise<{ env: Record<string, string> }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/env`);
+  },
+
+  saveEnv: (
+    instanceName: string,
+    functionName: string,
+    env: Record<string, string>
+  ): Promise<{ message: string }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/env`, {
+      method: 'PUT',
+      body: JSON.stringify({ env }),
+    });
+  },
+
+  invoke: (
+    instanceName: string,
+    functionName: string,
+    opts: { method?: string; headers?: Record<string, string>; body?: string }
+  ): Promise<{ status: number; headers: Record<string, string>; body: any }> => {
+    return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/invoke`, {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    });
+  },
 };
 
 // Storage API
@@ -696,6 +722,124 @@ export const securityApi = {
       method: 'PATCH',
       body: JSON.stringify(config),
     }),
+};
+
+// Realtime API
+export interface RealtimeConfig {
+  maxConcurrentUsers: number;
+  tenantId: string;
+  jwtSecretSet: boolean;
+  realtimeEnabled: boolean;
+  apiUrl: string;
+  anonKey: string;
+}
+
+export interface RealtimeStats {
+  channelCount: number;
+  cpu: number;
+  memory: number;
+  status: string;
+}
+
+export const realtimeApi = {
+  getConfig: (instanceName: string): Promise<RealtimeConfig> =>
+    fetchApi(`/api/instances/${instanceName}/realtime/config`),
+
+  updateConfig: (
+    instanceName: string,
+    data: { maxConcurrentUsers?: number }
+  ): Promise<{ success: boolean; message: string }> =>
+    fetchApi(`/api/instances/${instanceName}/realtime/config`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  getStats: (instanceName: string): Promise<RealtimeStats> =>
+    fetchApi(`/api/instances/${instanceName}/realtime/stats`),
+};
+
+// Read Replicas API
+export interface ReadReplica {
+  id: string;
+  name: string;
+  url: string;
+  status: string;
+  lagBytes: number | null;
+  createdAt: string;
+}
+
+export const replicasApi = {
+  list: (instanceName: string): Promise<{ replicas: ReadReplica[] }> =>
+    fetchApi(`/api/instances/${instanceName}/replicas`),
+
+  add: (
+    instanceName: string,
+    data: { name: string; url: string }
+  ): Promise<{ replica: ReadReplica }> =>
+    fetchApi(`/api/instances/${instanceName}/replicas`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  checkStatus: (
+    instanceName: string,
+    id: string
+  ): Promise<{ ok: boolean; lagBytes: number | null; lagSeconds: number | null; role: string }> =>
+    fetchApi(`/api/instances/${instanceName}/replicas/${id}/status`),
+
+  remove: (instanceName: string, id: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/replicas/${id}`, { method: 'DELETE' }),
+};
+
+// Log Drains API
+export interface LogDrain {
+  id: string;
+  name: string;
+  url: string;
+  services: string[];
+  format: string;
+  enabled: boolean;
+  lastStatus: string | null;
+  lastDelivery: string | null;
+}
+
+export const logDrainsApi = {
+  list: (instanceName: string): Promise<{ drains: LogDrain[] }> =>
+    fetchApi(`/api/instances/${instanceName}/log-drains`),
+
+  add: (
+    instanceName: string,
+    data: { name: string; url: string; services: string[]; format: string }
+  ): Promise<{ drain: LogDrain }> =>
+    fetchApi(`/api/instances/${instanceName}/log-drains`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (
+    instanceName: string,
+    id: string,
+    data: { enabled?: boolean; url?: string; services?: string[]; name?: string }
+  ): Promise<{ drain: LogDrain }> =>
+    fetchApi(`/api/instances/${instanceName}/log-drains/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  test: (
+    instanceName: string,
+    id: string
+  ): Promise<{ ok: boolean; error?: string }> =>
+    fetchApi(`/api/instances/${instanceName}/log-drains/${id}/test`, { method: 'POST' }),
+
+  remove: (instanceName: string, id: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/log-drains/${id}`, { method: 'DELETE' }),
+};
+
+// MCP API
+export const mcpApi = {
+  getInfo: (): Promise<{ server: { name: string; version: string; description: string }; tools: { name: string; description: string; inputSchema: any }[]; protocol: string }> =>
+    fetchApi('/api/mcp/info'),
 };
 
 // =====================================================
