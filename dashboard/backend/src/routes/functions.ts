@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { FunctionService } from '../services/FunctionService';
+import { InstanceManager } from '../services/InstanceManager';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import axios from 'axios';
 
-export function createFunctionRoutes(functionService: FunctionService) {
+export function createFunctionRoutes(functionService: FunctionService, instanceManager?: InstanceManager) {
   const router = Router({ mergeParams: true });
 
   // List functions
@@ -76,6 +78,72 @@ export function createFunctionRoutes(functionService: FunctionService) {
     } catch (error: any) {
       logger.error(`Error getting logs for function ${req.params.functionName}:`, error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get function env vars
+  router.get('/:functionName/env', requireAuth, async (req, res) => {
+    try {
+      const { name, functionName } = req.params;
+      const envVars = await functionService.getFunctionEnv(name, functionName);
+      res.json({ envVars });
+    } catch (error: any) {
+      logger.error(`Error getting env for function ${req.params.functionName}:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save function env vars
+  router.put('/:functionName/env', requireAuth, async (req, res) => {
+    try {
+      const { name, functionName } = req.params;
+      const { envVars } = req.body;
+      if (!envVars || typeof envVars !== 'object') {
+        return res.status(400).json({ error: 'envVars must be an object' });
+      }
+      await functionService.saveFunctionEnv(name, functionName, envVars);
+      return res.json({ message: 'Function env saved' });
+    } catch (error: any) {
+      logger.error(`Error saving env for function ${req.params.functionName}:`, error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Invoke function (test-runner)
+  router.post('/:functionName/invoke', requireAuth, async (req, res) => {
+    try {
+      const { name, functionName } = req.params;
+      const { method = 'POST', headers: extraHeaders = {}, body: reqBody } = req.body;
+
+      if (!instanceManager) {
+        return res.status(501).json({ error: 'instanceManager not available' });
+      }
+
+      const env = await instanceManager.getInstanceEnv(name);
+      const kongPort = parseInt(env['KONG_HTTP_PORT'] || env['API_PORT'] || '8000', 10);
+      const functionUrl = `http://localhost:${kongPort}/functions/v1/${functionName}`;
+
+      const response = await axios({
+        method: (method as string).toLowerCase() as any,
+        url: functionUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${env['ANON_KEY'] || ''}`,
+          ...extraHeaders,
+        },
+        data: reqBody,
+        timeout: 15000,
+        validateStatus: () => true,
+      });
+
+      return res.json({
+        status: response.status,
+        headers: response.headers,
+        body: response.data,
+      });
+    } catch (error: any) {
+      logger.error(`Error invoking function ${req.params.functionName}:`, error);
+      return res.status(500).json({ error: error.message });
     }
   });
 

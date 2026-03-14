@@ -205,4 +205,42 @@ export class FunctionService {
     // Optimisation: Filter empty lines
     return lines.map((l) => l.replace(/[\u0000-\u001f]/g, '')).filter((l) => l.length > 0);
   }
+
+  async getFunctionEnv(instanceName: string, funcName: string): Promise<Record<string, string>> {
+    const safeName = this.sanitizeFunctionName(funcName);
+    const functionsRootDir = this.getFunctionsRootDir(instanceName);
+    const envPath = path.join(functionsRootDir, safeName, '.env');
+    if (!(await fs.pathExists(envPath))) {
+      return {};
+    }
+    const content = await fs.readFile(envPath, 'utf-8');
+    const result: Record<string, string> = {};
+    content.split('\n').forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+        result[key] = val;
+      }
+    });
+    return result;
+  }
+
+  async saveFunctionEnv(
+    instanceName: string,
+    funcName: string,
+    envVars: Record<string, string>
+  ): Promise<void> {
+    const safeName = this.sanitizeFunctionName(funcName);
+    const functionsRootDir = this.getFunctionsRootDir(instanceName);
+    const funcDir = path.join(functionsRootDir, safeName);
+    await fs.ensureDir(funcDir);
+    const content = Object.entries(envVars)
+      .filter(([k]) => /^[A-Z_][A-Z0-9_]*$/i.test(k))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    await fs.writeFile(path.join(funcDir, '.env'), content + '\n');
+  }
 }
