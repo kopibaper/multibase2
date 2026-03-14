@@ -29,10 +29,10 @@
 | Workspace Redesign (3-Level-Nav, Org-Auswahl, Projekt-Grid, Sidebar) | ✅ Vollständig | v1.5 |
 | Auth-Tab im Workspace + Auth-Erweiterungen (Phone/CAPTCHA/SAML/Templates) | ✅ Vollständig | **v1.6** |
 | Custom Domains pro Tenant (DNS-Check + Certbot) | ✅ Vollständig | **v1.6** |
-| Environment-Labels (Production/Staging/Dev) + Clone-Shortcuts | 🔄 Geplant | **v1.6** |
-| Storage: Tus Resumable Uploads + Nginx CDN Cache | 🔄 Geplant | **v1.6** |
-| Vault Secrets UI (pgsodium/pg_vault) + Dokumentation | 🔄 Geplant | **v1.6** |
-| Network Restrictions (IP-Whitelist, SSL-Enforcement, Rate-Limiting) | 🔄 Geplant | **v1.6** |
+| Environment-Labels (Production/Staging/Dev) + Clone-Shortcuts | ✅ Fertig | **v1.6** |
+| Storage: Tus Resumable Uploads + Nginx CDN Cache | ✅ Fertig | **v1.6** |
+| Vault Secrets UI (pgsodium/pg_vault) + Dokumentation | ✅ Fertig | **v1.6** |
+| Network Restrictions (IP-Whitelist, SSL-Enforcement, Rate-Limiting) | ✅ Fertig | **v1.6** |
 
 ---
 
@@ -323,19 +323,19 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 | 4 | Message Queues (pgmq) | ✅ Fertig | — | ~~v1.5~~ |
 | 5 | RLS Policy Editor | ✅ Fertig | — | ~~v1.5~~ |
 | 6 | AI & Vectors (pgvector) | ✅ Fertig | — | ~~v1.5~~ |
-| 7 | Auth: Phone/SSO/CAPTCHA | 🟡 Mittel | 🟡 Mittel | **v1.6** |
+| 7 | Auth: Phone/SSO/CAPTCHA | ✅ Fertig | — | ~~v1.6~~ |
 | 7a | Auth: Social Login | ✅ Fertig | — | ~~v1.6~~ |
-| 8 | Custom Domains | 🟢 Hoch | 🟡 Mittel | **v1.6** |
-| 9 | Environment-Labels + Clone-Shortcuts | 🟡 Mittel | 🟢 Niedrig | **v1.6** |
+| 8 | Custom Domains | ✅ Fertig | — | ~~v1.6~~ |
+| 9 | Environment-Labels + Clone-Shortcuts | ✅ Fertig | 🟢 Niedrig | **v1.6** |
 | 10 | Read Replicas | 🟡 Mittel | 🔴 Hoch | **v1.7** |
-| 11 | Vault (Secrets) | 🟡 Mittel | 🟢 Niedrig | **v1.6** |
+| 11 | Vault (Secrets) | ✅ Fertig | — | ~~v1.6~~ |
 | 12 | SQL Editor (Basis) | ✅ Fertig | — | ~~v1.5~~ |
 | 12a | SQL Editor (Monaco/History) | 🟠 Niedrig | 🟢 Niedrig | **v1.6** |
 | 13 | Edge Functions IDE | 🟡 Mittel | 🔴 Hoch | **v1.7** |
 | 14 | Log Drains | 🟠 Niedrig | 🟡 Mittel | **v1.7** |
 | 15 | Realtime Dashboard | 🟠 Niedrig | 🟡 Mittel | **v1.7** |
-| 16 | Storage CDN/Resumable | 🟡 Mittel | 🟡 Mittel | **v1.6** |
-| 17 | Network Restrictions | 🟡 Mittel | 🟢 Niedrig | **v1.6** |
+| 16 | Storage CDN/Resumable | ✅ Fertig | 🟡 Mittel | **v1.6** |
+| 17 | Network Restrictions | ✅ Fertig | — | ~~v1.6~~ |
 | 18 | Terraform/IaC | 🟡 Mittel | 🔴 Hoch | **v2.0** |
 | 19 | MCP Server | 🟡 Mittel | 🟡 Mittel | **v1.7** |
 | 20 | Management SDK | 🟠 Niedrig | 🟡 Mittel | **v2.0** |
@@ -364,22 +364,23 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 > Fokus: White-Labeling, Security, Auth-Erweiterungen
 > Detailplan: [V1.6_IMPLEMENTATION_PLAN.md](V1.6_IMPLEMENTATION_PLAN.md)
 
-- [ ] Auth-Tab in Workspace Sidebar einbinden + aus InstanceDetail entfernen
-- [ ] Auth-Erweiterungen: Phone Login (Twilio/MessageBird/Vonage Konfig), CAPTCHA (hCaptcha/Turnstile), Magic Link HTML-Template-Bodies, SAML SSO
+- [x] Auth-Tab in Workspace Sidebar einbinden + aus InstanceDetail entfernen
+- [x] Auth-Erweiterungen: Phone Login (Twilio/MessageBird/Vonage Konfig), CAPTCHA (hCaptcha/Turnstile), Magic Link HTML-Template-Bodies, SAML SSO
 - [x] Custom Domains pro Tenant (DNS-CNAME-Check + Certbot SSL + Nginx-Konfig)
-- [ ] Environment-Labels (production/staging/dev/preview) + "Clone as Staging/Dev" Shortcuts
-- [ ] Storage: Tus Resumable Uploads (>6 MB) + Nginx CDN Cache-Header für public Buckets
-- [ ] Vault Secrets UI — CRUD auf `vault.secrets` (pgsodium) + Dokumentationsseite
-- [ ] Network Restrictions: IP-Whitelist, SSL-Only Enforcement, Rate-Limiting pro Instanz
+- [x] Environment-Labels (production/staging/dev/preview) + "Clone as Staging/Dev" Shortcuts
+- [x] Storage: Tus Resumable Uploads (>6 MB) + Nginx CDN Cache-Header für public Buckets
+- [x] Vault Secrets UI — CRUD auf `vault.secrets` (pgsodium) + Dokumentationsseite
+- [x] Network Restrictions: IP-Whitelist, SSL-Only Enforcement, Rate-Limiting pro Instanz
 
 ### v1.7 — Scale & Ecosystem
-> Fokus: Skalierung, Observability, Ecosystem
+> Fokus: Skalierung, Observability, Ecosystem  
+> Detailplan: [V1.7_IMPLEMENTATION_PLAN.md](V1.7_IMPLEMENTATION_PLAN.md)
 
-- [ ] Edge Functions IDE
-- [ ] Read Replicas
-- [ ] Log Drains
-- [ ] Realtime Dashboard (Broadcast/Presence)
-- [ ] MCP Server
+- [ ] Edge Functions IDE (CodeMirror + TypeScript + Env Vars + Test-Runner)
+- [ ] Read Replicas (PostgreSQL Streaming Replication UI)
+- [ ] Log Drains (Webhook-basierter Log-Export)
+- [ ] Realtime Dashboard (Channels, Presence, Concurrent Users Config)
+- [ ] MCP Server (Model Context Protocol — AI-Assistenten-Integration)
 
 ### v2.0 — Platform Maturity
 > Fokus: IaC, SDK, Marketplace

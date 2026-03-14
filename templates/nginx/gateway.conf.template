@@ -17,11 +17,11 @@ map $http_apikey $is_admin_{{TENANT_ID}} {
     "{{SERVICE_ROLE_KEY}}"  1;
 }
 
-server {
+{{SECURITY_HTTP_DIRECTIVES}}server {
     listen {{GATEWAY_PORT}};
     server_name _;
     client_max_body_size 100M;
-
+{{SECURITY_SERVER_DIRECTIVES}}
     # Docker DNS resolver – defers hostname resolution to request time
     # (prevents "host not found in upstream" at config load)
     resolver 127.0.0.11 valid=10s ipv6=off;
@@ -200,6 +200,46 @@ server {
         add_header 'Access-Control-Allow-Credentials' 'true' always;
         rewrite ^/realtime/v1/(.*)$ /$1 break;
         proxy_pass http://$up_realtime;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== Storage: Resumable (Tus) uploads — must be before general /storage/v1/ =====
+    location /storage/v1/upload/resumable {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization,Content-Type,Tus-Resumable,Upload-Length,Upload-Offset,Upload-Metadata,Upload-Concat,X-HTTP-Method-Override,apikey,x-upsert' always;
+        add_header 'Access-Control-Expose-Headers' 'Location,Tus-Resumable,Upload-Offset,Upload-Length' always;
+        rewrite ^/storage/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_storage;
+        proxy_http_version 1.1;
+        proxy_request_buffering off;      # stream chunks directly — required for Tus
+        proxy_buffering off;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 0;           # unlimited chunk size for resumable
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # ===== Storage: Public objects — CDN cache headers (before general /storage/v1/) =====
+    location /storage/v1/object/public/ {
+        if ($request_method = 'OPTIONS') { return 204; }
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Expose-Headers' $cors_exposed always;
+        add_header 'Cache-Control' 'public, max-age=86400, stale-while-revalidate=3600' always;
+        add_header 'X-Cache-Served-By' 'multibase-nginx-gateway' always;
+        rewrite ^/storage/v1/(.*)$ /$1 break;
+        proxy_pass http://$up_storage;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

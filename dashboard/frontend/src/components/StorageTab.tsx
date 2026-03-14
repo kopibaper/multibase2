@@ -1,19 +1,25 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storageApi } from '../lib/api';
-import { Database, Folder, Home, Globe, Lock, Plus, Loader2, Trash2, Upload, ChevronRight } from 'lucide-react';
+import { Database, Folder, Home, Globe, Lock, Plus, Loader2, Trash2, Upload, ChevronRight, Shield, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import Uppy from '@uppy/core';
+import Tus from '@uppy/tus';
 import CreateBucketModal from './CreateBucketModal';
 import CreateFolderModal from './CreateFolderModal';
 import FilePreviewModal from './FilePreviewModal';
 import ConfirmationModal from './ConfirmationModal';
 import FileItem from './FileItem';
+import type { SupabaseInstance } from '../types';
+
+const RESUMABLE_THRESHOLD_BYTES = 6 * 1024 * 1024; // 6 MB
 
 interface StorageTabProps {
   instanceName: string;
+  instance?: SupabaseInstance;
 }
 
-export default function StorageTab({ instanceName }: StorageTabProps) {
+export default function StorageTab({ instanceName, instance }: StorageTabProps) {
   const [selectedBucket, setSelectedBucket] = useState<any | null>(null);
   const [currentPath, setCurrentPath] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -21,6 +27,8 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string | null } | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'bucket' | 'file'; id: string; name: string } | null>(null);
+
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,10 +86,62 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
     onError: (error: any) => toast.error('Delete failed', { description: error.message }),
   });
 
+  const invalidateCacheMutation = useMutation({
+    mutationFn: () => storageApi.invalidateCache(instanceName),
+    onSuccess: (data) => toast.success(data.message || 'Cache invalidated'),
+    onError: (err: any) => toast.error('Invalidation failed', { description: err.message }),
+  });
+
+  const handleTusUpload = (file: File) => {
+    const fullPath = currentPath ? `${currentPath}/${file.name}` : file.name;
+    const storageUrl = instance!.credentials.project_url;
+    const serviceKey = instance!.credentials.service_role_key;
+
+    const uppy = new Uppy({ autoProceed: true }).use(Tus, {
+      endpoint: `${storageUrl}/storage/v1/upload/resumable`,
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        'x-upsert': 'true',
+      },
+      uploadDataDuringCreation: true,
+      chunkSize: RESUMABLE_THRESHOLD_BYTES,
+      allowedMetaFields: ['bucketName', 'objectName', 'contentType', 'cacheControl'],
+    });
+
+    uppy.addFile({
+      name: file.name,
+      type: file.type,
+      data: file,
+      meta: {
+        bucketName: selectedBucket!.id,
+        objectName: fullPath,
+        contentType: file.type,
+        cacheControl: '3600',
+      },
+    });
+
+    uppy.on('progress', (progress: number) => setUploadProgress(progress));
+    uppy.on('complete', () => {
+      setUploadProgress(null);
+      toast.success('File uploaded');
+      refetchFiles();
+      uppy.destroy();
+    });
+    uppy.on('error', (err: Error) => {
+      setUploadProgress(null);
+      toast.error('Upload failed', { description: err.message });
+      uppy.destroy();
+    });
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      uploadMutation.mutate({ file: e.target.files[0], path: currentPath });
-      e.target.value = '';
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (file.size >= RESUMABLE_THRESHOLD_BYTES && instance?.credentials?.project_url) {
+      handleTusUpload(file);
+    } else {
+      uploadMutation.mutate({ file, path: currentPath });
     }
   };
 
@@ -253,15 +313,25 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
                 <input type='file' ref={fileInputRef} onChange={handleFileUpload} className='hidden' />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadMutation.isPending}
+                  disabled={uploadMutation.isPending || uploadProgress !== null}
                   className='flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50'
                 >
-                  {uploadMutation.isPending ? (
+                  {uploadProgress !== null ? (
+                    <div className='flex items-center gap-2'>
+                      <div className='w-16 bg-white/20 rounded-full h-1.5'>
+                        <div
+                          className='bg-white h-1.5 rounded-full transition-all'
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <span className='text-xs'>{uploadProgress}%</span>
+                    </div>
+                  ) : uploadMutation.isPending ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (
                     <Upload className='w-4 h-4' />
                   )}
-                  Upload
+                  {uploadProgress === null && 'Upload'}
                 </button>
               </div>
             </div>
@@ -332,6 +402,26 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
             <p className='text-sm'>Manage your files and folders</p>
           </div>
         )}
+
+        {/* CDN status bar */}
+        <div className='border-t border-border px-3 py-2 flex items-center justify-between text-xs text-muted-foreground'>
+          <div className='flex items-center gap-1.5'>
+            <Shield className='w-3 h-3 text-green-400 flex-shrink-0' />
+            <span>CDN Cache Active &mdash; 24 h TTL &middot; Resumable &gt;6 MB (Tus)</span>
+          </div>
+          <button
+            onClick={() => invalidateCacheMutation.mutate()}
+            disabled={invalidateCacheMutation.isPending}
+            className='flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-50 ml-4'
+          >
+            {invalidateCacheMutation.isPending ? (
+              <Loader2 className='w-3 h-3 animate-spin' />
+            ) : (
+              <RotateCcw className='w-3 h-3' />
+            )}
+            Invalidate
+          </button>
+        </div>
       </div>
 
       {showCreateModal && (
@@ -377,6 +467,7 @@ export default function StorageTab({ instanceName }: StorageTabProps) {
           }
         }}
       />
+
     </div>
   );
 }

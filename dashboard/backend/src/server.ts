@@ -56,6 +56,8 @@ import { WebhookService } from './services/WebhookService';
 import { CronService } from './services/CronService';
 import { CustomDomainService } from './services/CustomDomainService';
 import { createDomainRoutes } from './routes/domains';
+import { createVaultRoutes } from './routes/vault';
+import { createSecurityRoutes } from './routes/security';
 import { VectorService } from './services/VectorService';
 import { QueueService } from './services/QueueService';
 
@@ -177,6 +179,8 @@ app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 app.use('/api/orgs', createOrgRoutes());
 app.use('/api/instances/:name/webhooks', createWebhookRoutes(webhookService));
 app.use('/api/instances/:name/domains', createDomainRoutes(customDomainService));
+app.use('/api/instances/:name/vault', createVaultRoutes(instanceManager));
+app.use('/api/instances/:name/security', createSecurityRoutes(instanceManager, PROJECTS_PATH));
 app.use('/api/instances/:name/cron', createCronRoutes(cronService));
 app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
 app.use('/api/instances/:name/queues', createQueueRoutes(queueService));

@@ -183,6 +183,17 @@ export const instancesApi = {
     });
   },
 
+  /** Set or clear the environment label of an instance ('production'|'staging'|'dev'|'preview'|null) */
+  setEnvironment: (
+    name: string,
+    environment: 'production' | 'staging' | 'dev' | 'preview' | null
+  ): Promise<{ success: boolean; name: string; environment: string | null }> => {
+    return fetchApi(`/api/instances/${name}/environment`, {
+      method: 'PATCH',
+      body: JSON.stringify({ environment }),
+    });
+  },
+
   /** Admin-only: assign an existing instance to an organisation (or unassign with null) */
   assignOrg: (name: string, orgId: string | null): Promise<{ success: boolean; name: string; orgId: string | null }> => {
     return fetchApi(`/api/instances/${name}/assign-org`, {
@@ -629,6 +640,62 @@ export const storageApi = {
       body: JSON.stringify({ path, expiresIn }),
     });
   },
+
+  /** Invalidate CDN cache by reloading the nginx gateway */
+  invalidateCache: (instanceName: string): Promise<{ success: boolean; message: string }> =>
+    fetchApi(`/api/instances/${instanceName}/storage/cache/invalidate`, { method: 'POST' }),
+};
+
+// Vault Secrets API
+export const vaultApi = {
+  list: (instanceName: string): Promise<{ secrets: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/vault`),
+
+  add: (
+    instanceName: string,
+    secretName: string,
+    value: string,
+    description?: string
+  ): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vault`, {
+      method: 'POST',
+      body: JSON.stringify({ secretName, value, description }),
+    }),
+
+  reveal: (instanceName: string, id: string): Promise<{ value: string | null }> =>
+    fetchApi(`/api/instances/${instanceName}/vault/${id}/reveal`),
+
+  update: (instanceName: string, id: string, value: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vault/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ value }),
+    }),
+
+  remove: (instanceName: string, id: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/vault/${id}`, { method: 'DELETE' }),
+};
+
+// Security / Network Restrictions API
+export interface SecurityConfig {
+  sslOnly: boolean;
+  ipWhitelistEnabled: boolean;
+  ipWhitelist: string;
+  rateLimitEnabled: boolean;
+  rateLimitRpm: number;
+}
+
+export const securityApi = {
+  get: (instanceName: string): Promise<SecurityConfig> =>
+    fetchApi(`/api/instances/${instanceName}/security`),
+
+  update: (
+    instanceName: string,
+    config: Partial<SecurityConfig>
+  ): Promise<{ success: boolean; message: string }> =>
+    fetchApi(`/api/instances/${instanceName}/security`, {
+      method: 'PATCH',
+      body: JSON.stringify(config),
+    }),
 };
 
 // =====================================================

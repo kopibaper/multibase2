@@ -3,6 +3,7 @@ import { StorageService } from '../services/StorageService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import multer from 'multer';
+import { reloadNginxGateway } from '../services/NginxGatewayGenerator';
 
 const upload = multer();
 
@@ -124,6 +125,17 @@ export function createStorageRoutes(storageService: StorageService) {
     } catch (error: any) {
       logger.error(`Error creating signed url for ${req.params.name}:`, error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Invalidate CDN cache for this instance (reloads nginx gateway)
+  router.post('/cache/invalidate', requireAuth, async (req, res) => {
+    try {
+      await reloadNginxGateway();
+      return res.json({ success: true, message: 'CDN cache invalidated — nginx reloaded.' });
+    } catch (error: any) {
+      logger.error(`Error invalidating cache for ${req.params.name}:`, error);
+      return res.status(500).json({ error: error.message || 'Failed to invalidate cache' });
     }
   });
 

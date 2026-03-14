@@ -59,6 +59,11 @@ export function createInstanceRoutes(
       // Get all instances from filesystem
       const allInstances = await instanceManager.listInstances();
 
+      // Enrich all instances with environment label from DB
+      const allEnvRecords = await prisma.instance.findMany({ select: { name: true, environment: true } });
+      const envLabelMap = new Map(allEnvRecords.map((r) => [r.name, r.environment ?? null]));
+      allInstances.forEach((inst) => { (inst as any).environment = envLabelMap.get(inst.name) ?? null; });
+
       // Admin with no org header → return everything
       if (isAdmin && !orgId) {
         // Enrich with diskUsedMB in parallel
@@ -213,6 +218,10 @@ export function createInstanceRoutes(
         instance.metrics.diskUsedMB =
           (await metricsCollector.getDiskUsageForInstance(name)) ?? undefined;
       }
+
+      // Enrich with environment label from DB
+      const dbRecord = await prisma.instance.findFirst({ where: { name }, select: { environment: true } });
+      (instance as any).environment = dbRecord?.environment ?? null;
 
       return res.json(instance);
     } catch (error: any) {
@@ -676,6 +685,44 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error executing SQL for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to execute SQL' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/instances/:name/environment
+   * Set or clear the environment label of an instance.
+   * Body: { environment: 'production' | 'staging' | 'dev' | 'preview' | null }
+   */
+  router.patch(
+    '/:name/environment',
+    requireUser,
+    auditLog('INSTANCE_SET_ENVIRONMENT', { includeBody: true }),
+    async (req: Request, res: Response): Promise<any> => {
+      try {
+        const { name } = req.params;
+        const { environment } = req.body as { environment: string | null };
+
+        const VALID_ENVS = ['production', 'staging', 'dev', 'preview', null];
+        if (!VALID_ENVS.includes(environment)) {
+          return res.status(400).json({
+            error: `Invalid environment. Must be one of: ${VALID_ENVS.filter(Boolean).join(', ')}, or null`,
+          });
+        }
+
+        const updated = await prisma.instance.updateMany({
+          where: { name },
+          data: { environment: environment ?? null },
+        });
+
+        if (updated.count === 0) {
+          return res.status(404).json({ error: 'Instance not found in database' });
+        }
+
+        return res.json({ success: true, name, environment: environment ?? null });
+      } catch (error: any) {
+        logger.error(`Error setting environment for instance ${req.params.name}:`, error);
+        return res.status(500).json({ error: error.message || 'Failed to set environment label' });
       }
     }
   );

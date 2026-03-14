@@ -41,6 +41,7 @@ model Instance {
   basePort    Int
   status      String      // 'running', 'stopped', 'degraded', 'healthy'
   orgId       String?     // Optional: assigned to an organisation
+  environment String?     // 'production' | 'staging' | 'dev' | 'preview' | null
   org         Organisation? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

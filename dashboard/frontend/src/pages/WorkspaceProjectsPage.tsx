@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInstances } from '../hooks/useInstances';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOrg } from '../contexts/OrgContext';
 import OrgSwitcher from '../components/OrgSwitcher';
 import KeysQuickModal from '../components/workspace/KeysQuickModal';
+import { instancesApi } from '../lib/api';
 import {
   Search,
   Plus,
@@ -19,7 +21,11 @@ import {
   AlertCircle,
   XCircle,
   Activity,
+  MoreVertical,
+  Tag,
+  Copy,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { SupabaseInstance } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -53,13 +59,37 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const ENV_CONFIG = {
+  production: { label: 'Production', color: 'bg-red-500/15 text-red-400 border-red-500/20' },
+  staging:    { label: 'Staging',    color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
+  dev:        { label: 'Dev',        color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
+  preview:    { label: 'Preview',    color: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
+} as const;
+
+function EnvironmentBadge({ env }: { env: string | null | undefined }) {
+  if (!env) return null;
+  const cfg = ENV_CONFIG[env as keyof typeof ENV_CONFIG];
+  if (!cfg) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.color}`}>
+      <Tag className='w-2.5 h-2.5' />
+      {cfg.label}
+    </span>
+  );
+}
+
 export default function WorkspaceProjectsPage() {
   const navigate = useNavigate();
   const { activeOrg } = useOrg();
   const { data: instances, isLoading } = useInstances();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [keysModal, setKeysModal] = useState<SupabaseInstance | null>(null);
   const [studioActivating, setStudioActivating] = useState<string | null>(null);
+  const [envMenuOpen, setEnvMenuOpen] = useState<string | null>(null); // instance name
+  const [cloneModal, setCloneModal] = useState<{ source: SupabaseInstance; targetEnv: 'staging' | 'dev' } | null>(null);
+  const [cloneName, setCloneName] = useState('');
+  const [cloning, setCloning] = useState(false);
 
   const filtered =
     instances?.filter(
@@ -67,6 +97,39 @@ export default function WorkspaceProjectsPage() {
         i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         i.credentials?.project_url?.toLowerCase().includes(searchQuery.toLowerCase())
     ) ?? [];
+
+  const handleSetEnvironment = async (instance: SupabaseInstance, env: 'production' | 'staging' | 'dev' | 'preview' | null) => {
+    setEnvMenuOpen(null);
+    try {
+      await instancesApi.setEnvironment(instance.name, env);
+      toast.success(env ? `Environment set to "${env}"` : 'Environment label cleared');
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+    } catch (err: any) {
+      toast.error('Failed to set environment', { description: err.message });
+    }
+  };
+
+  const openCloneModal = (source: SupabaseInstance, targetEnv: 'staging' | 'dev') => {
+    setEnvMenuOpen(null);
+    setCloneName(`${source.name}-${targetEnv}`);
+    setCloneModal({ source, targetEnv });
+  };
+
+  const handleClone = async () => {
+    if (!cloneModal || !cloneName.trim()) return;
+    setCloning(true);
+    try {
+      await instancesApi.clone(cloneModal.source.name, cloneName.trim(), { copyEnv: true });
+      await instancesApi.setEnvironment(cloneName.trim(), cloneModal.targetEnv);
+      toast.success(`Cloned as "${cloneName}" (${cloneModal.targetEnv})`);
+      setCloneModal(null);
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+    } catch (err: any) {
+      toast.error('Clone failed', { description: err.message });
+    } finally {
+      setCloning(false);
+    }
+  };
 
   const handleOpenStudio = useCallback(
     async (instance: SupabaseInstance, e: React.MouseEvent) => {
@@ -182,14 +245,65 @@ export default function WorkspaceProjectsPage() {
                     <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
                       <Database className='w-5 h-5 text-brand-400' />
                     </div>
-                    {instance.stackType === 'cloud' && (
-                      <span className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-500/10 text-brand-400'>
-                        <Cloud className='w-3 h-3' /> Cloud
-                      </span>
-                    )}
+                    <div className='flex items-center gap-1.5'>
+                      {instance.stackType === 'cloud' && (
+                        <span className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-500/10 text-brand-400'>
+                          <Cloud className='w-3 h-3' /> Cloud
+                        </span>
+                      )}
+                      {/* Environment context menu */}
+                      <div className='relative' onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setEnvMenuOpen(envMenuOpen === instance.name ? null : instance.name)}
+                          className='p-1 rounded hover:bg-white/10 text-muted-foreground transition-colors'
+                          title='Environment & Clone'
+                        >
+                          <MoreVertical className='w-3.5 h-3.5' />
+                        </button>
+                        {envMenuOpen === instance.name && (
+                          <div className='absolute right-0 top-7 z-20 w-52 bg-popover border border-white/10 rounded-xl shadow-2xl py-1 text-sm animate-in slide-in-from-top-2'>
+                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>Set Environment</div>
+                            {(['production', 'staging', 'dev', 'preview'] as const).map((env) => (
+                              <button
+                                key={env}
+                                onClick={() => handleSetEnvironment(instance, env)}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors ${instance.environment === env ? 'text-brand-400' : ''}`}
+                              >
+                                <Tag className='w-3.5 h-3.5 flex-shrink-0' />
+                                <span className='capitalize'>{env}</span>
+                                {instance.environment === env && <span className='ml-auto text-brand-400'>✓</span>}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => handleSetEnvironment(instance, null)}
+                              className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-muted-foreground'
+                            >
+                              <XCircle className='w-3.5 h-3.5 flex-shrink-0' /> Clear label
+                            </button>
+                            <div className='border-t border-white/5 my-1' />
+                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>Clone As</div>
+                            <button
+                              onClick={() => openCloneModal(instance, 'staging')}
+                              className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors'
+                            >
+                              <Copy className='w-3.5 h-3.5 flex-shrink-0' /> Clone as Staging
+                            </button>
+                            <button
+                              onClick={() => openCloneModal(instance, 'dev')}
+                              className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors'
+                            >
+                              <Copy className='w-3.5 h-3.5 flex-shrink-0' /> Clone as Dev
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <p className='font-semibold text-foreground truncate mb-1'>{instance.name}</p>
+                  <div className='flex items-center gap-2 mb-1'>
+                    <p className='font-semibold text-foreground truncate'>{instance.name}</p>
+                    <EnvironmentBadge env={instance.environment} />
+                  </div>
                   <StatusBadge status={health} />
                   <p className='text-xs text-muted-foreground font-mono truncate mt-2 mb-4'>
                     {instance.credentials?.project_url || 'No URL configured'}
@@ -238,6 +352,53 @@ export default function WorkspaceProjectsPage() {
       </div>
 
       {keysModal && <KeysQuickModal instance={keysModal} onClose={() => setKeysModal(null)} />}
+
+      {/* Overlay to close env menu */}
+      {envMenuOpen && (
+        <div className='fixed inset-0 z-10' onClick={() => setEnvMenuOpen(null)} />
+      )}
+
+      {/* Clone Modal */}
+      {cloneModal && (
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4'>
+          <div className='bg-background border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4 animate-in slide-in-from-top-2'>
+            <h3 className='text-base font-semibold flex items-center gap-2'>
+              <Copy className='w-5 h-5 text-brand-400' />
+              Clone "{cloneModal.source.name}" as {cloneModal.targetEnv}
+            </h3>
+            <p className='text-sm text-muted-foreground'>
+              A full copy of the instance will be created, including all environment variables.
+              The clone will be labelled <strong className='text-foreground'>{cloneModal.targetEnv}</strong>.
+            </p>
+            <div>
+              <label className='text-xs font-medium text-muted-foreground'>New instance name</label>
+              <input
+                type='text'
+                value={cloneName}
+                onChange={(e) => setCloneName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                className='mt-1 w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-400'
+              />
+            </div>
+            <div className='flex gap-2 justify-end pt-1'>
+              <button
+                onClick={() => setCloneModal(null)}
+                disabled={cloning}
+                className='px-3 py-2 text-sm rounded-md hover:bg-white/5 transition-colors'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClone}
+                disabled={cloning || !cloneName.trim()}
+                className='flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50'
+              >
+                {cloning ? <Loader2 className='w-4 h-4 animate-spin' /> : <Copy className='w-4 h-4' />}
+                Clone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

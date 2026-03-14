@@ -29,6 +29,8 @@ import {
   Lock,
   Plug,
   Globe,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import StorageTab from '../components/StorageTab';
 import PoliciesTab from '../components/PoliciesTab';
@@ -42,6 +44,8 @@ import WorkspaceSmtpPanel from '../components/workspace/WorkspaceSmtpPanel';
 import { DatabasePanel } from '../components/workspace/WorkspaceManagerPanel';
 import AuthTab from '../components/AuthTab';
 import DomainsPanel from '../components/workspace/DomainsPanel';
+import VaultPanel from '../components/workspace/VaultPanel';
+import SecurityPanel from '../components/workspace/SecurityPanel';
 import type { SupabaseInstance } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -60,7 +64,9 @@ type TabId =
   | 'keys'
   | 'api'
   | 'auth'
-  | 'domains';
+  | 'domains'
+  | 'vault'
+  | 'security';
 
 const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -78,6 +84,8 @@ const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[
   { id: 'smtp', label: 'SMTP Settings', icon: Mail },
   { id: 'keys', label: 'API Keys', icon: Key },
   { id: 'domains', label: 'Custom Domains', icon: Globe },
+  { id: 'vault', label: 'Vault Secrets', icon: KeyRound },
+  { id: 'security', label: 'Network Security', icon: ShieldCheck },
 ];
 
 function statusInfo(status: string): { color: string; label: string } {
@@ -250,7 +258,7 @@ export default function WorkspaceProjectPage() {
             <OverviewContent instance={instance} onOpenStudio={handleOpenStudio} />
           )}
           {tab === 'database' && <DatabasePanel instanceName={project!} />}
-          {tab === 'storage' && <StorageTab instanceName={project!} />}
+          {tab === 'storage' && <StorageTab instanceName={project!} instance={instance} />}
           {tab === 'policies' && <PoliciesTab instanceName={project!} />}
           {tab === 'functions' && <FunctionsTab instanceName={project!} />}
           {tab === 'webhooks' && <WebhooksTab instanceName={project!} />}
@@ -262,6 +270,8 @@ export default function WorkspaceProjectPage() {
           {tab === 'keys' && <KeysPanel instance={instance} />}
           {tab === 'auth' && <AuthTab instance={instance} />}
           {tab === 'domains' && <DomainsPanel instance={instance} />}
+          {tab === 'vault' && <VaultPanel instanceName={project!} />}
+          {tab === 'security' && <SecurityPanel instanceName={project!} />}
         </div>
       </main>
     </div>
