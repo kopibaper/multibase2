@@ -24,8 +24,11 @@ export function createVaultRoutes(instanceManager: InstanceManager) {
       const { name } = req.params;
       const sql = `SELECT id, name, description, created_at, updated_at FROM vault.secrets ORDER BY created_at DESC`;
       const result = await instanceManager.executeSQL(name, sql);
-      if (result.error) return res.status(500).json({ error: result.error });
-      return res.json({ secrets: result.rows });
+      if (result.error) {
+        // Vault extension not enabled in this instance
+        return res.json({ secrets: [], available: false, error: result.error });
+      }
+      return res.json({ secrets: result.rows, available: true });
     } catch (err: any) {
       logger.error(`vault.list error:`, err);
       return res.status(500).json({ error: err.message });
