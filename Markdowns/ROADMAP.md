@@ -1,7 +1,7 @@
 # Multibase Roadmap — Feature-Vergleich mit Supabase
 
-> Basierend auf einer umfassenden Analyse der Supabase Docs und dem aktuellen Multibase Feature-Stand (v1.0–v1.6).
-> Stand: März 2026 | Letzte Aktualisierung: 14. März 2026
+> Basierend auf einer umfassenden Analyse der Supabase Docs und dem aktuellen Multibase Feature-Stand (v1.0–v1.7).
+> Stand: März 2026 | Letzte Aktualisierung: 17. März 2026
 
 ---
 
@@ -33,6 +33,11 @@
 | Storage: Tus Resumable Uploads + Nginx CDN Cache | ✅ Fertig | **v1.6** |
 | Vault Secrets UI (pgsodium/pg_vault) + Dokumentation | ✅ Fertig | **v1.6** |
 | Network Restrictions (IP-Whitelist, SSL-Enforcement, Rate-Limiting) | ✅ Fertig | **v1.6** |
+| Edge Functions IDE (CodeMirror, TypeScript, Env Vars, Test-Runner) | ✅ Vollständig | **v1.7** |
+| Realtime Dashboard (Config, Live Stats, Active Channels, Quick Connect) | ✅ Vollständig | **v1.7** |
+| Log Drains (Webhook-Export, json/ndjson/logfmt, 30s Polling, Test-Delivery) | ✅ Vollständig | **v1.7** |
+| Read Replicas (Externe PostgreSQL-Registrierung, Status-Monitor, Lag-Anzeige) | ✅ Vollständig | **v1.7** |
+| MCP Server (12 Tools, JSON-RPC 2.0, Claude Desktop / Cursor / VS Code) | ✅ Vollständig | **v1.7** |
 
 ---
 
@@ -327,17 +332,17 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 | 7a | Auth: Social Login | ✅ Fertig | — | ~~v1.6~~ |
 | 8 | Custom Domains | ✅ Fertig | — | ~~v1.6~~ |
 | 9 | Environment-Labels + Clone-Shortcuts | ✅ Fertig | 🟢 Niedrig | **v1.6** |
-| 10 | Read Replicas | 🟡 Mittel | 🔴 Hoch | **v1.7** |
+| 10 | Read Replicas | ✅ Fertig | — | ~~v1.7~~ |
 | 11 | Vault (Secrets) | ✅ Fertig | — | ~~v1.6~~ |
 | 12 | SQL Editor (Basis) | ✅ Fertig | — | ~~v1.5~~ |
 | 12a | SQL Editor (Monaco/History) | 🟠 Niedrig | 🟢 Niedrig | **v1.6** |
-| 13 | Edge Functions IDE | 🟡 Mittel | 🔴 Hoch | **v1.7** |
-| 14 | Log Drains | 🟠 Niedrig | 🟡 Mittel | **v1.7** |
-| 15 | Realtime Dashboard | 🟠 Niedrig | 🟡 Mittel | **v1.7** |
+| 13 | Edge Functions IDE | ✅ Fertig | — | ~~v1.7~~ |
+| 14 | Log Drains | ✅ Fertig | — | ~~v1.7~~ |
+| 15 | Realtime Dashboard | ✅ Fertig | — | ~~v1.7~~ |
 | 16 | Storage CDN/Resumable | ✅ Fertig | 🟡 Mittel | **v1.6** |
 | 17 | Network Restrictions | ✅ Fertig | — | ~~v1.6~~ |
 | 18 | Terraform/IaC | 🟡 Mittel | 🔴 Hoch | **v2.0** |
-| 19 | MCP Server | 🟡 Mittel | 🟡 Mittel | **v1.7** |
+| 19 | MCP Server | ✅ Fertig | — | ~~v1.7~~ |
 | 20 | Management SDK | 🟠 Niedrig | 🟡 Mittel | **v2.0** |
 
 ---
@@ -376,11 +381,11 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 > Fokus: Skalierung, Observability, Ecosystem  
 > Detailplan: [V1.7_IMPLEMENTATION_PLAN.md](V1.7_IMPLEMENTATION_PLAN.md)
 
-- [ ] Edge Functions IDE (CodeMirror + TypeScript + Env Vars + Test-Runner)
-- [ ] Read Replicas (PostgreSQL Streaming Replication UI)
-- [ ] Log Drains (Webhook-basierter Log-Export)
-- [ ] Realtime Dashboard (Channels, Presence, Concurrent Users Config)
-- [ ] MCP Server (Model Context Protocol — AI-Assistenten-Integration)
+- [x] Edge Functions IDE (CodeMirror + TypeScript + Env Vars + Test-Runner) ✅
+- [x] Read Replicas (PostgreSQL Streaming Replication UI) ✅
+- [x] Log Drains (Webhook-basierter Log-Export) ✅
+- [x] Realtime Dashboard (Channels, Presence, Concurrent Users Config) ✅
+- [x] MCP Server (Model Context Protocol — AI-Assistenten-Integration) ✅
 
 ### v2.0 — Platform Maturity
 > Fokus: IaC, SDK, Marketplace
@@ -392,4 +397,4 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 
 ---
 
-*Erstellt: März 2026 | Letzte Aktualisierung: 14. März 2026*
+*Erstellt: März 2026 | Letzte Aktualisierung: 17. März 2026*
