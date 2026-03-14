@@ -81,7 +81,7 @@ function AppContent() {
         {/* Protected Routes with Dashboard Layout */}
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin>
               <DashboardLayout />
             </ProtectedRoute>
           }

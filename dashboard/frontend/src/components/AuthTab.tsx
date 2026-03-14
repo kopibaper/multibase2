@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Globe, Github, Disc, Facebook, Twitter, Box, Mail, Shield, Loader2, Save, FileText } from 'lucide-react';
+import { Globe, Github, Disc, Facebook, Twitter, Box, Mail, Shield, Loader2, Save, CheckCircle, ExternalLink, Key, Building2, Linkedin, Music, Twitch, Video, Slack, FileText, Figma, MessageSquare, Plane } from 'lucide-react';
 import { Switch } from './ui/Switch';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
@@ -20,9 +21,48 @@ const ProviderIcons: Record<string, any> = {
   gitlab: Box,
   bitbucket: Box,
   apple: Box,
+  azure: Building2,
+  linkedin_oidc: Linkedin,
+  spotify: Music,
+  twitch: Twitch,
+  zoom: Video,
+  slack_oidc: Slack,
+  notion: FileText,
+  figma: Figma,
+  keycloak: Key,
+  workos: Shield,
+  kakao: MessageSquare,
+  fly: Plane,
 };
 
-const authProviders = ['google', 'github', 'discord', 'facebook', 'twitter', 'gitlab', 'bitbucket', 'apple'];
+const ProviderLabels: Record<string, string> = {
+  google: 'Google',
+  github: 'GitHub',
+  discord: 'Discord',
+  facebook: 'Facebook',
+  twitter: 'Twitter / X',
+  gitlab: 'GitLab',
+  bitbucket: 'Bitbucket',
+  apple: 'Apple',
+  azure: 'Microsoft Azure',
+  linkedin_oidc: 'LinkedIn',
+  spotify: 'Spotify',
+  twitch: 'Twitch',
+  zoom: 'Zoom',
+  slack_oidc: 'Slack',
+  notion: 'Notion',
+  figma: 'Figma',
+  keycloak: 'Keycloak',
+  workos: 'WorkOS',
+  kakao: 'Kakao',
+  fly: 'Fly.io',
+};
+
+const authProviders = [
+  'google', 'github', 'discord', 'facebook', 'twitter', 'gitlab', 'bitbucket', 'apple',
+  'azure', 'linkedin_oidc', 'spotify', 'twitch', 'zoom', 'slack_oidc', 'notion', 'figma',
+  'keycloak', 'workos', 'kakao', 'fly',
+];
 
 export default function AuthTab({ instance }: AuthTabProps) {
   const queryClient = useQueryClient();
@@ -78,7 +118,7 @@ export default function AuthTab({ instance }: AuthTabProps) {
   return (
     <div className='space-y-8 animate-in fade-in max-w-4xl mx-auto pb-12'>
       {/* Header with Save */}
-      <div className='flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur z-10 py-4 border-b mb-6'>
+      <div className='flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-4 border-b border-white/5 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6'>
         <div>
           <h3 className='text-xl font-semibold'>Authentication Settings</h3>
           <p className='text-sm text-muted-foreground'>Configure GoTrue/Auth providers and security.</p>
@@ -119,8 +159,8 @@ export default function AuthTab({ instance }: AuthTabProps) {
                       <Icon className='w-5 h-5 text-foreground' />
                     </div>
                     <div>
-                      <span className='capitalize font-medium block'>{provider}</span>
-                      <span className='text-xs text-muted-foreground'>SSO Provider</span>
+                      <span className='font-medium block'>{ProviderLabels[provider] ?? provider}</span>
+                      <span className='text-xs text-muted-foreground'>OAuth Provider</span>
                     </div>
                   </div>
                   <Switch checked={isEnabled} onCheckedChange={(c) => updateEnv(`${envPrefix}_ENABLED`, String(c))} />
@@ -156,6 +196,30 @@ export default function AuthTab({ instance }: AuthTabProps) {
                           value={getEnv(`${envPrefix}_REDIRECT_URI`)}
                           onChange={(e) => updateEnv(`${envPrefix}_REDIRECT_URI`, e.target.value)}
                           placeholder='https://your-project.com/auth/v1/callback'
+                        />
+                      </div>
+                    )}
+                    {provider === 'keycloak' && (
+                      <div className='grid gap-1.5'>
+                        <label className='text-xs font-medium text-muted-foreground'>Keycloak URL</label>
+                        <input
+                          type='text'
+                          className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
+                          value={getEnv(`${envPrefix}_URL`)}
+                          onChange={(e) => updateEnv(`${envPrefix}_URL`, e.target.value)}
+                          placeholder='https://keycloak.example.com/realms/myrealm'
+                        />
+                      </div>
+                    )}
+                    {provider === 'workos' && (
+                      <div className='grid gap-1.5'>
+                        <label className='text-xs font-medium text-muted-foreground'>API Key</label>
+                        <input
+                          type='password'
+                          className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
+                          value={getEnv(`GOTRUE_EXTERNAL_WORKOS_API_KEY`)}
+                          onChange={(e) => updateEnv(`GOTRUE_EXTERNAL_WORKOS_API_KEY`, e.target.value)}
+                          placeholder='••••••••'
                         />
                       </div>
                     )}
@@ -200,154 +264,36 @@ export default function AuthTab({ instance }: AuthTabProps) {
             </div>
           </div>
 
-          {/* SMTP Config */}
+          {/* SMTP Status */}
           <div className='glass-card overflow-hidden'>
-            <div className='flex items-center justify-between p-4 bg-secondary/10 border-b border-border'>
+            <div className='flex items-center justify-between p-4'>
               <div className='flex items-center gap-2'>
-                <Mail className='w-4 h-4' />
-                <span className='font-medium text-sm'>Custom SMTP Settings</span>
+                <Mail className='w-4 h-4 text-muted-foreground' />
+                <span className='font-medium text-sm'>Custom SMTP</span>
               </div>
-              <Switch
-                checked={getEnv('GOTRUE_SMTP_HOST') !== ''}
-                onCheckedChange={(c) => {
-                  if (!c) {
-                    updateEnv('GOTRUE_SMTP_HOST', '');
-                  }
-                }}
-              />
-            </div>
-            {getEnv('GOTRUE_SMTP_HOST') !== '' && (
-              <div className='p-4 grid grid-cols-2 gap-4 animate-in slide-in-from-top-2'>
-                <div className='col-span-2'>
-                  <label className='text-xs font-medium'>Sender Email</label>
-                  <input
-                    type='email'
-                    required
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_ADMIN_EMAIL')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_ADMIN_EMAIL', e.target.value)}
-                  />
+              {getEnv('GOTRUE_SMTP_HOST') ? (
+                <div className='flex items-center gap-2'>
+                  <span className='flex items-center gap-1 text-xs text-green-400'>
+                    <CheckCircle className='w-3.5 h-3.5' />
+                    Configured
+                  </span>
+                  <Link
+                    to={`/workspace/projects/${instance.name}/smtp`}
+                    className='flex items-center gap-1 text-xs text-brand-400 hover:underline'
+                  >
+                    Edit <ExternalLink className='w-3 h-3' />
+                  </Link>
                 </div>
-                <div className='col-span-2'>
-                  <label className='text-xs font-medium'>Sender Name</label>
-                  <input
-                    type='text'
-                    required
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_SENDER_NAME')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_SENDER_NAME', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className='text-xs font-medium'>SMTP Host</label>
-                  <input
-                    type='text'
-                    placeholder='smtp.example.com'
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_HOST')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_HOST', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className='text-xs font-medium'>Port</label>
-                  <input
-                    type='number'
-                    placeholder='587'
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_PORT')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_PORT', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className='text-xs font-medium'>User</label>
-                  <input
-                    type='text'
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_USER')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_USER', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className='text-xs font-medium'>Password</label>
-                  <input
-                    type='password'
-                    className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                    value={getEnv('GOTRUE_SMTP_PASS')}
-                    onChange={(e) => updateEnv('GOTRUE_SMTP_PASS', e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Section 3: Email Templates */}
-      <div className='space-y-4'>
-        <div className='flex items-center gap-2 border-b border-border pb-2'>
-          <FileText className='w-5 h-5 text-primary' />
-          <h3 className='font-semibold text-lg'>Email Templates & URLs</h3>
-        </div>
-
-        <div className='glass-card p-4 space-y-4'>
-          <div className='grid gap-1.5'>
-            <label className='text-sm font-medium'>Site URL</label>
-            <input
-              type='text'
-              className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-              value={getEnv('GOTRUE_SITE_URL') || getEnv('API_EXTERNAL_URL')}
-              onChange={(e) => updateEnv('GOTRUE_SITE_URL', e.target.value)}
-              placeholder='https://your-app.com (Base URL for magic links)'
-            />
-            <p className='text-xs text-muted-foreground'>The base URL used for all link generation.</p>
-          </div>
-
-          <div className='grid md:grid-cols-2 gap-4'>
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Confirmation Mail Subject</label>
-              <input
-                type='text'
-                className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                value={getEnv('GOTRUE_MAILER_SUBJECTS_CONFIRMATION')}
-                onChange={(e) => updateEnv('GOTRUE_MAILER_SUBJECTS_CONFIRMATION', e.target.value)}
-                placeholder='Confirm your Email'
-              />
-            </div>
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Recovery Mail Subject</label>
-              <input
-                type='text'
-                className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                value={getEnv('GOTRUE_MAILER_SUBJECTS_RECOVERY')}
-                onChange={(e) => updateEnv('GOTRUE_MAILER_SUBJECTS_RECOVERY', e.target.value)}
-                placeholder='Reset your Password'
-              />
-            </div>
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Invite Mail Subject</label>
-              <input
-                type='text'
-                className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                value={getEnv('GOTRUE_MAILER_SUBJECTS_INVITE')}
-                onChange={(e) => updateEnv('GOTRUE_MAILER_SUBJECTS_INVITE', e.target.value)}
-                placeholder='You have been invited'
-              />
-            </div>
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Magic Link Subject</label>
-              <input
-                type='text'
-                className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
-                value={getEnv('GOTRUE_MAILER_SUBJECTS_MAGIC_LINK')}
-                onChange={(e) => updateEnv('GOTRUE_MAILER_SUBJECTS_MAGIC_LINK', e.target.value)}
-                placeholder='Your Magic Link'
-              />
+              ) : (
+                <Link
+                  to={`/workspace/projects/${instance.name}/smtp`}
+                  className='flex items-center gap-1 text-xs text-brand-400 hover:underline'
+                >
+                  Configure in SMTP Settings <ExternalLink className='w-3 h-3' />
+                </Link>
+              )}
             </div>
           </div>
-          <p className='text-xs text-muted-foreground'>
-            Note: Advanced template content (HTML) must be configured via filesystem or environment variables directly
-            if not using default.
-          </p>
         </div>
       </div>
 
@@ -378,6 +324,223 @@ export default function AuthTab({ instance }: AuthTabProps) {
               onCheckedChange={(c) => updateEnv('GOTRUE_EXTERNAL_PHONE_ENABLED', String(c))}
             />
           </div>
+          {getEnv('GOTRUE_EXTERNAL_PHONE_ENABLED') === 'true' && (
+            <div className='mt-2 pt-3 border-t border-border/50 space-y-4 animate-in slide-in-from-top-2'>
+              <div className='grid gap-1.5'>
+                <label className='text-xs font-medium text-muted-foreground'>SMS Provider</label>
+                <select
+                  className='w-full px-3 py-2 text-sm rounded border border-input bg-background'
+                  value={getEnv('GOTRUE_SMS_PROVIDER') || 'twilio'}
+                  onChange={(e) => updateEnv('GOTRUE_SMS_PROVIDER', e.target.value)}
+                >
+                  <option value='twilio'>Twilio</option>
+                  <option value='vonage'>Vonage</option>
+                  <option value='messagebird'>MessageBird</option>
+                </select>
+              </div>
+
+              {/* Twilio */}
+              {(!getEnv('GOTRUE_SMS_PROVIDER') || getEnv('GOTRUE_SMS_PROVIDER') === 'twilio') && (
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                  <div className='sm:col-span-2'>
+                    <label className='text-xs font-medium text-muted-foreground'>Account SID</label>
+                    <input
+                      type='text'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_TWILIO_ACCOUNT_SID')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_TWILIO_ACCOUNT_SID', e.target.value)}
+                      placeholder='ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                    />
+                  </div>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>Auth Token</label>
+                    <input
+                      type='password'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_TWILIO_AUTH_TOKEN')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_TWILIO_AUTH_TOKEN', e.target.value)}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>Message Service SID</label>
+                    <input
+                      type='text'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID', e.target.value)}
+                      placeholder='MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Vonage */}
+              {getEnv('GOTRUE_SMS_PROVIDER') === 'vonage' && (
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>API Key</label>
+                    <input
+                      type='text'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_VONAGE_API_KEY')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_VONAGE_API_KEY', e.target.value)}
+                      placeholder='your-api-key'
+                    />
+                  </div>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>API Secret</label>
+                    <input
+                      type='password'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_VONAGE_API_SECRET')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_VONAGE_API_SECRET', e.target.value)}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>From Number</label>
+                    <input
+                      type='text'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_VONAGE_FROM')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_VONAGE_FROM', e.target.value)}
+                      placeholder='+15551234567'
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* MessageBird */}
+              {getEnv('GOTRUE_SMS_PROVIDER') === 'messagebird' && (
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>Access Key</label>
+                    <input
+                      type='password'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_MESSAGEBIRD_ACCESS_KEY')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_MESSAGEBIRD_ACCESS_KEY', e.target.value)}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className='text-xs font-medium text-muted-foreground'>Originator</label>
+                    <input
+                      type='text'
+                      className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                      value={getEnv('GOTRUE_SMS_MESSAGEBIRD_ORIGINATOR')}
+                      onChange={(e) => updateEnv('GOTRUE_SMS_MESSAGEBIRD_ORIGINATOR', e.target.value)}
+                      placeholder='MyApp or +15551234567'
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 5: CAPTCHA */}
+      <div className='space-y-4'>
+        <div className='flex items-center gap-2 border-b border-border pb-2'>
+          <Key className='w-5 h-5 text-primary' />
+          <h3 className='font-semibold text-lg'>CAPTCHA</h3>
+        </div>
+        <div className='space-y-3 p-4 glass-card'>
+          <div className='flex items-center justify-between'>
+            <div className='space-y-0.5'>
+              <label className='text-sm font-medium'>Enable CAPTCHA Protection</label>
+              <p className='text-xs text-muted-foreground'>Protect sign-up and sign-in endpoints.</p>
+            </div>
+            <Switch
+              checked={getEnv('GOTRUE_SECURITY_CAPTCHA_ENABLED') === 'true'}
+              onCheckedChange={(c) => updateEnv('GOTRUE_SECURITY_CAPTCHA_ENABLED', String(c))}
+            />
+          </div>
+          {getEnv('GOTRUE_SECURITY_CAPTCHA_ENABLED') === 'true' && (
+            <div className='mt-2 pt-3 border-t border-border/50 space-y-3 animate-in slide-in-from-top-2'>
+              <div>
+                <label className='text-xs font-medium text-muted-foreground'>Provider</label>
+                <select
+                  className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                  value={getEnv('GOTRUE_SECURITY_CAPTCHA_PROVIDER') || 'hcaptcha'}
+                  onChange={(e) => updateEnv('GOTRUE_SECURITY_CAPTCHA_PROVIDER', e.target.value)}
+                >
+                  <option value='hcaptcha'>hCaptcha</option>
+                  <option value='turnstile'>Cloudflare Turnstile</option>
+                </select>
+              </div>
+              <div>
+                <label className='text-xs font-medium text-muted-foreground'>Secret Key</label>
+                <input
+                  type='password'
+                  className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                  value={getEnv('GOTRUE_SECURITY_CAPTCHA_SECRET')}
+                  onChange={(e) => updateEnv('GOTRUE_SECURITY_CAPTCHA_SECRET', e.target.value)}
+                  placeholder='••••••••'
+                />
+              </div>
+              <p className='text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded px-3 py-2'>
+                The <strong>Site Key</strong> must be configured in your frontend application separately.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 6: SAML SSO */}
+      <div className='space-y-4'>
+        <div className='flex items-center gap-2 border-b border-border pb-2'>
+          <Building2 className='w-5 h-5 text-primary' />
+          <h3 className='font-semibold text-lg'>SAML SSO</h3>
+        </div>
+        <div className='space-y-3 p-4 glass-card'>
+          <div className='flex items-center justify-between'>
+            <div className='space-y-0.5'>
+              <label className='text-sm font-medium'>Enable SAML SSO</label>
+              <p className='text-xs text-muted-foreground'>Enterprise Single Sign-On via SAML 2.0.</p>
+            </div>
+            <Switch
+              checked={getEnv('GOTRUE_SAML_ENABLED') === 'true'}
+              onCheckedChange={(c) => updateEnv('GOTRUE_SAML_ENABLED', String(c))}
+            />
+          </div>
+          {getEnv('GOTRUE_SAML_ENABLED') === 'true' && (
+            <div className='mt-2 pt-3 border-t border-border/50 space-y-3 animate-in slide-in-from-top-2'>
+              <div>
+                <label className='text-xs font-medium text-muted-foreground'>IdP Metadata URL</label>
+                <input
+                  type='url'
+                  className='w-full mt-1 px-3 py-2 text-sm rounded border border-input bg-background'
+                  value={getEnv('GOTRUE_SAML_METADATA_URL')}
+                  onChange={(e) => updateEnv('GOTRUE_SAML_METADATA_URL', e.target.value)}
+                  placeholder='https://your-idp.com/metadata.xml'
+                />
+              </div>
+              <div>
+                <label className='text-xs font-medium text-muted-foreground'>RSA Private Key (PEM)</label>
+                <textarea
+                  rows={5}
+                  className='w-full mt-1 px-3 py-2 text-xs font-mono rounded border border-input bg-background resize-none'
+                  value={getEnv('GOTRUE_SAML_PRIVATE_KEY')}
+                  onChange={(e) => updateEnv('GOTRUE_SAML_PRIVATE_KEY', e.target.value)}
+                  placeholder='-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----'
+                />
+              </div>
+              <p className='text-xs text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded px-3 py-2'>
+                Requires GoTrue v2.x with SAML support enabled.{' '}
+                <a
+                  href='https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-brand-400 hover:underline inline-flex items-center gap-1'
+                >
+                  Documentation <ExternalLink className='w-3 h-3' />
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

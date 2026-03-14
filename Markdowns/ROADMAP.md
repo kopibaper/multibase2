@@ -1,7 +1,7 @@
 # Multibase Roadmap — Feature-Vergleich mit Supabase
 
-> Basierend auf einer umfassenden Analyse der Supabase Docs und dem aktuellen Multibase Feature-Stand (v1.0–v1.4).
-> Stand: März 2026
+> Basierend auf einer umfassenden Analyse der Supabase Docs und dem aktuellen Multibase Feature-Stand (v1.0–v1.6).
+> Stand: März 2026 | Letzte Aktualisierung: 14. März 2026
 
 ---
 
@@ -21,6 +21,18 @@
 | Workspace Page (Studio, API Keys, SMTP) | ✅ Vollständig | v1.3 |
 | Multi-Tenancy / Organisationen / RBAC | ✅ Vollständig | v1.4 |
 | One-Click Install + SSL + PM2 | ✅ Vollständig | v1.0+ |
+| GraphQL API Playground (pg_graphql) | ✅ Vollständig | v1.5 |
+| Database Webhooks (pg_net) | ✅ Vollständig | v1.5 |
+| Cron Job Manager (pg_cron) | ✅ Vollständig | v1.5 |
+| AI & Vectors — pgvector (Extensions, Columns, Indexes, Search) | ✅ Vollständig | v1.5 |
+| Message Queues (pgmq) | ✅ Vollständig | v1.5 |
+| Workspace Redesign (3-Level-Nav, Org-Auswahl, Projekt-Grid, Sidebar) | ✅ Vollständig | v1.5 |
+| Auth-Tab im Workspace + Auth-Erweiterungen (Phone/CAPTCHA/SAML/Templates) | ✅ Vollständig | **v1.6** |
+| Custom Domains pro Tenant (DNS-Check + Certbot) | ✅ Vollständig | **v1.6** |
+| Environment-Labels (Production/Staging/Dev) + Clone-Shortcuts | 🔄 Geplant | **v1.6** |
+| Storage: Tus Resumable Uploads + Nginx CDN Cache | 🔄 Geplant | **v1.6** |
+| Vault Secrets UI (pgsodium/pg_vault) + Dokumentation | 🔄 Geplant | **v1.6** |
+| Network Restrictions (IP-Whitelist, SSL-Enforcement, Rate-Limiting) | 🔄 Geplant | **v1.6** |
 
 ---
 
@@ -305,16 +317,16 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 
 | # | Feature | Impact | Aufwand | Version |
 |---|---------|--------|---------|---------|
-| 1 | GraphQL API Playground (pg_graphql) | 🟢 Hoch | 🟢 Niedrig | **v1.5** |
-| 2 | Database Webhooks (pg_net) | 🟢 Hoch | 🟢 Niedrig | **v1.5** |
-| 3 | Cron Job Manager (pg_cron) | 🟢 Hoch | 🟡 Mittel | **v1.5** |
-| 4 | Message Queues (pgmq) | 🟡 Mittel | 🟡 Mittel | **v1.5** |
+| 1 | GraphQL API Playground (pg_graphql) | ✅ Fertig | — | ~~v1.5~~ |
+| 2 | Database Webhooks (pg_net) | ✅ Fertig | — | ~~v1.5~~ |
+| 3 | Cron Job Manager (pg_cron) | ✅ Fertig | — | ~~v1.5~~ |
+| 4 | Message Queues (pgmq) | ✅ Fertig | — | ~~v1.5~~ |
 | 5 | RLS Policy Editor | ✅ Fertig | — | ~~v1.5~~ |
-| 6 | AI & Vectors (pgvector) | 🟣 Sehr hoch | 🟡 Mittel | **v1.5** |
+| 6 | AI & Vectors (pgvector) | ✅ Fertig | — | ~~v1.5~~ |
 | 7 | Auth: Phone/SSO/CAPTCHA | 🟡 Mittel | 🟡 Mittel | **v1.6** |
 | 7a | Auth: Social Login | ✅ Fertig | — | ~~v1.6~~ |
 | 8 | Custom Domains | 🟢 Hoch | 🟡 Mittel | **v1.6** |
-| 9 | Branching/Environments | 🟡 Mittel | 🔴 Hoch | **v1.6** |
+| 9 | Environment-Labels + Clone-Shortcuts | 🟡 Mittel | 🟢 Niedrig | **v1.6** |
 | 10 | Read Replicas | 🟡 Mittel | 🔴 Hoch | **v1.7** |
 | 11 | Vault (Secrets) | 🟡 Mittel | 🟢 Niedrig | **v1.6** |
 | 12 | SQL Editor (Basis) | ✅ Fertig | — | ~~v1.5~~ |
@@ -332,27 +344,33 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 
 ## Release-Plan
 
-### v1.5 — Quick Wins + Differenzierung
+### v1.5 — Quick Wins + Differenzierung ✅ Abgeschlossen
 > Fokus: Postgres-Extensions freischalten + Developer Experience
 
 - [x] ~~SQL Editor im Dashboard~~ ✅ Quick SQL Editor in `SupabaseManager.tsx` vorhanden
 - [x] ~~RLS Policy Editor~~ ✅ Vollständig implementiert (`PoliciesTab` + `CreatePolicyModal`)
 - [x] ~~Social Auth Config~~ ✅ Google, GitHub, Discord etc. in `AuthTab.tsx` konfigurierbar
-- [ ] GraphQL API Playground + Routing pro Tenant
-- [ ] Database Webhooks UI (pg_net)
-- [ ] Cron Job Manager (pg_cron) — allgemeine DB-Jobs, nicht nur Backups
-- [ ] AI & Vectors (pgvector) Modul
-- [ ] Message Queues UI (pgmq)
+- [x] GraphQL API Playground + Routing pro Tenant (`ApiTab.tsx` — Status, Endpoint, Copy-Button)
+- [x] Database Webhooks UI (`WebhooksTab`, `CreateWebhookModal`, `WebhookService`, `pg_net`)
+- [x] Cron Job Manager (`CronJobsTab`, `CreateCronJobModal`, `CronService`, `pg_cron`)
+- [x] AI & Vectors (`VectorsTab`, `CreateVectorColumnModal`, `VectorService`, `pgvector`)
+- [x] Message Queues (`QueuesTab`, `CreateQueueModal`, `QueueService`, `pgmq`)
+- [x] Workspace Redesign — 3-Level-Navigation:
+  - `/workspace` → Org-Karten-Grid (`WorkspaceOrgsPage`)
+  - `/workspace/projects` → Projekt-Card-Grid mit OrgSwitcher (`WorkspaceProjectsPage`)
+  - `/workspace/projects/:project/:tab` → Fixed Sidebar mit allen Manager-Tabs (`WorkspaceProjectPage`)
 
 ### v1.6 — Enterprise & Agenturen
 > Fokus: White-Labeling, Security, Auth-Erweiterungen
+> Detailplan: [V1.6_IMPLEMENTATION_PLAN.md](V1.6_IMPLEMENTATION_PLAN.md)
 
-- [ ] Auth Config: Phone Login, Magic Link Templates, SAML SSO, CAPTCHA
-- [ ] Custom Domains pro Tenant
-- [ ] Vault/Secrets Management
-- [ ] Network Restrictions & SSL Enforcement
-- [ ] Storage CDN + Resumable Uploads
-- [ ] Branching/Environments
+- [ ] Auth-Tab in Workspace Sidebar einbinden + aus InstanceDetail entfernen
+- [ ] Auth-Erweiterungen: Phone Login (Twilio/MessageBird/Vonage Konfig), CAPTCHA (hCaptcha/Turnstile), Magic Link HTML-Template-Bodies, SAML SSO
+- [x] Custom Domains pro Tenant (DNS-CNAME-Check + Certbot SSL + Nginx-Konfig)
+- [ ] Environment-Labels (production/staging/dev/preview) + "Clone as Staging/Dev" Shortcuts
+- [ ] Storage: Tus Resumable Uploads (>6 MB) + Nginx CDN Cache-Header für public Buckets
+- [ ] Vault Secrets UI — CRUD auf `vault.secrets` (pgsodium) + Dokumentationsseite
+- [ ] Network Restrictions: IP-Whitelist, SSL-Only Enforcement, Rate-Limiting pro Instanz
 
 ### v1.7 — Scale & Ecosystem
 > Fokus: Skalierung, Observability, Ecosystem
@@ -373,4 +391,4 @@ Supabase bietet offizielle SDKs für JavaScript, Flutter, Python, C#, Swift, Kot
 
 ---
 
-*Erstellt: März 2026 | Letzte Aktualisierung: März 2026*
+*Erstellt: März 2026 | Letzte Aktualisierung: 14. März 2026*

@@ -10,7 +10,7 @@ name: supabase
 services:
   studio:
     container_name: supabase-studio
-    image: supabase/studio:2026.02.16-sha-26c615c
+    image: supabase/studio:latest
     restart: unless-stopped
     ports:
       - ${STUDIO_PORT}:3000
@@ -55,7 +55,7 @@ services:
 
   kong:
     container_name: supabase-kong
-    image: kong:2.8.1
+    image: kong:latest
     restart: unless-stopped
     ports:
       - ${KONG_HTTP_PORT}:8000/tcp
@@ -158,7 +158,7 @@ services:
 
   rest:
     container_name: supabase-rest
-    image: postgrest/postgrest:v14.5
+    image: postgrest/postgrest:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -179,7 +179,7 @@ services:
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.76.5
+    image: supabase/realtime:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -224,7 +224,7 @@ services:
   # To use S3 backed storage: docker compose -f docker-compose.yml -f docker-compose.s3.yml up
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v1.37.8
+    image: supabase/storage-api:latest
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -259,7 +259,7 @@ services:
 
   imgproxy:
     container_name: supabase-imgproxy
-    image: darthsim/imgproxy:v3.30.1
+    image: darthsim/imgproxy:latest
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -313,7 +313,7 @@ services:
 
   analytics:
     container_name: supabase-analytics
-    image: supabase/logflare:1.31.2
+    image: supabase/logflare:latest
     restart: unless-stopped
     ports:
       - ${ANALYTICS_PORT}:4000

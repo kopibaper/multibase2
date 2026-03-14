@@ -21,7 +21,6 @@ import {
   FileText,
   Key,
   Trash2,
-  Lock,
   Database,
   Mail,
   Settings,
@@ -35,7 +34,6 @@ import MetricsTab from '../components/MetricsTab';
 import LogsTab from '../components/LogsTab';
 import CredentialsTab from '../components/CredentialsTab';
 import SmtpTab from '../components/SmtpTab';
-import AuthTab from '../components/AuthTab';
 import DatabaseTab from '../components/DatabaseTab';
 import ApiTab from '../components/ApiTab';
 import StorageSettingsTab from '../components/StorageSettingsTab';
@@ -54,7 +52,6 @@ type TabType =
   | 'logs'
   | 'credentials'
   | 'database'
-  | 'auth'
   | 'api'
   | 'storage'
   | 'smtp'
@@ -132,7 +129,6 @@ export default function InstanceDetail() {
     { id: 'logs' as TabType, label: 'Logs', icon: FileText },
     { id: 'credentials' as TabType, label: 'Credentials', icon: Key },
     { id: 'database' as TabType, label: 'Database', icon: Database },
-    { id: 'auth' as TabType, label: 'Authentication', icon: Lock },
     { id: 'api' as TabType, label: 'API & Realtime', icon: Server },
     { id: 'storage' as TabType, label: 'Storage', icon: Database },
     { id: 'smtp' as TabType, label: 'SMTP', icon: Mail },
@@ -290,7 +286,6 @@ export default function InstanceDetail() {
         {activeTab === 'logs' && <LogsTab instance={instance} />}
         {activeTab === 'credentials' && <CredentialsTab instance={instance} />}
         {activeTab === 'database' && <DatabaseTab instance={instance} />}
-        {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
         {activeTab === 'storage' && <StorageSettingsTab instance={instance} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}

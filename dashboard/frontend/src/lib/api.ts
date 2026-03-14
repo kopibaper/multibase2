@@ -814,3 +814,39 @@ export const queuesApi = {
   getMetrics: (instanceName: string, queueName: string): Promise<{ metrics: any }> =>
     fetchApi(`/api/instances/${instanceName}/queues/${queueName}/metrics`),
 };
+
+// =====================================================
+// Custom Domains API
+// =====================================================
+export const domainsApi = {
+  list: (instanceName: string): Promise<{ domains: any[] }> =>
+    fetchApi(`/api/instances/${instanceName}/domains`),
+
+  add: (instanceName: string, domain: string): Promise<any> =>
+    fetchApi(`/api/instances/${instanceName}/domains`, {
+      method: 'POST',
+      body: JSON.stringify({ domain }),
+    }),
+
+  checkDns: (instanceName: string, domain: string): Promise<{ verified: boolean; message: string }> =>
+    fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/check-dns`, {
+      method: 'POST',
+    }),
+
+  activateSsl: (instanceName: string, domain: string, adminEmail: string): Promise<{ success: boolean; message: string }> =>
+    fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/activate-ssl`, {
+      method: 'POST',
+      body: JSON.stringify({ adminEmail }),
+    }),
+
+  manualActivate: (instanceName: string, domain: string, certDir?: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/manual-activate`, {
+      method: 'POST',
+      body: JSON.stringify({ certDir }),
+    }),
+
+  remove: (instanceName: string, domain: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}`, {
+      method: 'DELETE',
+    }),
+};

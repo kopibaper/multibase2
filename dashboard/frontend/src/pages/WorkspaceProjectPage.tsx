@@ -28,6 +28,7 @@ import {
   EyeOff,
   Lock,
   Plug,
+  Globe,
 } from 'lucide-react';
 import StorageTab from '../components/StorageTab';
 import PoliciesTab from '../components/PoliciesTab';
@@ -39,6 +40,8 @@ import QueuesTab from '../components/QueuesTab';
 import ApiTab from '../components/ApiTab';
 import WorkspaceSmtpPanel from '../components/workspace/WorkspaceSmtpPanel';
 import { DatabasePanel } from '../components/workspace/WorkspaceManagerPanel';
+import AuthTab from '../components/AuthTab';
+import DomainsPanel from '../components/workspace/DomainsPanel';
 import type { SupabaseInstance } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -55,10 +58,13 @@ type TabId =
   | 'queues'
   | 'smtp'
   | 'keys'
-  | 'api';
+  | 'api'
+  | 'auth'
+  | 'domains';
 
 const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'auth', label: 'Authentication', icon: Lock },
   { id: 'database', label: 'Database', icon: Database },
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'policies', label: 'RLS Policies', icon: Shield },
@@ -71,6 +77,7 @@ const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[
   null,
   { id: 'smtp', label: 'SMTP Settings', icon: Mail },
   { id: 'keys', label: 'API Keys', icon: Key },
+  { id: 'domains', label: 'Custom Domains', icon: Globe },
 ];
 
 function statusInfo(status: string): { color: string; label: string } {
@@ -253,6 +260,8 @@ export default function WorkspaceProjectPage() {
           {tab === 'api' && <ApiTab instance={instance} />}
           {tab === 'smtp' && <WorkspaceSmtpPanel instance={instance} />}
           {tab === 'keys' && <KeysPanel instance={instance} />}
+          {tab === 'auth' && <AuthTab instance={instance} />}
+          {tab === 'domains' && <DomainsPanel instance={instance} />}
         </div>
       </main>
     </div>

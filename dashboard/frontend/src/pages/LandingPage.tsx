@@ -38,7 +38,7 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: any; title: str
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
 
@@ -80,13 +80,15 @@ const LandingPage = () => {
             {user ? (
               <>
                 <SupabaseButton onClick={() => navigate('/workspace')}>Workspace</SupabaseButton>
-                <SupabaseButton
-                  variant='ghost'
-                  onClick={() => navigate('/dashboard')}
-                  className='text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20'
-                >
-                  Dashboard
-                </SupabaseButton>
+                {isAdmin && (
+                  <SupabaseButton
+                    variant='ghost'
+                    onClick={() => navigate('/dashboard')}
+                    className='text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20'
+                  >
+                    Dashboard
+                  </SupabaseButton>
+                )}
               </>
             ) : (
               <>

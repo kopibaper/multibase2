@@ -54,6 +54,8 @@ import { createVectorRoutes } from './routes/vectors';
 import { createQueueRoutes } from './routes/queues';
 import { WebhookService } from './services/WebhookService';
 import { CronService } from './services/CronService';
+import { CustomDomainService } from './services/CustomDomainService';
+import { createDomainRoutes } from './routes/domains';
 import { VectorService } from './services/VectorService';
 import { QueueService } from './services/QueueService';
 
@@ -143,6 +145,7 @@ const storageService = new StorageService(instanceManager);
 const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
 const webhookService = new WebhookService(instanceManager);
 const cronService = new CronService(instanceManager);
+const customDomainService = new CustomDomainService(prisma, PROJECTS_PATH);
 const vectorService = new VectorService(instanceManager);
 const queueService = new QueueService(instanceManager);
 
@@ -173,6 +176,7 @@ app.use('/api/instances/:name/functions', createFunctionRoutes(functionService))
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
 app.use('/api/orgs', createOrgRoutes());
 app.use('/api/instances/:name/webhooks', createWebhookRoutes(webhookService));
+app.use('/api/instances/:name/domains', createDomainRoutes(customDomainService));
 app.use('/api/instances/:name/cron', createCronRoutes(cronService));
 app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
 app.use('/api/instances/:name/queues', createQueueRoutes(queueService));
