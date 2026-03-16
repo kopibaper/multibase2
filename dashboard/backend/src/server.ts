@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
+import { version } from '../package.json';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -235,7 +236,7 @@ app.get('/api/ping', async (_req, res) => {
 app.get('/', (_req, res) => {
   res.json({
     name: 'Multibase Dashboard API',
-    version: '1.0.0',
+    version,
     status: 'running',
   });
 });
