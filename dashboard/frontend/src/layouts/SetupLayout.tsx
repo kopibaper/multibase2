@@ -124,6 +124,15 @@ export default function SetupLayout({}: SetupLayoutProps) {
             <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText}>
               v1.4 Released
             </SidebarLink>
+            <SidebarLink to='/setup/features/roadmap-1.5' icon={FileText}>
+              v1.5 Released
+            </SidebarLink>
+            <SidebarLink to='/setup/features/roadmap-1.6' icon={FileText}>
+              v1.6 Released
+            </SidebarLink>
+            <SidebarLink to='/setup/features/roadmap-1.7' icon={FileText}>
+              v1.7 Released
+            </SidebarLink>
             <SidebarLink to='/setup/reference/multi-tenancy' icon={Building2}>
               Multi-Tenancy
             </SidebarLink>

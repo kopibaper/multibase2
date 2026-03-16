@@ -1,10 +1,99 @@
-# Multibase Dashboard Management Scripts
+# Scripts Reference
 
-Comprehensive service management scripts for the Multibase Dashboard.
+All operational scripts for managing Multibase in production and development.
 
-## Scripts Overview
+> The old dev helper scripts (`launch.sh`, `stop.sh`, `status.sh`, `start.ps1`) have been archived. Production runs via **PM2 + Nginx**, local dev via `npm run dev`.
 
-### 🚀 launch.sh
+---
+
+## 🏗️ setup_shared.py
+
+Initialise and manage the Shared Infrastructure stack.
+
+```bash
+python setup_shared.py init           # First-time setup
+python setup_shared.py init --force   # Force reinit
+python setup_shared.py start          # Start shared stack
+python setup_shared.py stop           # Stop shared stack
+python setup_shared.py status         # Status of all 8 services
+python setup_shared.py create-db <name>  # Create tenant DB
+python setup_shared.py drop-db <name>    # Drop tenant DB
+python setup_shared.py list-dbs          # List all tenant DBs
+```
+
+---
+
+## 🐍 supabase_manager.py
+
+CLI for tenant project lifecycle management.
+
+```bash
+# Shared infrastructure
+python supabase_manager.py shared-start
+python supabase_manager.py shared-stop
+python supabase_manager.py shared-status
+
+# Tenant projects
+python supabase_manager.py create <name> [--base-port 8100]
+python supabase_manager.py start <name>
+python supabase_manager.py stop <name> [--keep-volumes]
+python supabase_manager.py reset <name>
+python supabase_manager.py status <name>
+python supabase_manager.py list
+```
+
+---
+
+## 🚀 deployment/install.sh
+
+Fully automated production install on Ubuntu/Debian VPS:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/main/deployment/install.sh | sudo bash
+```
+
+Installs Node.js, Docker, PM2, Nginx, Certbot — configures everything end-to-end.
+
+---
+
+## 🗑️ deployment/uninstall.sh
+
+Complete removal from the server:
+
+```bash
+sudo bash deployment/uninstall.sh
+```
+
+---
+
+## 🩹 shared/studio-patches/apply-patches.sh
+
+Applies multi-tenant patches to the Studio container. Runs automatically during `setup_shared.py init`.
+
+---
+
+## 🛠️ Common Maintenance Commands
+
+```bash
+# PM2 (backend)
+pm2 list
+pm2 logs multibase-backend
+pm2 restart multibase-backend
+
+# Docker Compose (shared stack)
+docker compose -f shared/docker-compose.shared.yml --env-file shared/.env.shared --project-name multibase-shared up -d
+
+# Prisma (database)
+cd dashboard/backend && npx prisma migrate deploy
+
+# Local development
+cd dashboard/backend && npm run dev    # Terminal 1
+cd dashboard/frontend && npm run dev  # Terminal 2
+```
+
+---
+
+*Alte Scripts (launch.sh, stop.sh, status.sh, start.ps1) → `_ARCHIVE/`*
 **Purpose**: Start all services in the correct order with health checks and validation.
 
 **Usage**:

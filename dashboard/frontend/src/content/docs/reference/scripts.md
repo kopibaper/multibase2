@@ -1,10 +1,221 @@
-# Multibase Dashboard Management Scripts
+---
+title: Scripts Reference
+description: All operational Python and shell scripts for managing Multibase in production
+---
 
-Comprehensive service management scripts for the Multibase Dashboard.
+# Scripts Reference
 
-## Scripts Overview
+This page covers all operational scripts included with Multibase. The old dev-only shell scripts (`launch.sh`, `stop.sh`, `status.sh`) have been superseded by **PM2** (production) and `npm run dev` (local development).
 
-### 🚀 launch.sh
+> For PM2 management see [PM2 Configuration](/setup/configuration/pm2).  
+> For initial server setup see [Single Server Deployment](/setup/deployment/single-server).
+
+---
+
+## 🏗️ setup_shared.py
+
+**Location:** `setup_shared.py` (project root)  
+**Purpose:** Initialise and manage the Shared Infrastructure stack (PostgreSQL, Studio, Analytics, Vector, imgproxy, Pooler, Meta, Nginx Gateway).
+
+### Commands
+
+```bash
+# First-time setup — generates secrets, writes .env.shared, starts the stack
+python setup_shared.py init
+
+# Force reinitialise (overwrites existing config)
+python setup_shared.py init --force
+
+# Start the shared stack
+python setup_shared.py start
+
+# Stop the shared stack
+python setup_shared.py stop
+
+# Show status of all 8 shared services
+python setup_shared.py status
+
+# Create a new tenant database in the shared PostgreSQL
+python setup_shared.py create-db <project-name>
+
+# Drop a tenant database
+python setup_shared.py drop-db <project-name>
+
+# List all tenant databases
+python setup_shared.py list-dbs
+```
+
+### What `init` does
+
+1. Generates secure random secrets (JWT, DB passwords, API keys)
+2. Writes `shared/.env.shared` with all generated values
+3. Starts the Docker Compose shared stack (`shared/docker-compose.shared.yml`)
+4. Provisions shared services (Nginx gateway config, Vector config, etc.)
+
+---
+
+## 🐍 supabase_manager.py
+
+**Location:** `supabase_manager.py` (project root)  
+**Purpose:** CLI for managing individual tenant projects (lightweight Supabase instances that use the shared infrastructure).
+
+> This script is also called internally by the Node.js backend when creating/deleting projects via the Dashboard UI.
+
+### Shared Infrastructure Commands
+
+```bash
+# Start shared stack
+python supabase_manager.py shared-start
+
+# Stop shared stack
+python supabase_manager.py shared-stop
+
+# Show shared infrastructure status
+python supabase_manager.py shared-status
+```
+
+### Tenant Project Commands
+
+```bash
+# Create a new tenant project (auto-assigns ports)
+python supabase_manager.py create <project-name>
+
+# Create with specific base port
+python supabase_manager.py create <project-name> --base-port 8100
+
+# Start a project
+python supabase_manager.py start <project-name>
+
+# Start with verbose output
+python supabase_manager.py start <project-name> --verbose
+
+# Stop a project
+python supabase_manager.py stop <project-name>
+
+# Stop but keep volumes (data preserved)
+python supabase_manager.py stop <project-name> --keep-volumes
+
+# Reset a project (recreates containers, keeps data)
+python supabase_manager.py reset <project-name>
+
+# Check status of a project
+python supabase_manager.py status <project-name>
+
+# List all tenant projects
+python supabase_manager.py list
+```
+
+### Port Assignment
+
+Projects are assigned a block of ports starting from `8000` (incrementing by 10). The `--base-port` flag overrides auto-assignment. Port registry is derived by scanning `projects/*/  .env` at runtime.
+
+---
+
+## 🚀 deployment/install.sh
+
+**Location:** `deployment/install.sh`  
+**Purpose:** Fully automated production installation on a fresh Ubuntu/Debian VPS. Run once as root.
+
+```bash
+# Remote one-liner (recommended)
+curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/main/deployment/install.sh | sudo bash
+
+# Or clone first and run locally
+sudo bash deployment/install.sh
+```
+
+**What it does:**
+- Installs Node.js, Docker, PM2, Nginx, Certbot
+- Clones the repository to `/opt/multibase`
+- Runs `npm install` + `npm run build` for backend and frontend
+- Configures Nginx to serve the frontend and proxy the API
+- Starts Redis as a Docker container
+- Starts the backend via PM2 with auto-restart on reboot
+- Runs an interactive wizard for domain, SSL, and admin account setup
+
+---
+
+## 🗑️ deployment/uninstall.sh
+
+**Location:** `deployment/uninstall.sh`  
+**Purpose:** Completely removes Multibase from a server.
+
+```bash
+sudo bash deployment/uninstall.sh
+```
+
+Removes the PM2 process, Nginx config, Redis container, and optionally the `/opt/multibase` directory.
+
+---
+
+## 🩹 shared/studio-patches/apply-patches.sh
+
+**Location:** `shared/studio-patches/apply-patches.sh`  
+**Purpose:** Applies patches to the Supabase Studio container to enable multi-tenant support (custom API URL per tenant).
+
+```bash
+bash shared/studio-patches/apply-patches.sh
+```
+
+This runs automatically during `setup_shared.py init` and after shared stack updates.
+
+---
+
+## 🛠️ Common Maintenance Commands
+
+### Backend (PM2)
+
+```bash
+pm2 list                          # Show all processes
+pm2 logs multibase-backend        # Tail live logs
+pm2 restart multibase-backend     # Restart backend
+pm2 reload multibase-backend      # Zero-downtime reload
+pm2 status                        # Health overview
+```
+
+### Shared Stack (Docker Compose)
+
+```bash
+# Start/stop shared services
+docker compose -f shared/docker-compose.shared.yml \
+  --env-file shared/.env.shared \
+  --project-name multibase-shared up -d
+
+docker compose -f shared/docker-compose.shared.yml \
+  --env-file shared/.env.shared \
+  --project-name multibase-shared down
+
+# View logs for a specific service
+docker logs multibase-nginx-gateway --tail 50 -f
+docker logs multibase-db --tail 50 -f
+```
+
+### Database (Prisma)
+
+```bash
+cd dashboard/backend
+
+# Apply pending migrations
+npx prisma migrate deploy
+
+# Open Prisma Studio (local DB browser)
+npx prisma studio
+
+# Reset DB (development only!)
+npx prisma migrate reset
+```
+
+### Local Development
+
+```bash
+# Terminal 1 — Backend
+cd dashboard/backend
+npm run dev
+
+# Terminal 2 — Frontend
+cd dashboard/frontend
+npm run dev
+```
 **Purpose**: Start all services in the correct order with health checks and validation.
 
 **Usage**:

@@ -161,6 +161,9 @@ A complete reference of all technical documentation available in this repository
 | [**Features v1.2**](Markdowns/Readme1_2_Feature.md)           | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
 | [**Features v1.3**](Markdowns/Readme1_3_Feature.md)           | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | ✅ Released  |
 | [**Features v1.4**](Markdowns/Readme1_4_Feature.md)           | Multi-Tenancy, Organisations, Role-Based Access.         | ✅ Released  |
+| [**Features v1.5**](Markdowns/Readme1_5_Feature.md)           | GraphQL Playground, Webhooks, Cron, pgvector, pgmq.      | ✅ Released  |
+| [**Features v1.6**](Markdowns/Readme1_6_Feature.md)           | Custom Domains, Vault, Network Restrictions, Tus Upload. | ✅ Released  |
+| [**Features v1.7**](Markdowns/Readme1_7_Feature.md)           | Functions IDE, Read Replicas, Log Drains, MCP Server.    | ✅ Released  |
 | [**Multi-Tenancy Guide**](docs/MULTI_TENANCY.md)              | Organisation model, roles, isolation & migration guide.  | ✅ Released  |
 | [**Cloud Architecture**](Markdowns/CLOUD_ARCHITECTURE.md)     | Shared Infra design & implementation log (Phase 0-8).    | 📐 Reference |
 | [**Kong→Nginx Migration**](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status.         | ✅ Done      |

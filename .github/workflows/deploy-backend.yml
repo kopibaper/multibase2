@@ -20,7 +20,31 @@ jobs:
           # Exclude frontend, git metadata, and node_modules (installed on server)
           EXCLUDE: '/node_modules/, /dashboard/frontend/node_modules/, /dashboard/frontend/dist/, .git/, .github/'
           TARGET: '/opt/multibase/'
-          ARGS: '-rltgoDzvO'
+          # -og removed: do NOT preserve source UID/GID (runner=1001 ≠ multibase=999)
+          ARGS: '-rltDzvO'
+
+      - name: Fix Ownership After Rsync
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            # Fix rsync ownership for app files only.
+            # IMPORTANT: exclude shared/volumes/db/data (PostgreSQL data dir, owned by UID 105 inside container)
+            # and projects/ (Supabase project volumes with container-specific UIDs).
+            find /opt/multibase -mindepth 1 -maxdepth 1 \
+              ! -name 'shared' ! -name 'projects' \
+              -exec chown -R multibase:multibase {} \;
+            # Also fix dashboard/backend itself (it's inside the tree above, covered)
+            # Fix shared dir but NOT the db/data sub-volume
+            chown -R multibase:multibase /opt/multibase/shared/volumes/api \
+              /opt/multibase/shared/volumes/nginx \
+              /opt/multibase/shared/volumes/pooler \
+              /opt/multibase/shared/volumes/storage \
+              /opt/multibase/shared/config 2>/dev/null || true
+            chown multibase:multibase /opt/multibase/shared/volumes /opt/multibase/shared/volumes/db
+            echo "✓ Ownership fixed (PostgreSQL data dir preserved)"
 
       - name: Post-Deployment Commands (VPS 2)
         uses: appleboy/ssh-action@v1.0.3
@@ -88,8 +112,7 @@ jobs:
             # --- DevDependencies entfernen (prisma CLI nicht mehr benötigt) ---
             npm prune --omit=dev
 
-            # --- Backend neu starten ---
-            pm2 restart multibase-backend || pm2 start /opt/multibase/ecosystem.config.js
-            pm2 save
+            # --- Backend neu starten (PM2 läuft unter dem 'multibase' User) ---
+            su - multibase -s /bin/bash -c "pm2 restart multibase-backend && pm2 save"
 
             echo "✓ Deployment abgeschlossen"
