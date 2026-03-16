@@ -359,6 +359,7 @@ async function shutdown() {
   healthMonitor.stop();
   metricsCollector.stop();
   SchedulerService.stop();
+  logDrainService.stop();
 
   await redisCache.close();
   await prisma.$disconnect();
