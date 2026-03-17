@@ -118,7 +118,7 @@ export class McpService {
   getServerInfo() {
     return {
       name: 'multibase-mcp',
-      version: '3.1.7',
+      version: '3.0.0',
       description: 'Multibase MCP Server — manage Supabase instances via Claude, Cursor, or any MCP client',
     };
   }

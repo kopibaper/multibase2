@@ -17,11 +17,15 @@ INSTALL_DIR="/opt/multibase"
 INSTALL_USER="multibase"
 REPO_URL="https://github.com/skipper159/multibase2.git"
 REPO_BRANCH="${REPO_BRANCH:-Feature_Roadmap}"
+case "${REPO_BRANCH}" in
+  "Feature_Roadmap") SCRIPT_VERSION="3.0.0" ;;
+  "cloud-version")   SCRIPT_VERSION="2.0.0" ;;
+  *)                 SCRIPT_VERSION="1.0.0" ;;
+esac
 LOG_FILE="/var/log/multibase-install.log"
 NODE_MAJOR=20
 REDIS_CONTAINER="multibase-redis"
 PM2_APP_NAME="multibase-backend"
-SCRIPT_VERSION="3.0.0"
 
 # --- Colors ---
 RED='\033[0;31m'

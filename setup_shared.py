@@ -249,6 +249,8 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
             config = config.replace('{{SERVICE_ROLE_KEY}}', service_key)
             config = config.replace('{{GATEWAY_PORT}}', gateway_port)
             config = config.replace('{{TIMESTAMP}}', str(time.time()))
+            config = config.replace('{{SECURITY_HTTP_DIRECTIVES}}', '')
+            config = config.replace('{{SECURITY_SERVER_DIRECTIVES}}', '')
             (tenants_dir / f'{tenant}.conf').write_text(config, encoding='utf-8')
             generated.append(f"{tenant} (:{gateway_port})")
 

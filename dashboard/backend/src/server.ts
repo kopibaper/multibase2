@@ -1,6 +1,23 @@
 import express from 'express';
 import { createServer } from 'http';
-import { version } from '../package.json';
+import { execSync } from 'child_process';
+import { version as pkgVersion } from '../package.json';
+
+function getVersion(): string {
+  try {
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+    const map: Record<string, string> = {
+      'Feature_Roadmap': '3.0.0',
+      'cloud-version':   '2.0.0',
+      'main':            '1.0.0',
+    };
+    return map[branch] ?? pkgVersion;
+  } catch {
+    return pkgVersion;
+  }
+}
+
+const version = getVersion();
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
