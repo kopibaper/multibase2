@@ -48,8 +48,9 @@ model Instance {
   alerts      Alert[]
   alertRules  AlertRule[]
   uptime      UptimeRecord[]
-  readReplicas ReadReplica[]
-  logDrains   LogDrain[]
+  readReplicas        ReadReplica[]
+  logDrains           LogDrain[]
+  installedExtensions InstalledExtension[]
 
   @@index([name])
   @@index([status])
@@ -411,4 +412,68 @@ model LogDrain {
   instance     Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
   @@index([instanceId])
+}
+
+// ─── Extension Marketplace ────────────────────────────────────────────────────
+
+model Extension {
+  id               String   @id                   // e.g. "ecommerce-starter"
+  name             String
+  description      String
+  longDescription  String?
+  version          String
+  author           String
+  authorUrl        String?
+  category         String                          // 'database'|'auth'|'functions'|'monitoring'|'ai'|'storage'
+  tags             String                          // comma-separated: "ecommerce,schema,starter"
+  iconUrl          String?
+  screenshotUrls   String?                         // comma-separated URLs
+  verified         Boolean  @default(false)
+  featured         Boolean  @default(false)
+  installCount     Int      @default(0)
+  rating           Float?
+  minVersion       String   @default("1.0.0")
+  requiresExtensions String?                       // comma-separated postgres extensions
+  installType      String                          // 'sql'|'function'|'config'|'composite'
+  manifestUrl      String
+  configSchema     String?                         // JSON: configSchema field definitions for install wizard
+  latestVersion    String?                         // latest available version for auto-update checker
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  installations    InstalledExtension[]
+  reviews          ExtensionReview[]
+
+  @@index([category])
+  @@index([featured])
+}
+
+model InstalledExtension {
+  id          String   @id @default(uuid())
+  instanceId  String
+  extensionId String
+  version     String
+  status      String   @default("active")          // 'active'|'error'|'updating'|'disabled'
+  config      String?                              // JSON: user-defined config values
+  installedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  instance    Instance  @relation(fields: [instanceId],  references: [id], onDelete: Cascade)
+  extension   Extension @relation(fields: [extensionId], references: [id])
+
+  @@unique([instanceId, extensionId])
+  @@index([instanceId])
+}
+
+model ExtensionReview {
+  id          String   @id @default(uuid())
+  extensionId String
+  rating      Int                                  // 1–5
+  comment     String?
+  authorName  String?                              // display name (optional)
+  createdAt   DateTime @default(now())
+
+  extension   Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+
+  @@index([extensionId])
 }

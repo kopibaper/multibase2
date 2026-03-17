@@ -34,6 +34,9 @@ import {
   Radio,
   GitBranch,
   ArrowUpFromLine,
+  Package,
+  Menu,
+  X,
 } from 'lucide-react';
 import StorageTab from '../components/StorageTab';
 import PoliciesTab from '../components/PoliciesTab';
@@ -52,6 +55,7 @@ import SecurityPanel from '../components/workspace/SecurityPanel';
 import RealtimePanel from '../components/workspace/RealtimePanel';
 import ReplicasPanel from '../components/workspace/ReplicasPanel';
 import LogDrainsPanel from '../components/workspace/LogDrainsPanel';
+import ExtensionsTab from '../components/ExtensionsTab';
 import type { SupabaseInstance } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -75,7 +79,8 @@ type TabId =
   | 'security'
   | 'realtime'
   | 'replicas'
-  | 'log-drains';
+  | 'log-drains'
+  | 'extensions';
 
 const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -92,6 +97,7 @@ const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[
   { id: 'realtime', label: 'Realtime', icon: Radio },
   { id: 'replicas', label: 'Read Replicas', icon: GitBranch },
   { id: 'log-drains', label: 'Log Drains', icon: ArrowUpFromLine },
+  { id: 'extensions', label: 'Extensions', icon: Package },
   null,
   { id: 'smtp', label: 'SMTP Settings', icon: Mail },
   { id: 'keys', label: 'API Keys', icon: Key },
@@ -119,8 +125,10 @@ export default function WorkspaceProjectPage() {
   const navigate = useNavigate();
   const { data: instance, isLoading } = useInstance(project!);
   const [studioActivating, setStudioActivating] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const activeTab: TabId = (tab as TabId) ?? 'overview';
+  const activeSidebarLabel = (NAV_ITEMS.find((item) => item && item.id === activeTab) as any)?.label || 'Overview';
 
   const handleNav = useCallback(
     (tabId: TabId) => {
@@ -137,9 +145,7 @@ export default function WorkspaceProjectPage() {
     if (!instance || instance.status === 'stopped') return;
     const isCloud = instance.stackType === 'cloud';
     if (!isCloud) {
-      const url =
-        instance.credentials?.studio_url ||
-        `http://${window.location.hostname}:${instance.ports?.studio}`;
+      const url = instance.credentials?.studio_url || `http://${window.location.hostname}:${instance.ports?.studio}`;
       window.open(url, '_blank');
       return;
     }
@@ -177,10 +183,7 @@ export default function WorkspaceProjectPage() {
           <Server className='w-12 h-12 text-muted-foreground/40 mx-auto mb-4' />
           <h2 className='text-xl font-semibold mb-2'>Project not found</h2>
           <p className='text-muted-foreground mb-4'>"{project}" could not be found</p>
-          <button
-            onClick={() => navigate('/workspace/projects')}
-            className='text-brand-400 hover:underline text-sm'
-          >
+          <button onClick={() => navigate('/workspace/projects')} className='text-brand-400 hover:underline text-sm'>
             Back to Projects
           </button>
         </div>
@@ -192,18 +195,38 @@ export default function WorkspaceProjectPage() {
   const { color: statusColor, label: statusLabel } = statusInfo(health);
 
   return (
-    <div className='flex h-[calc(100vh-4rem)]'>
+    <div className='flex h-[calc(100vh-4rem)] max-sm:h-[calc(100svh-8rem)]'>
+      {/* Mobile overlay backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className='md:hidden fixed top-16 inset-x-0 bottom-0 z-40 bg-black/60'
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar ── */}
-      <aside className='w-60 flex-shrink-0 border-r border-white/5 flex flex-col bg-background/40 backdrop-blur-sm'>
+      <aside
+        className={`shrink-0 border-r border-white/5 flex flex-col bg-background/40 backdrop-blur-sm
+          md:w-60 md:static md:flex
+          ${mobileSidebarOpen ? 'fixed top-16 left-0 bottom-0 w-72 z-50' : 'hidden md:flex'}`}
+      >
         {/* Project header */}
         <div className='p-4 border-b border-white/5'>
-          <button
-            onClick={() => navigate('/workspace/projects')}
-            className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3'
-          >
-            <ChevronLeft className='w-3.5 h-3.5' />
-            All Projects
-          </button>
+          <div className='flex items-center justify-between mb-3'>
+            <button
+              onClick={() => navigate('/workspace/projects')}
+              className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+            >
+              <ChevronLeft className='w-3.5 h-3.5' />
+              All Projects
+            </button>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className='md:hidden p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
+            >
+              <X className='w-4 h-4' />
+            </button>
+          </div>
           <div className='flex items-center gap-2.5 min-w-0'>
             <div className='w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
               <Database className='w-4 h-4 text-brand-400' />
@@ -213,9 +236,7 @@ export default function WorkspaceProjectPage() {
               <div className='flex items-center gap-1.5'>
                 <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
                 <span className='text-xs text-muted-foreground'>{statusLabel}</span>
-                {instance.stackType === 'cloud' && (
-                  <Cloud className='w-3 h-3 text-brand-400 ml-0.5' />
-                )}
+                {instance.stackType === 'cloud' && <Cloud className='w-3 h-3 text-brand-400 ml-0.5' />}
               </div>
             </div>
           </div>
@@ -232,7 +253,10 @@ export default function WorkspaceProjectPage() {
             return (
               <button
                 key={item.id}
-                onClick={() => handleNav(item.id)}
+                onClick={() => {
+                  handleNav(item.id);
+                  setMobileSidebarOpen(false);
+                }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left mb-0.5 ${
                   isActive
                     ? 'bg-brand-500/15 text-brand-400 font-medium'
@@ -253,22 +277,29 @@ export default function WorkspaceProjectPage() {
             disabled={studioActivating || instance.status === 'stopped'}
             className='w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors disabled:opacity-40'
           >
-            {studioActivating ? (
-              <Loader2 className='w-4 h-4 animate-spin' />
-            ) : (
-              <ExternalLink className='w-4 h-4' />
-            )}
+            {studioActivating ? <Loader2 className='w-4 h-4 animate-spin' /> : <ExternalLink className='w-4 h-4' />}
             Open Studio
           </button>
         </div>
       </aside>
 
       {/* ── Content ── */}
-      <main className='flex-1 overflow-y-auto'>
+      <main className='flex-1 overflow-y-auto flex flex-col min-w-0'>
+        {/* Mobile header with hamburger */}
+        <div className='md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-background/90 backdrop-blur-md shrink-0'>
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className='p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors'
+          >
+            <Menu className='w-5 h-5' />
+          </button>
+          <div className='flex-1 min-w-0'>
+            <p className='text-sm font-semibold text-foreground truncate'>{instance.name}</p>
+            <p className='text-xs text-muted-foreground'>{activeSidebarLabel}</p>
+          </div>
+        </div>
         <div className='p-4 sm:p-6'>
-          {(!tab || tab === 'overview') && (
-            <OverviewContent instance={instance} onOpenStudio={handleOpenStudio} />
-          )}
+          {(!tab || tab === 'overview') && <OverviewContent instance={instance} onOpenStudio={handleOpenStudio} />}
           {tab === 'database' && <DatabasePanel instanceName={project!} />}
           {tab === 'storage' && <StorageTab instanceName={project!} instance={instance} />}
           {tab === 'policies' && <PoliciesTab instanceName={project!} />}
@@ -287,6 +318,7 @@ export default function WorkspaceProjectPage() {
           {tab === 'realtime' && <RealtimePanel instanceName={project!} />}
           {tab === 'replicas' && <ReplicasPanel instanceName={project!} />}
           {tab === 'log-drains' && <LogDrainsPanel instanceName={project!} />}
+          {tab === 'extensions' && <ExtensionsTab instanceName={project!} />}
         </div>
       </main>
     </div>
@@ -323,13 +355,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OverviewContent({
-  instance,
-  onOpenStudio,
-}: {
-  instance: SupabaseInstance;
-  onOpenStudio: () => void;
-}) {
+function OverviewContent({ instance, onOpenStudio }: { instance: SupabaseInstance; onOpenStudio: () => void }) {
   const health = (instance.health?.overall || instance.status) as string;
 
   const statusBadge = () => {
@@ -409,10 +435,7 @@ function OverviewContent({
           </h3>
           <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
             {instance.services.map((svc: any) => (
-              <div
-                key={svc.name}
-                className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'
-              >
+              <div key={svc.name} className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'>
                 <div
                   className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     svc.status === 'running' || svc.health === 'healthy'
@@ -435,9 +458,7 @@ function OverviewContent({
         <dl className='grid grid-cols-2 gap-x-4 gap-y-3 text-sm'>
           <div>
             <dt className='text-xs text-muted-foreground'>Stack Type</dt>
-            <dd className='text-foreground font-medium mt-0.5 capitalize'>
-              {instance.stackType || 'local'}
-            </dd>
+            <dd className='text-foreground font-medium mt-0.5 capitalize'>{instance.stackType || 'local'}</dd>
           </div>
           <div>
             <dt className='text-xs text-muted-foreground'>Status</dt>
@@ -530,21 +551,13 @@ function KeysPanel({ instance }: { instance: SupabaseInstance }) {
         </p>
       </div>
       <div className='glass-card p-5 space-y-5'>
-        <KeyField
-          label='Anon Key (public)'
-          value={creds?.anon_key || ''}
-          icon={<Key className='w-3 h-3' />}
-        />
+        <KeyField label='Anon Key (public)' value={creds?.anon_key || ''} icon={<Key className='w-3 h-3' />} />
         <KeyField
           label='Service Role Key (secret)'
           value={creds?.service_role_key || ''}
           icon={<Shield className='w-3 h-3' />}
         />
-        <KeyField
-          label='JWT Secret'
-          value={creds?.jwt_secret || ''}
-          icon={<Lock className='w-3 h-3' />}
-        />
+        <KeyField label='JWT Secret' value={creds?.jwt_secret || ''} icon={<Lock className='w-3 h-3' />} />
         <KeyField
           label='Project URL'
           value={creds?.project_url || ''}

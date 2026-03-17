@@ -7,9 +7,9 @@ function getVersion(): string {
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
     const map: Record<string, string> = {
-      'Feature_Roadmap': '3.0.0',
-      'cloud-version':   '2.0.0',
-      'main':            '1.0.0',
+      Feature_Roadmap: '3.0.0',
+      'cloud-version': '2.0.0',
+      main: '1.0.0',
     };
     return map[branch] ?? pkgVersion;
   } catch {
@@ -84,6 +84,9 @@ import McpService from './services/McpService';
 import { LogDrainService } from './services/LogDrainService';
 import { VectorService } from './services/VectorService';
 import { QueueService } from './services/QueueService';
+import { createMarketplaceRoutes } from './routes/marketplace';
+import { createExtensionRoutes } from './routes/extensions';
+import { ExtensionUpdateChecker } from './services/ExtensionUpdateChecker';
 
 // Utils
 import { logger } from './utils/logger';
@@ -180,7 +183,10 @@ const mcpService = new McpService(instanceManager, dockerManager, metricsCollect
 SchedulerService.registerUptimeService(uptimeService);
 
 // API Routes
-app.use('/api/instances', createInstanceRoutes(instanceManager, dockerManager, prisma, metricsCollector));
+app.use(
+  '/api/instances',
+  createInstanceRoutes(instanceManager, dockerManager, prisma, metricsCollector)
+);
 app.use('/api/metrics', createMetricsRoutes(metricsCollector, redisCache));
 app.use('/api/health', createHealthRoutes(healthMonitor, prisma, redisCache, dockerManager));
 app.use('/api/logs', createLogsRoutes(dockerManager));
@@ -211,10 +217,18 @@ app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
 app.use('/api/instances/:name/queues', createQueueRoutes(queueService));
 app.use('/api/instances/:name/realtime', createRealtimeRoutes(instanceManager, dockerManager));
 app.use('/api/instances/:name/replicas', createReplicaRoutes(instanceManager, prisma));
-app.use('/api/instances/:name/log-drains', createLogDrainRoutes(prisma, instanceManager, logDrainService));
+app.use(
+  '/api/instances/:name/log-drains',
+  createLogDrainRoutes(prisma, instanceManager, logDrainService)
+);
 app.use('/api/mcp', createMcpRoutes(mcpService));
 app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
+app.use('/api/marketplace', createMarketplaceRoutes(prisma));
+app.use(
+  '/api/instances/:name/extensions',
+  createExtensionRoutes(prisma, instanceManager, redisCache, functionService)
+);
 
 // AI Agent
 const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {
@@ -363,6 +377,18 @@ async function startServices() {
     // Start log drain delivery
     logDrainService.start();
 
+    // Start extension update checker (runs once after 30s, then weekly)
+    const extensionUpdateChecker = new ExtensionUpdateChecker(prisma);
+    extensionUpdateChecker.on('update:available', (evt) => {
+      logger.info(
+        `Extension update available: ${evt.extensionId} ${evt.currentVersion} → ${evt.latestVersion}`
+      );
+      io.emit('extension:update-available', evt);
+    });
+    extensionUpdateChecker.start();
+    // Store reference for graceful shutdown
+    (app as any)._extensionUpdateChecker = extensionUpdateChecker;
+
     logger.info('Background services started successfully');
   } catch (error) {
     logger.error('Error starting services:', error);
@@ -378,6 +404,7 @@ async function shutdown() {
   metricsCollector.stop();
   SchedulerService.stop();
   logDrainService.stop();
+  (app as any)._extensionUpdateChecker?.stop();
 
   await redisCache.close();
   await prisma.$disconnect();

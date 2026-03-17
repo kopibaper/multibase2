@@ -97,7 +97,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className='h-[calc(100vh-4rem)]'>
+    <div className='h-[calc(100vh-4rem)] max-sm:h-[calc(100svh-8rem)]'>
       <div className='flex h-full flex-col md:flex-row'>
         {/* Left: Project List – on mobile hidden when a project is selected */}
         <div

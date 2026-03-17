@@ -31,6 +31,7 @@ import OrgSettings from './pages/OrgSettings';
 import SetupLayout from './layouts/SetupLayout';
 import SetupPage from './pages/SetupPage';
 import McpSettingsPage from './pages/McpSettingsPage';
+import MarketplacePage from './pages/MarketplacePage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Create React Query client
@@ -75,6 +76,7 @@ function AppContent() {
           <Route path='/workspace/projects' element={<WorkspaceProjectsPage />} />
           <Route path='/workspace/projects/:project' element={<WorkspaceProjectPage />} />
           <Route path='/workspace/projects/:project/:tab' element={<WorkspaceProjectPage />} />
+          <Route path='/marketplace' element={<MarketplacePage />} />
           {/* Legacy workspace route kept as alias */}
           <Route path='/workspace/legacy' element={<WorkspacePage />} />
         </Route>

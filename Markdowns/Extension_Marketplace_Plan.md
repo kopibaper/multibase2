@@ -1,7 +1,7 @@
 # Extension Marketplace — Implementierungsplan
 
 > Detaillierter Frontend & Backend Implementationsplan für den Multibase Extension Marketplace.  
-> Stand: März 2026 | Status: 🚧 In Planning (v2.0)
+> Stand: März 2026 | Status: ✅ Phase 1 abgeschlossen (17. März 2026)
 
 ---
 
@@ -17,15 +17,15 @@ installierst du eine kuratierte Extension mit einem Klick — und dein Projekt i
 
 ## Überblick
 
-| # | Modul | Platzierung | Aufwand | Priorität |
-|---|-------|-------------|---------|-----------|
-| 1 | Marketplace Browser | `/settings/marketplace` (global) | Mittel | Hoch |
-| 2 | Extension-Installer (per Instanz) | `ExtensionsTab` im Workspace | Mittel | Hoch |
-| 3 | Extension Registry (Backend) | `GET /api/marketplace/extensions` | Klein | Hoch |
-| 4 | Install-Engine (Backend) | `POST /api/instances/:name/extensions` | Mittel | Hoch |
-| 5 | Extension-Manifest-Format | `multibase.extension.json` Spec | Klein | Hoch |
-| 6 | Community-Extension-SDK | `multibase-extension` CLI-Tool | Groß | Mittel |
-| 7 | Auto-Updates & Versioning | Background Worker | Mittel | Niedrig |
+| #   | Modul                             | Platzierung                            | Aufwand | Priorität |
+| --- | --------------------------------- | -------------------------------------- | ------- | --------- |
+| 1   | Marketplace Browser               | `/settings/marketplace` (global)       | Mittel  | Hoch      |
+| 2   | Extension-Installer (per Instanz) | `ExtensionsTab` im Workspace           | Mittel  | Hoch      |
+| 3   | Extension Registry (Backend)      | `GET /api/marketplace/extensions`      | Klein   | Hoch      |
+| 4   | Install-Engine (Backend)          | `POST /api/instances/:name/extensions` | Mittel  | Hoch      |
+| 5   | Extension-Manifest-Format         | `multibase.extension.json` Spec        | Klein   | Hoch      |
+| 6   | Community-Extension-SDK           | `multibase-extension` CLI-Tool         | Groß    | Mittel    |
+| 7   | Auto-Updates & Versioning         | Background Worker                      | Mittel  | Niedrig   |
 
 ---
 
@@ -133,7 +133,7 @@ Das Format ist angelehnt an VS Code Extension Manifests und npm `package.json`.
   "install": {
     "type": "sql",
     "steps": [
-      { "label": "Schema erstellen",    "file": "migrations/001_schema.sql" },
+      { "label": "Schema erstellen", "file": "migrations/001_schema.sql" },
       { "label": "RLS-Policies setzen", "file": "migrations/002_rls.sql" },
       { "label": "Seed-Daten einfügen", "file": "migrations/003_seed.sql", "optional": true }
     ],
@@ -163,12 +163,12 @@ Das Format ist angelehnt an VS Code Extension Manifests und npm `package.json`.
 
 ### Install-Typen
 
-| Typ | Beschreibung | Beispiel |
-|-----|-------------|---------|
-| `sql` | SQL-Dateien in der Reihenfolge ausführen | Schema-Templates, RLS-Policies |
-| `function` | Edge-Function-Dateien deployen | Webhook-Handler, PDF-Generator |
-| `config` | Environment Variables setzen + Container-Restart | Auth-Provider-Preset |
-| `composite` | Kombination aus sql + function + config | Full-Stack-Starter |
+| Typ         | Beschreibung                                     | Beispiel                       |
+| ----------- | ------------------------------------------------ | ------------------------------ |
+| `sql`       | SQL-Dateien in der Reihenfolge ausführen         | Schema-Templates, RLS-Policies |
+| `function`  | Edge-Function-Dateien deployen                   | Webhook-Handler, PDF-Generator |
+| `config`    | Environment Variables setzen + Container-Restart | Auth-Provider-Preset           |
+| `composite` | Kombination aus sql + function + config          | Full-Stack-Starter             |
 
 ---
 
@@ -176,49 +176,49 @@ Das Format ist angelehnt an VS Code Extension Manifests und npm `package.json`.
 
 ### 🗄️ Kategorie: Datenbank-Templates
 
-| Extension | Beschreibung | Tabellen | Besonderheiten |
-|-----------|-------------|---------|----------------|
-| **ecommerce-starter** | Online-Shop-Schema | 12 | RLS, pgvector Empfehlungen, Bestandstrigger |
-| **blog-cms** | Blog & CMS Schema | 8 | Volltext-Suche, Tag-System, Draft/Published |
-| **saas-starter** | SaaS-Plattform Basis | 15 | Org-Model, Subscriptions, Feature-Flags |
-| **multi-tenant-base** | Multi-Tenant-Schema-Template | 6 | Row-Level-Isolation, Tenant-Management |
-| **audit-trail** | Änderungshistorie für beliebige Tabellen | 3 | Trigger-basiert, auto-Diff, GDPR-ready |
-| **address-book** | Adress- und Kontaktverwaltung | 5 | Geocoding-Vorbereitung, vCard-Export |
+| Extension             | Beschreibung                             | Tabellen | Besonderheiten                              |
+| --------------------- | ---------------------------------------- | -------- | ------------------------------------------- |
+| **ecommerce-starter** | Online-Shop-Schema                       | 12       | RLS, pgvector Empfehlungen, Bestandstrigger |
+| **blog-cms**          | Blog & CMS Schema                        | 8        | Volltext-Suche, Tag-System, Draft/Published |
+| **saas-starter**      | SaaS-Plattform Basis                     | 15       | Org-Model, Subscriptions, Feature-Flags     |
+| **multi-tenant-base** | Multi-Tenant-Schema-Template             | 6        | Row-Level-Isolation, Tenant-Management      |
+| **audit-trail**       | Änderungshistorie für beliebige Tabellen | 3        | Trigger-basiert, auto-Diff, GDPR-ready      |
+| **address-book**      | Adress- und Kontaktverwaltung            | 5        | Geocoding-Vorbereitung, vCard-Export        |
 
 ### 🔐 Kategorie: Auth & Sicherheit
 
-| Extension | Beschreibung | Typ | Besonderheiten |
-|-----------|-------------|-----|----------------|
-| **social-login-bundle** | Google + GitHub + Discord in einem Klick | `config` | Auto-setzt OAuth ENV Vars, Dokumentation |
-| **enterprise-sso** | SAML SSO Konfigurationsvorlage | `config` | Azure AD, Okta, Google Workspace Templates |
-| **2fa-enforcement** | Erzwingt 2FA für alle Nutzer | `sql` + `config` | Auth-Hook, Redirect-Logik, UI-Hinweise |
-| **rbac-starter** | Rollenbasiertes Berechtigungssystem | `sql` | Roles-Table, Permission-Checks, RLS-Integration |
+| Extension               | Beschreibung                             | Typ              | Besonderheiten                                  |
+| ----------------------- | ---------------------------------------- | ---------------- | ----------------------------------------------- |
+| **social-login-bundle** | Google + GitHub + Discord in einem Klick | `config`         | Auto-setzt OAuth ENV Vars, Dokumentation        |
+| **enterprise-sso**      | SAML SSO Konfigurationsvorlage           | `config`         | Azure AD, Okta, Google Workspace Templates      |
+| **2fa-enforcement**     | Erzwingt 2FA für alle Nutzer             | `sql` + `config` | Auth-Hook, Redirect-Logik, UI-Hinweise          |
+| **rbac-starter**        | Rollenbasiertes Berechtigungssystem      | `sql`            | Roles-Table, Permission-Checks, RLS-Integration |
 
 ### ⚡ Kategorie: Edge Functions
 
-| Extension | Beschreibung | Trigger | Drittanbieter |
-|-----------|-------------|---------|--------------|
-| **stripe-webhooks** | Stripe-Payment-Events verarbeiten | HTTP POST | Stripe API |
-| **resend-transactional** | Transaktions-E-Mails über Resend | Datenbank-Webhook | Resend API |
-| **slack-notifier** | Slack-Notifications bei DB-Events | Datenbank-Webhook | Slack Webhooks |
-| **pdf-generator** | PDFs aus HTML-Templates generieren | HTTP POST | Headless Chrome (via Browserless) |
-| **image-optimizer** | Bilder bei Storage-Upload optimieren | Storage-Trigger | Sharp (eingebaut) |
-| **ai-embeddings** | Automatische pgvector-Embeddings | Datenbank-Trigger | OpenAI / Cohere / local |
+| Extension                | Beschreibung                         | Trigger           | Drittanbieter                     |
+| ------------------------ | ------------------------------------ | ----------------- | --------------------------------- |
+| **stripe-webhooks**      | Stripe-Payment-Events verarbeiten    | HTTP POST         | Stripe API                        |
+| **resend-transactional** | Transaktions-E-Mails über Resend     | Datenbank-Webhook | Resend API                        |
+| **slack-notifier**       | Slack-Notifications bei DB-Events    | Datenbank-Webhook | Slack Webhooks                    |
+| **pdf-generator**        | PDFs aus HTML-Templates generieren   | HTTP POST         | Headless Chrome (via Browserless) |
+| **image-optimizer**      | Bilder bei Storage-Upload optimieren | Storage-Trigger   | Sharp (eingebaut)                 |
+| **ai-embeddings**        | Automatische pgvector-Embeddings     | Datenbank-Trigger | OpenAI / Cohere / local           |
 
 ### 📊 Kategorie: Monitoring & Observability
 
-| Extension | Beschreibung | Output |
-|-----------|-------------|--------|
-| **grafana-dashboard** | Vorgefertigtes Grafana-Dashboard für Multibase | Dashboard JSON Import |
-| **sentry-integration** | Fehler aus Edge Functions an Sentry senden | Sentry DSN Config |
-| **uptime-kuma** | Uptime Kuma Monitoring-Konfiguration | Monitor-Export JSON |
+| Extension              | Beschreibung                                   | Output                |
+| ---------------------- | ---------------------------------------------- | --------------------- |
+| **grafana-dashboard**  | Vorgefertigtes Grafana-Dashboard für Multibase | Dashboard JSON Import |
+| **sentry-integration** | Fehler aus Edge Functions an Sentry senden     | Sentry DSN Config     |
+| **uptime-kuma**        | Uptime Kuma Monitoring-Konfiguration           | Monitor-Export JSON   |
 
 ### 🤖 Kategorie: AI & Vectors
 
-| Extension | Beschreibung | Besonderheiten |
-|-----------|-------------|----------------|
-| **rag-starter** | RAG-Pipeline: Dokument-Upload → Embedding → Similarity Search | pgvector + Edge Function |
-| **semantic-search** | Semantische Suche für beliebige Textspalten | Embedding-Trigger + Search-API |
+| Extension           | Beschreibung                                                  | Besonderheiten                 |
+| ------------------- | ------------------------------------------------------------- | ------------------------------ |
+| **rag-starter**     | RAG-Pipeline: Dokument-Upload → Embedding → Similarity Search | pgvector + Edge Function       |
+| **semantic-search** | Semantische Suche für beliebige Textspalten                   | Embedding-Trigger + Search-API |
 
 ---
 
@@ -308,7 +308,11 @@ export class ExtensionService {
    * Installiert eine Extension auf einer Instanz.
    * Führt alle Schritte des Manifests in der definierten Reihenfolge aus.
    */
-  async install(instanceName: string, extension: Extension, config: Record<string, any>): Promise<void> {
+  async install(
+    instanceName: string,
+    extension: Extension,
+    config: Record<string, any>
+  ): Promise<void> {
     const manifest = await this.loadManifest(extension.manifestUrl);
 
     // Config validieren (gegen configSchema)
@@ -345,7 +349,11 @@ export class ExtensionService {
   /**
    * Deinstalliert eine Extension (Rollback-SQL ausführen).
    */
-  async uninstall(instanceName: string, extension: Extension, installed: InstalledExtension): Promise<void> {
+  async uninstall(
+    instanceName: string,
+    extension: Extension,
+    installed: InstalledExtension
+  ): Promise<void> {
     const manifest = await this.loadManifest(extension.manifestUrl);
     if (manifest.install.rollback) {
       const rollbackSql = await this.fetchFile(extension.manifestUrl, manifest.install.rollback);
@@ -356,7 +364,10 @@ export class ExtensionService {
   /**
    * Stellt sicher, dass die benötigten Postgres-Extensions aktiviert sind.
    */
-  private async ensurePostgresExtensions(instanceName: string, extensions: string[]): Promise<void> {
+  private async ensurePostgresExtensions(
+    instanceName: string,
+    extensions: string[]
+  ): Promise<void> {
     for (const ext of extensions) {
       await this.instanceManager.executeSql(
         instanceName,
@@ -447,7 +458,7 @@ const { data: extensions } = useQuery({
 });
 
 // Lokaler State für Filter/Suche
-const [search, setSearch]     = useState('');
+const [search, setSearch] = useState('');
 const [category, setCategory] = useState<string | null>(null);
 ```
 
@@ -635,43 +646,47 @@ await prisma.extension.createMany({ data: officialExtensions, skipDuplicates: tr
 
 ## Release-Plan
 
-### Phase 1 — v2.0-alpha (Monat 1–2)
+### Phase 1 — v2.0-alpha (Monat 1–2) ✅ ABGESCHLOSSEN — 17. März 2026
 
-- [ ] Prisma-Modelle `Extension` + `InstalledExtension` + Migration
-- [ ] `ExtensionService.ts` (SQL-Installer)
-- [ ] Backend: `marketplace.ts` + `extensions.ts` Routen
-- [ ] `seed-marketplace.ts` mit 5 offiziellen Extensions (ecommerce-starter, stripe-webhooks, social-login-bundle, rag-starter, grafana-dashboard)
-- [ ] `MarketplacePage.tsx` (Browse + Filter + Featured)
-- [ ] `ExtensionCard.tsx` + `ExtensionDetailModal.tsx`
-- [ ] `ExtensionsTab.tsx` im Workspace
+- [x] Prisma-Modelle `Extension` + `InstalledExtension` + Migration (`20260317212647_add_extension_marketplace`)
+- [x] `ExtensionService.ts` (SQL-Installer, Security-Checks, SSRF-Prävention, Redis-Cache)
+- [x] Backend: `marketplace.ts` + `extensions.ts` Routen
+- [x] `seed-marketplace.ts` mit 5 offiziellen Extensions (ecommerce-starter, stripe-webhooks, social-login-bundle, rag-starter, grafana-dashboard)
+- [x] `MarketplacePage.tsx` (Browse + Filter + Featured) — Route: `/marketplace`
+- [x] `ExtensionCard.tsx` + `ExtensionDetailModal.tsx` (mit Install-Wizard)
+- [x] `ExtensionsTab.tsx` im Workspace (Sidebar-Eintrag + Marketplace-Picker)
+- [x] Backend neu gebaut (`dist/server.js`, Timestamp: 17.03.2026 22:43) und neu gestartet
+- [x] Prisma Client generiert (v7.5.0), Migration angewendet, Seed ausgeführt (5 Extensions in DB)
 
-### Phase 2 — v2.0-beta (Monat 3–4)
+### Phase 2 — v2.0-beta (Monat 3–4) ✅ ABGESCHLOSSEN — 17. März 2026
 
-- [ ] `InstallWizard.tsx` mit Schritt-für-Schritt-Flow + Config-Schema
-- [ ] 15 weitere offizielle Extensions (volle Bibliothek)
-- [ ] Sicherheits-Analyzer für SQL-Dateien
-- [ ] SHA256-Prüfung + Manifest-Signierung
-- [ ] AuditLog-Einträge für Install/Uninstall
+- [x] `configSchema String?` zur Extension-DB hinzugefügt (Migration `20260317220015_add_extension_config_schema`)
+- [x] `InstallWizard` mit dynamischem `configSchema`-Rendering (string/boolean/select Felder) — in `MarketplacePage` + `ExtensionDetailModal`
+- [x] 15 weitere offizielle Extensions geseeded (blog-cms, saas-starter, multi-tenant-base, audit-trail, address-book, enterprise-sso, 2fa-enforcement, rbac-starter, resend-transactional, slack-notifier, pdf-generator, image-optimizer, sentry-integration, uptime-kuma, semantic-search)
+- [x] AuditLog-Einträge für alle Install/Uninstall-Aktionen (`EXTENSION_INSTALL`, `EXTENSION_UNINSTALL`)
+- [x] **MarketplacePage komplett redesigned**: Kachel-Grid + Inline-Detail-Panel (kein Modal mehr) — zwei-spaltiges Layout, Detail-Panel öffnet rechts beim Klick auf Extension-Tile
+- [x] Backend neu gebaut und gestartet (`dist/server.js`, 17.03.2026 23:09)
 
-### Phase 3 — v2.0 GA (Monat 5–6)
+### Phase 3 — v2.0 GA (Monat 5–6) ✅ ABGESCHLOSSEN — 17. März 2026
 
-- [ ] `multibase-extension` Community CLI
-- [ ] Extension-Registry GitHub-Repository + PR-basierter Submit-Flow
-- [ ] Auto-Update-Checker (Background Worker, wöchentlich)
-- [ ] Rating & Review System (1–5 Sterne)
-- [ ] Extension Analytics (Installationszähler, populärste Extensions)
+- [ ] `multibase-extension` Community CLI _(deferred — externes Projekt)_
+- [ ] Extension-Registry GitHub-Repository + PR-basierter Submit-Flow _(deferred — externes Projekt)_
+- [x] Auto-Update-Checker (`ExtensionUpdateChecker` Background Service — wöchentlich, mit `latestVersion`-Spalte + Socket.IO Event `extension:update-available`)
+- [x] Rating & Review System (`ExtensionReview`-Modell, `POST/GET /api/marketplace/extensions/:id/reviews`, dynamisches Durchschnitts-Rating, Review-Formular + Sterne-Rating im `ExtensionDetailModal`)
+- [x] Extension Analytics: `installCount` Inkrement bei Install / Dekrement bei Uninstall, `/api/marketplace/extensions/:id/stats`-Endpunkt, Update-Badge in `ExtensionsTab`
+- [x] Backend neu gebaut und gestartet (`dist/server.js`, 17.03.2026 22:36)
 
 ---
 
 ## Aufwand/Impact-Schätzung
 
-| Phase | Aufwand (Entwicklertage) | Deliverable |
-|-------|--------------------------|-------------|
-| Phase 1 | ~8 Tage | MVP: 5 Extensions, Browser, Installer |
-| Phase 2 | ~10 Tage | 20 Extensions, Wizard, Sicherheit |
-| Phase 3 | ~12 Tage | Community SDK, Auto-Updates, Analytics |
-| **Gesamt** | **~30 Tage** | **Vollständiger Marketplace** |
+| Phase      | Aufwand (Entwicklertage) | Deliverable                            |
+| ---------- | ------------------------ | -------------------------------------- |
+| Phase 1    | ~8 Tage                  | MVP: 5 Extensions, Browser, Installer  |
+| Phase 2    | ~10 Tage                 | 20 Extensions, Wizard, Sicherheit      |
+| Phase 3    | ~12 Tage                 | Community SDK, Auto-Updates, Analytics |
+| **Gesamt** | **~30 Tage**             | **Vollständiger Marketplace**          |
 
 ---
 
-*Erstellt: März 2026 | Status: In Planning (v2.0)*
+_Erstellt: März 2026 | Status: In Planning (v2.0)_

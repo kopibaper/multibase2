@@ -196,7 +196,7 @@ export default function WorkspaceProjectsPage() {
                 placeholder='Search...'
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className='pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-brand-500/50 w-36 sm:w-48'
+                className='pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-brand-500/50 w-24 sm:w-36 lg:w-48'
               />
             </div>
             <button

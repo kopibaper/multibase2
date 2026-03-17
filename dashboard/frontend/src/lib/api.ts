@@ -32,14 +32,16 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
         const match = orgs.find((o: any) => o.slug === activeOrgSlug);
         if (match) orgId = match.id;
       }
-    } catch { /* ignore parse errors */ }
+    } catch {
+      /* ignore parse errors */
+    }
   }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(orgId ? { 'X-Org-Id': orgId } : {}),
-    ...(options?.headers as Record<string, string> || {}),
+    ...((options?.headers as Record<string, string>) || {}),
   };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -195,7 +197,10 @@ export const instancesApi = {
   },
 
   /** Admin-only: assign an existing instance to an organisation (or unassign with null) */
-  assignOrg: (name: string, orgId: string | null): Promise<{ success: boolean; name: string; orgId: string | null }> => {
+  assignOrg: (
+    name: string,
+    orgId: string | null
+  ): Promise<{ success: boolean; name: string; orgId: string | null }> => {
     return fetchApi(`/api/instances/${name}/assign-org`, {
       method: 'PATCH',
       body: JSON.stringify({ orgId }),
@@ -546,7 +551,10 @@ export const functionsApi = {
     return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/logs`);
   },
 
-  getEnv: (instanceName: string, functionName: string): Promise<{ env: Record<string, string> }> => {
+  getEnv: (
+    instanceName: string,
+    functionName: string
+  ): Promise<{ env: Record<string, string> }> => {
     return fetchApi(`/api/instances/${instanceName}/functions/${functionName}/env`);
   },
 
@@ -826,10 +834,7 @@ export const logDrainsApi = {
       body: JSON.stringify(data),
     }),
 
-  test: (
-    instanceName: string,
-    id: string
-  ): Promise<{ ok: boolean; error?: string }> =>
+  test: (instanceName: string, id: string): Promise<{ ok: boolean; error?: string }> =>
     fetchApi(`/api/instances/${instanceName}/log-drains/${id}/test`, { method: 'POST' }),
 
   remove: (instanceName: string, id: string): Promise<{ success: boolean }> =>
@@ -838,8 +843,11 @@ export const logDrainsApi = {
 
 // MCP API
 export const mcpApi = {
-  getInfo: (): Promise<{ server: { name: string; version: string; description: string }; tools: { name: string; description: string; inputSchema: any }[]; protocol: string }> =>
-    fetchApi('/api/mcp/info'),
+  getInfo: (): Promise<{
+    server: { name: string; version: string; description: string };
+    tools: { name: string; description: string; inputSchema: any }[];
+    protocol: string;
+  }> => fetchApi('/api/mcp/info'),
 };
 
 // =====================================================
@@ -874,16 +882,19 @@ export const webhooksApi = {
   list: (instanceName: string): Promise<{ webhooks: any[] }> =>
     fetchApi(`/api/instances/${instanceName}/webhooks`),
 
-  create: (instanceName: string, data: {
-    name: string;
-    tableSchema?: string;
-    tableName: string;
-    events: string[];
-    url: string;
-    method?: string;
-    headers?: Record<string, string>;
-    timeoutMs?: number;
-  }): Promise<{ id: number; hasTrigger: boolean }> =>
+  create: (
+    instanceName: string,
+    data: {
+      name: string;
+      tableSchema?: string;
+      tableName: string;
+      events: string[];
+      url: string;
+      method?: string;
+      headers?: Record<string, string>;
+      timeoutMs?: number;
+    }
+  ): Promise<{ id: number; hasTrigger: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/webhooks`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -909,7 +920,10 @@ export const cronApi = {
   list: (instanceName: string): Promise<{ jobs: any[]; enabled: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/cron`),
 
-  create: (instanceName: string, data: { name: string; schedule: string; command: string }): Promise<{ jobid: number }> =>
+  create: (
+    instanceName: string,
+    data: { name: string; schedule: string; command: string }
+  ): Promise<{ jobid: number }> =>
     fetchApi(`/api/instances/${instanceName}/cron`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -944,12 +958,15 @@ export const vectorsApi = {
   listColumns: (instanceName: string): Promise<{ columns: any[] }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/columns`),
 
-  addColumn: (instanceName: string, data: {
-    tableSchema?: string;
-    tableName: string;
-    columnName: string;
-    dimension: number;
-  }): Promise<{ success: boolean }> =>
+  addColumn: (
+    instanceName: string,
+    data: {
+      tableSchema?: string;
+      tableName: string;
+      columnName: string;
+      dimension: number;
+    }
+  ): Promise<{ success: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/columns`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -958,14 +975,17 @@ export const vectorsApi = {
   listIndexes: (instanceName: string): Promise<{ indexes: any[] }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/indexes`),
 
-  createIndex: (instanceName: string, data: {
-    tableSchema?: string;
-    tableName: string;
-    columnName: string;
-    indexType: 'ivfflat' | 'hnsw';
-    metric: 'cosine' | 'l2' | 'ip';
-    lists?: number;
-  }): Promise<{ success: boolean }> =>
+  createIndex: (
+    instanceName: string,
+    data: {
+      tableSchema?: string;
+      tableName: string;
+      columnName: string;
+      indexType: 'ivfflat' | 'hnsw';
+      metric: 'cosine' | 'l2' | 'ip';
+      lists?: number;
+    }
+  ): Promise<{ success: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/indexes`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -974,14 +994,17 @@ export const vectorsApi = {
   dropIndex: (instanceName: string, indexName: string): Promise<{ success: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/indexes/${indexName}`, { method: 'DELETE' }),
 
-  search: (instanceName: string, data: {
-    tableSchema?: string;
-    tableName: string;
-    columnName: string;
-    vector: number[];
-    k: number;
-    metric?: 'cosine' | 'l2' | 'ip';
-  }): Promise<{ results: any[] }> =>
+  search: (
+    instanceName: string,
+    data: {
+      tableSchema?: string;
+      tableName: string;
+      columnName: string;
+      vector: number[];
+      k: number;
+      metric?: 'cosine' | 'l2' | 'ip';
+    }
+  ): Promise<{ results: any[] }> =>
     fetchApi(`/api/instances/${instanceName}/vectors/search`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1010,10 +1033,20 @@ export const queuesApi = {
   drop: (instanceName: string, queueName: string): Promise<{ success: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/queues/${queueName}`, { method: 'DELETE' }),
 
-  readMessages: (instanceName: string, queueName: string, limit?: number): Promise<{ messages: any[] }> =>
-    fetchApi(`/api/instances/${instanceName}/queues/${queueName}/messages${limit ? `?limit=${limit}` : ''}`),
+  readMessages: (
+    instanceName: string,
+    queueName: string,
+    limit?: number
+  ): Promise<{ messages: any[] }> =>
+    fetchApi(
+      `/api/instances/${instanceName}/queues/${queueName}/messages${limit ? `?limit=${limit}` : ''}`
+    ),
 
-  sendMessage: (instanceName: string, queueName: string, message: object): Promise<{ msgId: number }> =>
+  sendMessage: (
+    instanceName: string,
+    queueName: string,
+    message: object
+  ): Promise<{ msgId: number }> =>
     fetchApi(`/api/instances/${instanceName}/queues/${queueName}/send`, {
       method: 'POST',
       body: JSON.stringify({ message }),
@@ -1039,25 +1072,168 @@ export const domainsApi = {
       body: JSON.stringify({ domain }),
     }),
 
-  checkDns: (instanceName: string, domain: string): Promise<{ verified: boolean; message: string }> =>
+  checkDns: (
+    instanceName: string,
+    domain: string
+  ): Promise<{ verified: boolean; message: string }> =>
     fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/check-dns`, {
       method: 'POST',
     }),
 
-  activateSsl: (instanceName: string, domain: string, adminEmail: string): Promise<{ success: boolean; message: string }> =>
+  activateSsl: (
+    instanceName: string,
+    domain: string,
+    adminEmail: string
+  ): Promise<{ success: boolean; message: string }> =>
     fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/activate-ssl`, {
       method: 'POST',
       body: JSON.stringify({ adminEmail }),
     }),
 
-  manualActivate: (instanceName: string, domain: string, certDir?: string): Promise<{ success: boolean }> =>
-    fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/manual-activate`, {
-      method: 'POST',
-      body: JSON.stringify({ certDir }),
-    }),
+  manualActivate: (
+    instanceName: string,
+    domain: string,
+    certDir?: string
+  ): Promise<{ success: boolean }> =>
+    fetchApi(
+      `/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}/manual-activate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ certDir }),
+      }
+    ),
 
   remove: (instanceName: string, domain: string): Promise<{ success: boolean }> =>
     fetchApi(`/api/instances/${instanceName}/domains/${encodeURIComponent(domain)}`, {
       method: 'DELETE',
     }),
+};
+
+// =====================================================
+// Extension Marketplace API
+// =====================================================
+
+export interface MarketplaceExtension {
+  id: string;
+  name: string;
+  description: string;
+  longDescription?: string;
+  version: string;
+  author: string;
+  authorUrl?: string;
+  category: string;
+  tags: string;
+  iconUrl?: string;
+  screenshotUrls?: string;
+  verified: boolean;
+  featured: boolean;
+  installCount: number;
+  rating?: number;
+  minVersion: string;
+  requiresExtensions?: string;
+  installType: string;
+  manifestUrl: string;
+  configSchema?: string;
+  latestVersion?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExtensionReview {
+  id: string;
+  extensionId: string;
+  rating: number;
+  comment?: string;
+  authorName?: string;
+  createdAt: string;
+}
+
+export interface InstalledExtension {
+  id: string;
+  instanceId: string;
+  extensionId: string;
+  version: string;
+  status: string;
+  config?: string;
+  installedAt: string;
+  updatedAt: string;
+  extension: Pick<
+    MarketplaceExtension,
+    | 'id'
+    | 'name'
+    | 'description'
+    | 'version'
+    | 'author'
+    | 'category'
+    | 'iconUrl'
+    | 'verified'
+    | 'latestVersion'
+  >;
+}
+
+export const marketplaceApi = {
+  listExtensions: (params?: {
+    category?: string;
+    search?: string;
+    featured?: boolean;
+  }): Promise<{ extensions: MarketplaceExtension[] }> => {
+    const q = new URLSearchParams();
+    if (params?.category) q.set('category', params.category);
+    if (params?.search) q.set('search', params.search);
+    if (params?.featured) q.set('featured', 'true');
+    const qs = q.toString();
+    return fetchApi(`/api/marketplace/extensions${qs ? `?${qs}` : ''}`);
+  },
+
+  getExtension: (id: string): Promise<{ extension: MarketplaceExtension }> =>
+    fetchApi(`/api/marketplace/extensions/${id}`),
+
+  getStats: (
+    id: string
+  ): Promise<{
+    installCount: number;
+    rating: number | null;
+    version: string;
+    latestVersion: string | null;
+  }> => fetchApi(`/api/marketplace/extensions/${id}/stats`),
+
+  listReviews: (id: string): Promise<{ reviews: ExtensionReview[] }> =>
+    fetchApi(`/api/marketplace/extensions/${id}/reviews`),
+
+  submitReview: (
+    id: string,
+    payload: { rating: number; comment?: string; authorName?: string }
+  ): Promise<{ review: ExtensionReview }> =>
+    fetchApi(`/api/marketplace/extensions/${id}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
+export const instanceExtensionsApi = {
+  list: (instanceName: string): Promise<{ extensions: InstalledExtension[] }> =>
+    fetchApi(`/api/instances/${instanceName}/extensions`),
+
+  install: (
+    instanceName: string,
+    extensionId: string,
+    config?: Record<string, unknown>
+  ): Promise<{ installed: InstalledExtension }> =>
+    fetchApi(`/api/instances/${instanceName}/extensions`, {
+      method: 'POST',
+      body: JSON.stringify({ extensionId, config }),
+    }),
+
+  uninstall: (instanceName: string, extensionId: string): Promise<{ success: boolean }> =>
+    fetchApi(`/api/instances/${instanceName}/extensions/${extensionId}`, { method: 'DELETE' }),
+
+  getStatus: (
+    instanceName: string,
+    extensionId: string
+  ): Promise<{
+    status: string;
+    version: string;
+    installedAt: string;
+    config: Record<string, unknown>;
+  }> => fetchApi(`/api/instances/${instanceName}/extensions/${extensionId}/status`),
 };

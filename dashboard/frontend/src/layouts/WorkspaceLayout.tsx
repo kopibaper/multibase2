@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, FolderKanban, LogOut, User, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, LogOut, User, ChevronDown, Package } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function WorkspaceLayout() {
@@ -71,46 +71,57 @@ export default function WorkspaceLayout() {
                 <LayoutDashboard className='w-4 h-4' />
                 <span className={location.pathname.startsWith('/dashboard') ? 'text-red-400' : ''}>Dashboard</span>
               </button>
+              <button
+                onClick={() => navigate('/marketplace')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname.startsWith('/marketplace')
+                    ? 'bg-brand-500/15 text-brand-400'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                }`}
+              >
+                <Package className='w-4 h-4' />
+                Marketplace
+              </button>
             </nav>
           </div>
 
           {/* Right: User Menu */}
           <div className='flex items-center gap-3'>
             <div className='relative' ref={menuRef}>
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className='flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
-            >
-              <div className='w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 text-xs font-bold'>
-                {user?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <span className='hidden sm:inline'>{user?.username || user?.email}</span>
-              <ChevronDown className='w-4 h-4' />
-            </button>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className='flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
+              >
+                <div className='w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 text-xs font-bold'>
+                  {user?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <span className='hidden sm:inline'>{user?.username || user?.email}</span>
+                <ChevronDown className='w-4 h-4' />
+              </button>
 
-            {userMenuOpen && (
-              <div className='absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl py-1 z-50'>
-                <button
-                  onClick={() => {
-                    navigate('/profile');
-                    setUserMenuOpen(false);
-                  }}
-                  className='flex items-center gap-2 w-full px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
-                >
-                  <User className='w-4 h-4' />
-                  Profile
-                </button>
-                <div className='border-t border-white/5 my-1' />
-                <button
-                  onClick={handleLogout}
-                  className='flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors'
-                >
-                  <LogOut className='w-4 h-4' />
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+              {userMenuOpen && (
+                <div className='absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl py-1 z-50'>
+                  <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setUserMenuOpen(false);
+                    }}
+                    className='flex items-center gap-2 w-full px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors'
+                  >
+                    <User className='w-4 h-4' />
+                    Profile
+                  </button>
+                  <div className='border-t border-white/5 my-1' />
+                  <button
+                    onClick={handleLogout}
+                    className='flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors'
+                  >
+                    <LogOut className='w-4 h-4' />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -134,11 +145,20 @@ export default function WorkspaceLayout() {
           Workspace
         </button>
         <button
+          onClick={() => navigate('/marketplace')}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+            location.pathname.startsWith('/marketplace')
+              ? 'text-brand-400'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Package className='w-5 h-5' />
+          Marketplace
+        </button>
+        <button
           onClick={() => navigate('/dashboard')}
           className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-            location.pathname.startsWith('/dashboard')
-              ? 'text-red-400'
-              : 'text-muted-foreground hover:text-foreground'
+            location.pathname.startsWith('/dashboard') ? 'text-red-400' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <LayoutDashboard className='w-5 h-5' />
