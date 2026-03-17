@@ -5,6 +5,9 @@ on:
     branches: [Feature_Roadmap]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ------------------------------------------------------------------
   # JOB 1: Deploy Frontend to VPS 1 (triggers on main only)
@@ -47,7 +50,7 @@ jobs:
   # JOB 2: Deploy Backend to VPS 2 (DISABLED on main — managed via cloud-version branch)
   # ------------------------------------------------------------------
   deploy-backend:
-    if: false  # Never run from main — backend is deployed via cloud-version workflow
+    if: false # Never run from main — backend is deployed via cloud-version workflow
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
