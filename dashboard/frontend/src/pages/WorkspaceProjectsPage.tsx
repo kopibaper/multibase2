@@ -61,9 +61,9 @@ function StatusBadge({ status }: { status: string }) {
 
 const ENV_CONFIG = {
   production: { label: 'Production', color: 'bg-red-500/15 text-red-400 border-red-500/20' },
-  staging:    { label: 'Staging',    color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
-  dev:        { label: 'Dev',        color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
-  preview:    { label: 'Preview',    color: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
+  staging: { label: 'Staging', color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
+  dev: { label: 'Dev', color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
+  preview: { label: 'Preview', color: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
 } as const;
 
 function EnvironmentBadge({ env }: { env: string | null | undefined }) {
@@ -71,7 +71,9 @@ function EnvironmentBadge({ env }: { env: string | null | undefined }) {
   const cfg = ENV_CONFIG[env as keyof typeof ENV_CONFIG];
   if (!cfg) return null;
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.color}`}>
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.color}`}
+    >
       <Tag className='w-2.5 h-2.5' />
       {cfg.label}
     </span>
@@ -98,7 +100,10 @@ export default function WorkspaceProjectsPage() {
         i.credentials?.project_url?.toLowerCase().includes(searchQuery.toLowerCase())
     ) ?? [];
 
-  const handleSetEnvironment = async (instance: SupabaseInstance, env: 'production' | 'staging' | 'dev' | 'preview' | null) => {
+  const handleSetEnvironment = async (
+    instance: SupabaseInstance,
+    env: 'production' | 'staging' | 'dev' | 'preview' | null
+  ) => {
     setEnvMenuOpen(null);
     try {
       await instancesApi.setEnvironment(instance.name, env);
@@ -131,38 +136,33 @@ export default function WorkspaceProjectsPage() {
     }
   };
 
-  const handleOpenStudio = useCallback(
-    async (instance: SupabaseInstance, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (instance.status === 'stopped') return;
-      const isCloud = instance.stackType === 'cloud';
-      if (!isCloud) {
-        const url =
-          instance.credentials.studio_url ||
-          `http://${window.location.hostname}:${instance.ports?.studio}`;
-        window.open(url, '_blank');
-        return;
-      }
-      setStudioActivating(instance.name);
-      try {
-        const token = localStorage.getItem('auth_token');
-        const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        const data = await res.json();
-        window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
-      } catch {
-        // fail silently
-      } finally {
-        setStudioActivating(null);
-      }
-    },
-    []
-  );
+  const handleOpenStudio = useCallback(async (instance: SupabaseInstance, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (instance.status === 'stopped') return;
+    const isCloud = instance.stackType === 'cloud';
+    if (!isCloud) {
+      const url = instance.credentials.studio_url || `http://${window.location.hostname}:${instance.ports?.studio}`;
+      window.open(url, '_blank');
+      return;
+    }
+    setStudioActivating(instance.name);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE_URL}/api/studio/activate/${instance.name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+    } catch {
+      // fail silently
+    } finally {
+      setStudioActivating(null);
+    }
+  }, []);
 
   return (
     <div className='min-h-[calc(100vh-4rem)]'>
@@ -172,7 +172,7 @@ export default function WorkspaceProjectsPage() {
           <div className='flex items-center gap-3 min-w-0'>
             <button
               onClick={() => navigate('/workspace')}
-              className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors flex-shrink-0'
+              className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0'
             >
               <ChevronLeft className='w-4 h-4' />
             </button>
@@ -188,7 +188,7 @@ export default function WorkspaceProjectsPage() {
             </div>
           </div>
 
-          <div className='flex items-center gap-2 flex-shrink-0'>
+          <div className='flex items-center gap-2 shrink-0'>
             <div className='relative'>
               <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground' />
               <input
@@ -221,13 +221,9 @@ export default function WorkspaceProjectsPage() {
             <div className='w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4'>
               <FolderKanban className='w-8 h-8 text-muted-foreground/40' />
             </div>
-            <h3 className='text-lg font-semibold mb-2'>
-              {searchQuery ? 'No matching projects' : 'No projects yet'}
-            </h3>
+            <h3 className='text-lg font-semibold mb-2'>{searchQuery ? 'No matching projects' : 'No projects yet'}</h3>
             <p className='text-sm text-muted-foreground'>
-              {searchQuery
-                ? 'Try a different search term'
-                : 'Create your first project from the Dashboard'}
+              {searchQuery ? 'Try a different search term' : 'Create your first project from the Dashboard'}
             </p>
           </div>
         ) : (
@@ -238,11 +234,11 @@ export default function WorkspaceProjectsPage() {
                 <div
                   key={instance.name}
                   onClick={() => navigate(`/workspace/projects/${instance.name}`)}
-                  className='flex flex-col p-5 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-brand-500/20 cursor-pointer transition-all group'
+                  className='flex flex-col p-5 rounded-2xl border border-white/10 bg-white/2 hover:bg-white/5 hover:border-brand-500/20 cursor-pointer transition-all group'
                 >
                   {/* Card Header */}
                   <div className='flex items-start justify-between mb-3'>
-                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
+                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0'>
                       <Database className='w-5 h-5 text-brand-400' />
                     </div>
                     <div className='flex items-center gap-1.5'>
@@ -262,14 +258,16 @@ export default function WorkspaceProjectsPage() {
                         </button>
                         {envMenuOpen === instance.name && (
                           <div className='absolute right-0 top-7 z-20 w-52 bg-popover border border-white/10 rounded-xl shadow-2xl py-1 text-sm animate-in slide-in-from-top-2'>
-                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>Set Environment</div>
+                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>
+                              Set Environment
+                            </div>
                             {(['production', 'staging', 'dev', 'preview'] as const).map((env) => (
                               <button
                                 key={env}
                                 onClick={() => handleSetEnvironment(instance, env)}
                                 className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors ${instance.environment === env ? 'text-brand-400' : ''}`}
                               >
-                                <Tag className='w-3.5 h-3.5 flex-shrink-0' />
+                                <Tag className='w-3.5 h-3.5 shrink-0' />
                                 <span className='capitalize'>{env}</span>
                                 {instance.environment === env && <span className='ml-auto text-brand-400'>✓</span>}
                               </button>
@@ -278,21 +276,23 @@ export default function WorkspaceProjectsPage() {
                               onClick={() => handleSetEnvironment(instance, null)}
                               className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-muted-foreground'
                             >
-                              <XCircle className='w-3.5 h-3.5 flex-shrink-0' /> Clear label
+                              <XCircle className='w-3.5 h-3.5 shrink-0' /> Clear label
                             </button>
                             <div className='border-t border-white/5 my-1' />
-                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>Clone As</div>
+                            <div className='px-3 py-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide'>
+                              Clone As
+                            </div>
                             <button
                               onClick={() => openCloneModal(instance, 'staging')}
                               className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors'
                             >
-                              <Copy className='w-3.5 h-3.5 flex-shrink-0' /> Clone as Staging
+                              <Copy className='w-3.5 h-3.5 shrink-0' /> Clone as Staging
                             </button>
                             <button
                               onClick={() => openCloneModal(instance, 'dev')}
                               className='w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors'
                             >
-                              <Copy className='w-3.5 h-3.5 flex-shrink-0' /> Clone as Dev
+                              <Copy className='w-3.5 h-3.5 shrink-0' /> Clone as Dev
                             </button>
                           </div>
                         )}
@@ -354,9 +354,7 @@ export default function WorkspaceProjectsPage() {
       {keysModal && <KeysQuickModal instance={keysModal} onClose={() => setKeysModal(null)} />}
 
       {/* Overlay to close env menu */}
-      {envMenuOpen && (
-        <div className='fixed inset-0 z-10' onClick={() => setEnvMenuOpen(null)} />
-      )}
+      {envMenuOpen && <div className='fixed inset-0 z-10' onClick={() => setEnvMenuOpen(null)} />}
 
       {/* Clone Modal */}
       {cloneModal && (
@@ -367,8 +365,8 @@ export default function WorkspaceProjectsPage() {
               Clone "{cloneModal.source.name}" as {cloneModal.targetEnv}
             </h3>
             <p className='text-sm text-muted-foreground'>
-              A full copy of the instance will be created, including all environment variables.
-              The clone will be labelled <strong className='text-foreground'>{cloneModal.targetEnv}</strong>.
+              A full copy of the instance will be created, including all environment variables. The clone will be
+              labelled <strong className='text-foreground'>{cloneModal.targetEnv}</strong>.
             </p>
             <div>
               <label className='text-xs font-medium text-muted-foreground'>New instance name</label>

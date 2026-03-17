@@ -30,9 +30,9 @@ export default function WorkspaceLayout() {
     <div className='min-h-screen bg-background text-foreground relative'>
       {/* Background Gradients */}
       <div className='fixed inset-0 z-0 pointer-events-none overflow-hidden'>
-        <div className='absolute top-0 left-1/4 w-[600px] h-[600px] bg-brand-500/8 rounded-full blur-[120px] -translate-y-1/2' />
-        <div className='absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-brand-900/10 rounded-full blur-[100px] translate-y-1/2' />
-        <div className='absolute top-1/2 right-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] translate-x-1/2' />
+        <div className='absolute top-0 left-1/4 w-150 h-150 bg-brand-500/8 rounded-full blur-[120px] -translate-y-1/2' />
+        <div className='absolute bottom-0 right-1/4 w-125 h-125 bg-brand-900/10 rounded-full blur-[100px] translate-y-1/2' />
+        <div className='absolute top-1/2 right-0 w-100 h-100 bg-purple-500/5 rounded-full blur-[100px] translate-x-1/2' />
       </div>
 
       {/* Header */}

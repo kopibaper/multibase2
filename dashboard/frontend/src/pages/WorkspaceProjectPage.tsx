@@ -228,7 +228,7 @@ export default function WorkspaceProjectPage() {
             </button>
           </div>
           <div className='flex items-center gap-2.5 min-w-0'>
-            <div className='w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
+            <div className='w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center shrink-0'>
               <Database className='w-4 h-4 text-brand-400' />
             </div>
             <div className='min-w-0'>
@@ -263,7 +263,7 @@ export default function WorkspaceProjectPage() {
                     : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                 }`}
               >
-                <Icon className='w-4 h-4 flex-shrink-0' />
+                <Icon className='w-4 h-4 shrink-0' />
                 {item.label}
               </button>
             );
@@ -345,7 +345,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
         {value && (
           <button
             onClick={handleCopy}
-            className='p-1.5 rounded-lg text-muted-foreground/50 hover:text-brand-400 transition-colors flex-shrink-0'
+            className='p-1.5 rounded-lg text-muted-foreground/50 hover:text-brand-400 transition-colors shrink-0'
           >
             {copied ? <Check className='w-3.5 h-3.5 text-green-400' /> : <Copy className='w-3.5 h-3.5' />}
           </button>
@@ -437,7 +437,7 @@ function OverviewContent({ instance, onOpenStudio }: { instance: SupabaseInstanc
             {instance.services.map((svc: any) => (
               <div key={svc.name} className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'>
                 <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  className={`w-2 h-2 rounded-full shrink-0 ${
                     svc.status === 'running' || svc.health === 'healthy'
                       ? 'bg-green-500'
                       : svc.status === 'stopped'
