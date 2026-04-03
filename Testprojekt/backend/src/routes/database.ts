@@ -23,7 +23,7 @@ router.post('/create-table', async (_req: Request, res: Response) => {
       CREATE POLICY "allow_all_${TEST_TABLE}" ON public.${TEST_TABLE}
         FOR ALL USING (true) WITH CHECK (true);
     `;
-    const response = await multibase.post(`/api/instances/${instanceName}/sql`, { sql });
+    const response = await multibase.post(`/api/instances/${instanceName}/sql`, { query: sql });
     res.json({
       success: true,
       test: 'Create Test Table',
@@ -157,7 +157,7 @@ router.delete('/cleanup', async (_req: Request, res: Response) => {
   try {
     const instanceName = getInstanceName();
     const sql = `DROP TABLE IF EXISTS public.${TEST_TABLE} CASCADE;`;
-    const response = await multibase.post(`/api/instances/${instanceName}/sql`, { sql });
+    const response = await multibase.post(`/api/instances/${instanceName}/sql`, { query: sql });
     res.json({
       success: true,
       test: 'Cleanup (Drop Table)',

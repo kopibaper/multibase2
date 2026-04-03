@@ -74,10 +74,10 @@ router.post('/subscribe-test', async (_req: Request, res: Response) => {
               },
             });
           })
-          .subscribe((status) => {
+          .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
               // Once subscribed, send a broadcast message
-              channel.send({
+              await channel.send({
                 type: 'broadcast',
                 event: 'test-event',
                 payload: {
