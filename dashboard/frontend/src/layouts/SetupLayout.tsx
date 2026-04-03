@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Book, Code, Layers, FileText, Cloud, Network, Building2 } from 'lucide-react';
+import { Book, Code, Layers, FileText, Cloud, Network, Building2, Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
@@ -8,9 +8,10 @@ import SetupSearch from '../components/SetupSearch';
 
 interface SetupLayoutProps {}
 
-const SidebarLink = ({ to, icon: Icon, children }: { to: string; icon: any; children: React.ReactNode }) => (
+const SidebarLink = ({ to, icon: Icon, children, onClick }: { to: string; icon: any; children: React.ReactNode; onClick?: () => void }) => (
   <NavLink
     to={to}
+    onClick={onClick}
     className={({ isActive }) =>
       cn(
         'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
@@ -33,6 +34,54 @@ const SidebarGroup = ({ title, children }: { title: string; children: React.Reac
 );
 
 export default function SetupLayout({}: SetupLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const close = () => setSidebarOpen(false);
+
+  const sidebarContent = (onClick?: () => void) => (
+    <>
+      <SetupSearch />
+      <SidebarGroup title='Getting Started'>
+        <SidebarLink to='/setup/getting-started/requirements' icon={Book} onClick={onClick}>Requirements</SidebarLink>
+        <SidebarLink to='/setup/getting-started/installation' icon={Book} onClick={onClick}>Installation</SidebarLink>
+        <SidebarLink to='/setup/getting-started/uninstall' icon={Book} onClick={onClick}>Uninstall</SidebarLink>
+        <SidebarLink to='/setup/getting-started/hosting' icon={Book} onClick={onClick}>Choosing a VPS</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Server Setup'>
+        <SidebarLink to='/setup/server-setup/linux-basics' icon={Code} onClick={onClick}>Linux Basics</SidebarLink>
+        <SidebarLink to='/setup/server-setup/dependencies' icon={Code} onClick={onClick}>Dependencies</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Domain & DNS'>
+        <SidebarLink to='/setup/domain-dns/domain-setup' icon={Layers} onClick={onClick}>Domain Setup</SidebarLink>
+        <SidebarLink to='/setup/domain-dns/dns-settings' icon={Layers} onClick={onClick}>DNS Settings</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Deployment'>
+        <SidebarLink to='/setup/deployment/single-server' icon={FileText} onClick={onClick}>Single Server</SidebarLink>
+        <SidebarLink to='/setup/deployment/split-hosting' icon={FileText} onClick={onClick}>Split Hosting</SidebarLink>
+        <SidebarLink to='/setup/deployment/github-actions' icon={FileText} onClick={onClick}>GitHub Actions</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Configuration'>
+        <SidebarLink to='/setup/configuration/environment' icon={Code} onClick={onClick}>Environment</SidebarLink>
+        <SidebarLink to='/setup/configuration/nginx' icon={Code} onClick={onClick}>Nginx</SidebarLink>
+        <SidebarLink to='/setup/configuration/pm2' icon={Code} onClick={onClick}>PM2</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Reference'>
+        <SidebarLink to='/setup/general/overview' icon={Book} onClick={onClick}>Overview</SidebarLink>
+        <SidebarLink to='/setup/general/versions' icon={Layers} onClick={onClick}>Version History</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.1' icon={FileText} onClick={onClick}>v1.1 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.2' icon={FileText} onClick={onClick}>v1.2 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText} onClick={onClick}>v1.3 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText} onClick={onClick}>v1.4 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.5' icon={FileText} onClick={onClick}>v1.5 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.6' icon={FileText} onClick={onClick}>v1.6 Released</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.7' icon={FileText} onClick={onClick}>v1.7 Released</SidebarLink>
+        <SidebarLink to='/setup/reference/multi-tenancy' icon={Building2} onClick={onClick}>Multi-Tenancy</SidebarLink>
+        <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud} onClick={onClick}>Cloud Architecture</SidebarLink>
+        <SidebarLink to='/setup/reference/kong-nginx-migration' icon={Network} onClick={onClick}>Kong→Nginx Migration</SidebarLink>
+        <SidebarLink to='/setup/reference/scripts' icon={Code} onClick={onClick}>Scripts Guide</SidebarLink>
+      </SidebarGroup>
+    </>
+  );
+
   return (
     <div className='min-h-screen flex flex-col relative'>
       {/* Background gradients for consistency */}
@@ -44,108 +93,43 @@ export default function SetupLayout({}: SetupLayoutProps) {
         />
       </div>
       <Navbar />
+
+      {/* Mobile Top Bar (below Navbar) */}
+      <div className='md:hidden sticky top-16 z-30 border-b border-white/5 bg-background/95 backdrop-blur-md px-4 py-2 flex items-center justify-between'>
+        <span className='text-sm font-medium text-muted-foreground'>Navigation</span>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className='flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors'
+          aria-label='Sidebar öffnen'
+        >
+          {sidebarOpen ? <X className='w-4 h-4' /> : <Menu className='w-4 h-4' />}
+          {sidebarOpen ? 'Schließen' : 'Inhaltsverzeichnis'}
+        </button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className='md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-20 top-28'
+          onClick={close}
+        />
+      )}
+
+      {/* Mobile Slide-in Sidebar */}
+      <div
+        className={cn(
+          'md:hidden fixed left-0 z-30 w-72 bg-background/95 backdrop-blur-md border-r border-white/5 overflow-y-auto py-4 px-4 transition-transform duration-300 ease-in-out',
+          'top-28 bottom-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {sidebarContent(close)}
+      </div>
+
       <div className='flex flex-1 pt-16 container mx-auto'>
-        {/* Sidebar with glass-panel */}
+        {/* Desktop Sidebar */}
         <aside className='w-64 glass-panel h-full overflow-y-auto py-6 pr-6 hidden md:block'>
-          <SetupSearch />
-          <SidebarGroup title='Getting Started'>
-            <SidebarLink to='/setup/getting-started/requirements' icon={Book}>
-              Requirements
-            </SidebarLink>
-            <SidebarLink to='/setup/getting-started/installation' icon={Book}>
-              Installation
-            </SidebarLink>
-            <SidebarLink to='/setup/getting-started/uninstall' icon={Book}>
-              Uninstall
-            </SidebarLink>
-            <SidebarLink to='/setup/getting-started/hosting' icon={Book}>
-              Choosing a VPS
-            </SidebarLink>
-          </SidebarGroup>
-
-          <SidebarGroup title='Server Setup'>
-            <SidebarLink to='/setup/server-setup/linux-basics' icon={Code}>
-              Linux Basics
-            </SidebarLink>
-            <SidebarLink to='/setup/server-setup/dependencies' icon={Code}>
-              Dependencies
-            </SidebarLink>
-          </SidebarGroup>
-
-          <SidebarGroup title='Domain & DNS'>
-            <SidebarLink to='/setup/domain-dns/domain-setup' icon={Layers}>
-              Domain Setup
-            </SidebarLink>
-            <SidebarLink to='/setup/domain-dns/dns-settings' icon={Layers}>
-              DNS Settings
-            </SidebarLink>
-          </SidebarGroup>
-
-          <SidebarGroup title='Deployment'>
-            <SidebarLink to='/setup/deployment/single-server' icon={FileText}>
-              Single Server
-            </SidebarLink>
-            <SidebarLink to='/setup/deployment/split-hosting' icon={FileText}>
-              Split Hosting
-            </SidebarLink>
-            <SidebarLink to='/setup/deployment/github-actions' icon={FileText}>
-              GitHub Actions
-            </SidebarLink>
-          </SidebarGroup>
-
-          <SidebarGroup title='Configuration'>
-            <SidebarLink to='/setup/configuration/environment' icon={Code}>
-              Environment
-            </SidebarLink>
-            <SidebarLink to='/setup/configuration/nginx' icon={Code}>
-              Nginx
-            </SidebarLink>
-            <SidebarLink to='/setup/configuration/pm2' icon={Code}>
-              PM2
-            </SidebarLink>
-          </SidebarGroup>
-
-          <SidebarGroup title='Reference'>
-            <SidebarLink to='/setup/general/overview' icon={Book}>
-              Overview
-            </SidebarLink>
-            <SidebarLink to='/setup/general/versions' icon={Layers}>
-              Version History
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.1' icon={FileText}>
-              v1.1 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.2' icon={FileText}>
-              v1.2 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText}>
-              v1.3 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText}>
-              v1.4 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.5' icon={FileText}>
-              v1.5 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.6' icon={FileText}>
-              v1.6 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/features/roadmap-1.7' icon={FileText}>
-              v1.7 Released
-            </SidebarLink>
-            <SidebarLink to='/setup/reference/multi-tenancy' icon={Building2}>
-              Multi-Tenancy
-            </SidebarLink>
-            <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud}>
-              Cloud Architecture
-            </SidebarLink>
-            <SidebarLink to='/setup/reference/kong-nginx-migration' icon={Network}>
-              Kong→Nginx Migration
-            </SidebarLink>
-            <SidebarLink to='/setup/reference/scripts' icon={Code}>
-              Scripts Guide
-            </SidebarLink>
-          </SidebarGroup>
+          {sidebarContent()}
         </aside>
 
         {/* Main Content */}

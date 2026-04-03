@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Database, Shield, Activity, Zap, Layers, Github } from 'lucide-react';
+import { Database, Shield, Activity, Zap, Layers, Github, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
 
@@ -41,6 +41,7 @@ const LandingPage = () => {
   const { user, isAdmin } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const openAuth = (view: 'login' | 'register' | 'forgot') => {
     setAuthView(view);
@@ -56,24 +57,25 @@ const LandingPage = () => {
       </div>
 
       {/* Navbar */}
-      <nav className='z-10 border-b border-white/5 backdrop-blur-md sticky top-0'>
+      <nav className='z-10 border-b border-white/5 backdrop-blur-md sticky top-0 bg-background/80'>
         <div className='container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between'>
           <div className='flex items-center gap-2 font-bold text-xl tracking-tight flex-shrink-0'>
             <img src='/logo.png' alt='Multibase' className='w-8 h-8' />
             Multibase
           </div>
-          <div className='flex items-center gap-4'>
+          {/* Desktop Nav */}
+          <div className='hidden sm:flex items-center gap-4'>
             <a
               href='https://supabase.com/docs'
               target='_blank'
               rel='noopener noreferrer'
-              className='text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block'
+              className='text-sm text-muted-foreground hover:text-foreground transition-colors'
             >
               Supabase Docs
             </a>
             <a
               href='/setup'
-              className='text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block'
+              className='text-sm text-muted-foreground hover:text-foreground transition-colors'
             >
               Setup Guide
             </a>
@@ -92,14 +94,79 @@ const LandingPage = () => {
               </>
             ) : (
               <>
-                <SupabaseButton variant='ghost' onClick={() => openAuth('login')} className='hidden sm:inline-flex'>
+                <SupabaseButton variant='ghost' onClick={() => openAuth('login')}>
                   Sign In
                 </SupabaseButton>
                 <SupabaseButton onClick={() => openAuth('login')}>Get Started</SupabaseButton>
               </>
             )}
           </div>
+          {/* Mobile Burger Button */}
+          <button
+            className='sm:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-lg transition-colors'
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label='Menüöffnen'
+          >
+            {mobileMenuOpen ? <X className='w-5 h-5' /> : <Menu className='w-5 h-5' />}
+          </button>
         </div>
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className='sm:hidden border-t border-white/5 bg-background/95 backdrop-blur-md px-4 py-4 flex flex-col gap-2'>
+            <a
+              href='https://supabase.com/docs'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-sm text-muted-foreground hover:text-foreground transition-colors py-2 px-2 rounded-lg hover:bg-white/5'
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Supabase Docs
+            </a>
+            <a
+              href='/setup'
+              className='text-sm text-muted-foreground hover:text-foreground transition-colors py-2 px-2 rounded-lg hover:bg-white/5'
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Setup Guide
+            </a>
+            <div className='border-t border-white/5 my-1' />
+            {user ? (
+              <>
+                <SupabaseButton
+                  className='w-full justify-center'
+                  onClick={() => { navigate('/workspace'); setMobileMenuOpen(false); }}
+                >
+                  Workspace
+                </SupabaseButton>
+                {isAdmin && (
+                  <SupabaseButton
+                    variant='ghost'
+                    className='w-full justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20'
+                    onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}
+                  >
+                    Dashboard
+                  </SupabaseButton>
+                )}
+              </>
+            ) : (
+              <>
+                <SupabaseButton
+                  variant='ghost'
+                  className='w-full justify-center'
+                  onClick={() => { openAuth('login'); setMobileMenuOpen(false); }}
+                >
+                  Sign In
+                </SupabaseButton>
+                <SupabaseButton
+                  className='w-full justify-center'
+                  onClick={() => { openAuth('login'); setMobileMenuOpen(false); }}
+                >
+                  Get Started
+                </SupabaseButton>
+              </>
+            )}
+          </div>
+        )}
       </nav>
 
       <main className='relative z-10 flex-grow'>
@@ -209,17 +276,17 @@ const LandingPage = () => {
             <h4 className='font-semibold mb-4 text-sm'>Product</h4>
             <ul className='space-y-2 text-sm text-muted-foreground'>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='https://supabase.com/docs/guides/database' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
                   Database
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='https://supabase.com/docs/guides/auth' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
                   Authentication
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='https://supabase.com/docs/guides/storage' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
                   Storage
                 </a>
               </li>
@@ -229,17 +296,17 @@ const LandingPage = () => {
             <h4 className='font-semibold mb-4 text-sm'>Resources</h4>
             <ul className='space-y-2 text-sm text-muted-foreground'>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='https://supabase.com/docs' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
                   Documentation
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='https://supabase.com/docs/reference/javascript' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
                   API Reference
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
+                <a href='/setup' className='hover:text-brand-500 transition-colors'>
                   Guides
                 </a>
               </li>
@@ -249,18 +316,18 @@ const LandingPage = () => {
             <h4 className='font-semibold mb-4 text-sm'>Company</h4>
             <ul className='space-y-2 text-sm text-muted-foreground'>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
-                  Blog
+                <a href='https://github.com/skipper159/multibase2' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
+                  GitHub
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
-                  Careers
+                <a href='https://github.com/skipper159/multibase2/issues' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
+                  Issues
                 </a>
               </li>
               <li>
-                <a href='#' className='hover:text-brand-500 transition-colors'>
-                  Contact
+                <a href='https://github.com/skipper159/multibase2/discussions' target='_blank' rel='noopener noreferrer' className='hover:text-brand-500 transition-colors'>
+                  Discussions
                 </a>
               </li>
             </ul>
