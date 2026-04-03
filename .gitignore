@@ -135,3 +135,4 @@ logs/
 pids/
 *.seed
 *.pid.lock
+dashboard/backend/src/routes/instances.ts

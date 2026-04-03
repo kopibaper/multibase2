@@ -13,6 +13,7 @@ import {
 } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser, requireAdmin, requireOrgRole } from '../middleware/authMiddleware';
+import { requireAuth } from '../middleware/auth';
 
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
@@ -660,7 +661,7 @@ export function createInstanceRoutes(
    */
   router.post(
     '/:name/sql',
-    requireUser,
+    requireAuth,
     requireOrgRole('admin'),
     auditLog('SQL_EXECUTE', { includeBody: false }),
     async (req: Request, res: Response) => {

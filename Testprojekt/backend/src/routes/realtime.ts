@@ -62,7 +62,7 @@ router.post('/subscribe-test', async (_req: Request, res: Response) => {
         }, 8000);
 
         const channel = supabase
-          .channel(TEST_CHANNEL)
+          .channel(TEST_CHANNEL, { config: { broadcast: { self: true } } })
           .on('broadcast', { event: 'test-event' }, (payload) => {
             clearTimeout(timeout);
             channel.unsubscribe();
