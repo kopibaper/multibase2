@@ -444,10 +444,30 @@ process.on('uncaughtException', (error) => {
 });
 
 // Start server
+async function seedMarketplaceIfEmpty(): Promise<void> {
+  const count = await prisma.extension.count();
+  if (count > 0) return;
+
+  const { MARKETPLACE_EXTENSIONS } = await import('./data/marketplace-extensions');
+  logger.info(`Seeding marketplace with ${MARKETPLACE_EXTENSIONS.length} extensions...`);
+
+  for (const ext of MARKETPLACE_EXTENSIONS) {
+    try {
+      await prisma.extension.create({ data: ext });
+    } catch (e: any) {
+      if (e?.code !== 'P2002') throw e;
+    }
+  }
+  logger.info('Marketplace seed complete.');
+}
+
 async function start() {
   try {
     // Create initial admin user if needed
     await AuthService.createInitialAdmin();
+
+    // Seed marketplace catalog on first startup
+    await seedMarketplaceIfEmpty();
 
     await startServices();
 

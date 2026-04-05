@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Search, RefreshCw, Loader2, Star } from 'lucide-react';
 import { marketplaceApi, type MarketplaceExtension } from '../lib/api';
@@ -15,9 +15,43 @@ const CATEGORIES = [
   { id: 'storage', label: '💾 Storage' },
 ];
 
+type SortKey = 'default' | 'installs' | 'rating' | 'name';
+
+function ExtensionCardSkeleton() {
+  return (
+    <div className='glass-card p-4 flex flex-col gap-3'>
+      <div className='flex items-start gap-3'>
+        <div className='w-10 h-10 rounded-xl bg-white/5 animate-pulse flex-shrink-0' />
+        <div className='flex-1 space-y-1.5'>
+          <div className='h-3.5 w-28 bg-white/5 rounded animate-pulse' />
+          <div className='h-3 w-20 bg-white/5 rounded animate-pulse' />
+        </div>
+      </div>
+      <div className='space-y-1.5'>
+        <div className='h-3 w-full bg-white/5 rounded animate-pulse' />
+        <div className='h-3 w-full bg-white/5 rounded animate-pulse' />
+        <div className='h-3 w-3/4 bg-white/5 rounded animate-pulse' />
+      </div>
+      <div className='flex gap-1'>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className='h-4 w-14 bg-white/5 rounded animate-pulse' />
+        ))}
+      </div>
+      <div className='flex items-center justify-between pt-0.5'>
+        <div className='flex gap-3'>
+          <div className='h-3 w-10 bg-white/5 rounded animate-pulse' />
+          <div className='h-3 w-10 bg-white/5 rounded animate-pulse' />
+        </div>
+        <div className='h-6 w-16 bg-white/5 rounded animate-pulse' />
+      </div>
+    </div>
+  );
+}
+
 export default function MarketplacePage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [sort, setSort] = useState<SortKey>('default');
   const [selectedExt, setSelectedExt] = useState<MarketplaceExtension | null>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -32,7 +66,24 @@ export default function MarketplacePage() {
 
   const extensions = data?.extensions ?? [];
   const featured = extensions.filter((e) => e.featured);
-  const all = extensions;
+
+  const all = useMemo(() => {
+    const list = [...extensions];
+    if (sort === 'rating') return list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    if (sort === 'installs') return list.sort((a, b) => b.installCount - a.installCount);
+    if (sort === 'name') return list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [extensions, sort]);
+
+  const currentCategoryLabel = CATEGORIES.find((c) => c.id === category)?.label;
+  const emptyMessage =
+    search && category
+      ? `No extensions match "${search}" in ${currentCategoryLabel}`
+      : search
+        ? `No extensions match "${search}"`
+        : category
+          ? `No extensions in the ${currentCategoryLabel} category`
+          : 'The marketplace catalog is being loaded. Try refreshing.';
 
   return (
     <div className='max-w-5xl mx-auto py-6 px-4 sm:px-6'>
@@ -86,18 +137,27 @@ export default function MarketplacePage() {
       </div>
 
       {isLoading ? (
-        <div className='flex items-center justify-center py-16'>
-          <Loader2 className='w-6 h-6 animate-spin text-brand-400' />
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
+          {Array.from({ length: 9 }).map((_, i) => (
+            <ExtensionCardSkeleton key={i} />
+          ))}
         </div>
       ) : extensions.length === 0 ? (
         <div className='text-center py-16 text-muted-foreground'>
           <Package className='w-10 h-10 mx-auto mb-3 opacity-30' />
-          <p className='text-sm'>No extensions found</p>
-          {search && (
-            <button onClick={() => setSearch('')} className='mt-2 text-xs text-brand-400 hover:underline'>
-              Clear search
-            </button>
-          )}
+          <p className='text-sm'>{emptyMessage}</p>
+          <div className='flex justify-center gap-3 mt-2'>
+            {search && (
+              <button onClick={() => setSearch('')} className='text-xs text-brand-400 hover:underline'>
+                Clear search
+              </button>
+            )}
+            {category && (
+              <button onClick={() => setCategory('')} className='text-xs text-brand-400 hover:underline'>
+                Clear filter
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <>
@@ -123,6 +183,16 @@ export default function MarketplacePage() {
                 {search || category ? 'Results' : 'All Extensions'}{' '}
                 <span className='text-muted-foreground font-normal'>({all.length})</span>
               </h2>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className='text-xs px-2 py-1 rounded border border-white/10 bg-secondary text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-500/50 cursor-pointer'
+              >
+                <option value='default'>Sort: Default</option>
+                <option value='installs'>Most Installed</option>
+                <option value='rating'>Top Rated</option>
+                <option value='name'>Name A–Z</option>
+              </select>
             </div>
             <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
               {all.map((ext) => (
