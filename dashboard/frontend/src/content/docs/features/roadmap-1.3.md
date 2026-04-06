@@ -1,8 +1,3 @@
----
-title: Version 1.3 - Cloud Architecture & AI
-description: Cloud Infrastructure, Kong→Nginx Migration, Workspace, AI Chat Agent
----
-
 # Version 1.3 - Feature Roadmap
 
 **Release:** February 2026  

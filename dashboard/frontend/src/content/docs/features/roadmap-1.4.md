@@ -1,8 +1,3 @@
----
-title: Version 1.4 - Multi-Tenancy & Organisations
-description: Organisation model, role-based access, org switcher, member invitations
----
-
 # Version 1.4 — Multi-Tenancy & Organisations
 
 **Status:** ✅ Released  

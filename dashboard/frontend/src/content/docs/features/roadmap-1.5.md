@@ -1,9 +1,5 @@
----
-title: Version 1.5 - Developer Tools
-description: GraphQL API Playground, Database Webhooks, Cron Job Manager, pgvector AI Embeddings, Message Queues
----
-
 # Version 1.5 — Developer Tools
+description: GraphQL API Playground, Database Webhooks, Cron Job Manager, pgvector AI Embeddings, Message Queues
 
 **Status:** ✅ Released  
 **Release:** March 2026  

@@ -1,9 +1,5 @@
----
-title: Version 1.6 - Security & Configuration
-description: Auth workspace tab, Custom Domains, Vault Secrets UI, Network Restrictions, Environment Labels, Storage Tus Uploads
----
-
 # Version 1.6 — Security & Configuration
+description: Auth workspace tab, Custom Domains, Vault Secrets UI, Network Restrictions, Environment Labels, Storage Tus Uploads
 
 **Status:** ✅ Released  
 **Release:** March 2026  

@@ -1,9 +1,5 @@
----
-title: Cloud Architecture
-description: Shared Infrastructure implementation log and architecture reference
----
-
 # ☁️ Cloud Architecture
+description: Shared Infrastructure implementation log and architecture reference
 
 **Status:** ✅ Complete  
 **Branch:** `cloud-version`

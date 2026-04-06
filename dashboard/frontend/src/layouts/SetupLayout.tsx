@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Book, Code, Layers, FileText, Cloud, Network, Building2, Menu, X } from 'lucide-react';
+import { Book, Code, Layers, FileText, Cloud, Network, Building2, Menu, X, Package } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
@@ -64,16 +64,19 @@ export default function SetupLayout({}: SetupLayoutProps) {
         <SidebarLink to='/setup/configuration/nginx' icon={Code} onClick={onClick}>Nginx</SidebarLink>
         <SidebarLink to='/setup/configuration/pm2' icon={Code} onClick={onClick}>PM2</SidebarLink>
       </SidebarGroup>
+      <SidebarGroup title='Features'>
+        <SidebarLink to='/setup/features/marketplace' icon={Package} onClick={onClick}>Extension Marketplace</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.7' icon={FileText} onClick={onClick}>v1.7 — Scale & Ecosystem</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.6' icon={FileText} onClick={onClick}>v1.6 — Functions & Storage</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.5' icon={FileText} onClick={onClick}>v1.5 — Monitoring & Auth</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText} onClick={onClick}>v1.4 — Backups & Deploy</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText} onClick={onClick}>v1.3 — Templates & API</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.2' icon={FileText} onClick={onClick}>v1.2 — Multi-Instance</SidebarLink>
+        <SidebarLink to='/setup/features/roadmap-1.1' icon={FileText} onClick={onClick}>v1.1 — Foundation</SidebarLink>
+      </SidebarGroup>
       <SidebarGroup title='Reference'>
         <SidebarLink to='/setup/general/overview' icon={Book} onClick={onClick}>Overview</SidebarLink>
         <SidebarLink to='/setup/general/versions' icon={Layers} onClick={onClick}>Version History</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.1' icon={FileText} onClick={onClick}>v1.1 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.2' icon={FileText} onClick={onClick}>v1.2 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.3' icon={FileText} onClick={onClick}>v1.3 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.4' icon={FileText} onClick={onClick}>v1.4 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.5' icon={FileText} onClick={onClick}>v1.5 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.6' icon={FileText} onClick={onClick}>v1.6 Released</SidebarLink>
-        <SidebarLink to='/setup/features/roadmap-1.7' icon={FileText} onClick={onClick}>v1.7 Released</SidebarLink>
         <SidebarLink to='/setup/reference/multi-tenancy' icon={Building2} onClick={onClick}>Multi-Tenancy</SidebarLink>
         <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud} onClick={onClick}>Cloud Architecture</SidebarLink>
         <SidebarLink to='/setup/reference/kong-nginx-migration' icon={Network} onClick={onClick}>Kong→Nginx Migration</SidebarLink>

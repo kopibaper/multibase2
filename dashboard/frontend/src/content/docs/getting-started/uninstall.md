@@ -1,8 +1,3 @@
----
-title: Uninstall
-description: How to completely remove Multibase from your server.
----
-
 # Uninstall
 
 Multibase provides a dedicated uninstall script that cleanly removes all components installed by the installer.

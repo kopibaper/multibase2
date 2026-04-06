@@ -1,8 +1,3 @@
----
-title: Scripts Reference
-description: All operational Python and shell scripts for managing Multibase in production
----
-
 # Scripts Reference
 
 This page covers all operational scripts included with Multibase. The old dev-only shell scripts (`launch.sh`, `stop.sh`, `status.sh`) have been superseded by **PM2** (production) and `npm run dev` (local development).

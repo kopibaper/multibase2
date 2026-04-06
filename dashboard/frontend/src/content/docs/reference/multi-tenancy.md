@@ -1,9 +1,5 @@
----
-title: Multi-Tenancy & Organisations
-description: Organisation model, roles, instance isolation, team invitations — v1.4
----
-
 # Multi-Tenancy & Organisations
+description: Organisation model, roles, instance isolation, team invitations — v1.4
 
 **Version:** 1.4 (Planned)  
 **Target:** Q2 2026  

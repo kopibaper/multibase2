@@ -1,9 +1,5 @@
----
-title: Kong → Nginx Migration
-description: Migration reference from per-tenant Kong to shared Nginx gateway
----
-
 # 🔀 Kong → Nginx Migration
+description: Migration reference from per-tenant Kong to shared Nginx gateway
 
 **Status:** ✅ Complete  
 **Branch:** `cloud-version`

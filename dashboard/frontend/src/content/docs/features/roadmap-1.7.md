@@ -1,9 +1,5 @@
----
-title: Version 1.7 - Scale & Ecosystem
-description: Edge Functions IDE, Read Replicas, Log Drains, Realtime Dashboard, MCP Server
----
-
 # Version 1.7 — Scale & Ecosystem
+description: Edge Functions IDE, Read Replicas, Log Drains, Realtime Dashboard, MCP Server
 
 **Status:** ✅ Released  
 **Release:** March 2026  
