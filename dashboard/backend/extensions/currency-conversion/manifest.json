@@ -1,0 +1,15 @@
+{
+  "id": "currency-conversion",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create exchange rates table", "file": "schema.sql" },
+      { "label": "Deploy converter", "file": "index.ts", "functionName": "convert-currency" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

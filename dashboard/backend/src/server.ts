@@ -137,6 +137,9 @@ app.use(cookieParser());
 // Static file serving for uploads (avatars)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Static file serving for extension manifests + SQL files
+app.use('/extensions', express.static(path.join(__dirname, '../extensions')));
+
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 
 // ...
@@ -444,21 +447,25 @@ process.on('uncaughtException', (error) => {
 });
 
 // Start server
-async function seedMarketplaceIfEmpty(): Promise<void> {
-  const count = await prisma.extension.count();
-  if (count > 0) return;
-
+async function seedMarketplace(): Promise<void> {
   const { MARKETPLACE_EXTENSIONS } = await import('./data/marketplace-extensions');
-  logger.info(`Seeding marketplace with ${MARKETPLACE_EXTENSIONS.length} extensions...`);
+  let created = 0;
+  let updated = 0;
 
   for (const ext of MARKETPLACE_EXTENSIONS) {
-    try {
+    const existing = await prisma.extension.findUnique({ where: { id: ext.id as string } });
+    if (existing) {
+      await prisma.extension.update({ where: { id: ext.id as string }, data: ext });
+      updated++;
+    } else {
       await prisma.extension.create({ data: ext });
-    } catch (e: any) {
-      if (e?.code !== 'P2002') throw e;
+      created++;
     }
   }
-  logger.info('Marketplace seed complete.');
+
+  if (created > 0 || updated > 0) {
+    logger.info(`Marketplace sync: +${created} new, ${updated} updated (${MARKETPLACE_EXTENSIONS.length} total)`);
+  }
 }
 
 async function start() {
@@ -466,8 +473,8 @@ async function start() {
     // Create initial admin user if needed
     await AuthService.createInitialAdmin();
 
-    // Seed marketplace catalog on first startup
-    await seedMarketplaceIfEmpty();
+    // Sync marketplace catalog (adds new extensions, updates existing)
+    await seedMarketplace();
 
     await startServices();
 

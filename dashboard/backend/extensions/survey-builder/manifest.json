@@ -1,0 +1,14 @@
+{
+  "id": "survey-builder",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create survey builder schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

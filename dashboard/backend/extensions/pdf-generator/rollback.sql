@@ -1,0 +1,1 @@
+-- No database objects to roll back for pdf-generator (function only)

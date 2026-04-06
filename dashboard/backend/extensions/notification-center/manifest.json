@@ -1,0 +1,14 @@
+{
+  "id": "notification-center",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create notification center schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "datadog-integration",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create metrics buffer table", "file": "schema.sql" },
+      { "label": "Deploy Datadog reporter", "file": "index.ts", "functionName": "datadog-metrics" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

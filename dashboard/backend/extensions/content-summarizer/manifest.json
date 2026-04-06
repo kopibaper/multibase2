@@ -1,0 +1,12 @@
+{
+  "id": "content-summarizer",
+  "version": "1.0.0",
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Add summary columns to target table", "file": "schema.sql" },
+      { "label": "Deploy summarizer function", "file": "index.ts", "functionName": "summarize-content" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

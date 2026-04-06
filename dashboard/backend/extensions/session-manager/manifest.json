@@ -1,0 +1,15 @@
+{
+  "id": "session-manager",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create sessions table", "file": "schema.sql" },
+      { "label": "Deploy session handler", "file": "index.ts", "functionName": "session-manager" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

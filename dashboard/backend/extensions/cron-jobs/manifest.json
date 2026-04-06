@@ -1,0 +1,14 @@
+{
+  "id": "cron-jobs",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": ["pg_cron"]
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create managed cron jobs table", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "uptime-kuma",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "config",
+    "steps": [
+      {
+        "label": "Configure Uptime Kuma integration",
+        "envVars": {
+          "UPTIME_KUMA_URL": "{{uptimeKumaUrl}}",
+          "NOTIFY_SLACK": "{{notifySlack}}"
+        }
+      }
+    ]
+  }
+}

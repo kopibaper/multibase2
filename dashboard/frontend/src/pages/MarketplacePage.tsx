@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Search, RefreshCw, Loader2, Star } from 'lucide-react';
+import { Package, Search, RefreshCw, Star } from 'lucide-react';
 import { marketplaceApi, type MarketplaceExtension } from '../lib/api';
 import ExtensionCard from '../components/marketplace/ExtensionCard';
 import ExtensionDetailModal from '../components/marketplace/ExtensionDetailModal';

@@ -1,0 +1,12 @@
+{
+  "id": "2fa-enforcement",
+  "version": "1.0.0",
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create 2FA tables", "file": "schema.sql" },
+      { "label": "Deploy OTP validator", "file": "index.ts", "functionName": "enforce-2fa" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "resend-transactional",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "function",
+    "steps": [
+      { "label": "Deploy email handler", "file": "index.ts", "functionName": "send-email" }
+    ]
+  }
+}

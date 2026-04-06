@@ -1,0 +1,12 @@
+{
+  "id": "s3-mirror",
+  "version": "1.0.0",
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create sync log table", "file": "schema.sql" },
+      { "label": "Deploy S3 sync handler", "file": "index.ts", "functionName": "s3-mirror" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

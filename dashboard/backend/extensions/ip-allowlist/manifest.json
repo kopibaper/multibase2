@@ -1,0 +1,15 @@
+{
+  "id": "ip-allowlist",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create allowlist table", "file": "schema.sql" },
+      { "label": "Deploy IP checker", "file": "index.ts", "functionName": "ip-check" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

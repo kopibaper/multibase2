@@ -1,0 +1,15 @@
+{
+  "id": "passkey-auth",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create credentials table", "file": "schema.sql" },
+      { "label": "Deploy WebAuthn handler", "file": "index.ts", "functionName": "passkey-auth" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

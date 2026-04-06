@@ -16,7 +16,14 @@
       "Bash(ssh -i \"C:\\\\Users\\\\thoma\\\\.ssh\\\\id_ed25519\" -o StrictHostKeyChecking=no root@85.114.138.116 \"cat /opt/multibase/Testprojekt/backend/.env 2>/dev/null; echo '==='; ls /opt/multibase/Testprojekt/backend/; echo '==='; docker ps --format 'table {{.Names}}\\\\t{{.Ports}}\\\\t{{.Status}}' 2>/dev/null | head -20\")",
       "Bash(ssh -i \"C:\\\\Users\\\\thoma\\\\.ssh\\\\id_ed25519\" -o StrictHostKeyChecking=no root@85.114.138.116 \"ss -tlnp | grep -E '300[0-9]|350[0-9]|400[0-9]' && echo '===' && find /etc/nginx /opt/multibase -name '*.conf' 2>/dev/null | xargs grep -l 'testprojekt\\\\|checker\\\\|3002\\\\|3003\\\\|3004' 2>/dev/null | head -5\")",
       "Bash(curl -s -X POST https://backend.tyto-design.de/api/instances/my-project/sql -H 'X-API-Key: mb_b976e0ecbd2a849289bc33113bce679da793b70ddc84095e' -H 'Content-Type: application/json' -d '{\"sql\": \"SELECT 1 as test\"}')",
-      "Bash(curl -s -X POST https://backend.tyto-design.de/api/instances/my-project/sql -H 'X-API-Key: mb_b976e0ecbd2a849289bc33113bce679da793b70ddc84095e' -H 'Content-Type: application/json' -d '{\"query\": \"SELECT 1 as test\"}')"
+      "Bash(curl -s -X POST https://backend.tyto-design.de/api/instances/my-project/sql -H 'X-API-Key: mb_b976e0ecbd2a849289bc33113bce679da793b70ddc84095e' -H 'Content-Type: application/json' -d '{\"query\": \"SELECT 1 as test\"}')",
+      "Bash(grep -c \"^  {$\" /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/src/data/marketplace-extensions.ts)",
+      "Bash(gh run:*)",
+      "Bash(git -C /home/thomas/Dokumente/GitHub/multibase2 remote get-url origin)",
+      "Bash(GH_REPO=skipper159/multibase2 gh run list --limit 10)",
+      "Bash(GH_REPO=skipper159/multibase2 gh run view 24010790258 --log)",
+      "Bash(GH_REPO=skipper159/multibase2 gh run view 24010790258)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

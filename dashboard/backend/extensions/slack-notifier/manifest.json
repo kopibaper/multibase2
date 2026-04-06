@@ -1,0 +1,13 @@
+{
+  "id": "slack-notifier",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "function",
+    "steps": [
+      { "label": "Deploy Slack notifier", "file": "index.ts", "functionName": "slack-notify" }
+    ]
+  }
+}

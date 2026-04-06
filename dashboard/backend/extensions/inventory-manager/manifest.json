@@ -1,0 +1,14 @@
+{
+  "id": "inventory-manager",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create inventory manager schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

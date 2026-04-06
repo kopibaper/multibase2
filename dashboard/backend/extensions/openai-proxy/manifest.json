@@ -1,0 +1,15 @@
+{
+  "id": "openai-proxy",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create usage tracking table", "file": "schema.sql" },
+      { "label": "Deploy OpenAI proxy", "file": "index.ts", "functionName": "openai-proxy" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}
