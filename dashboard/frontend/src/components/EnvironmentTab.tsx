@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Settings, Save, Loader2, Info, AlertTriangle, Cpu, HardDrive, Plus, Trash2 } from 'lucide-react';
+import { Settings, Save, Loader2, Info, AlertTriangle, Cpu, HardDrive, Plus, Trash2, Bot, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import ResourceLimitsForm from './ResourceLimitsForm';
 import { ResourceLimits, RESOURCE_PRESETS } from '../types';
@@ -12,7 +12,8 @@ interface EnvironmentTabProps {
 
 export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState<'env' | 'resources'>('env');
+  const [activeSection, setActiveSection] = useState<'env' | 'resources' | 'ai'>('env');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Fetch current environment variables
   const { data: envVars, isLoading: isLoadingEnv } = useQuery({
@@ -125,6 +126,17 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
           <span className='hidden sm:inline'>Resource Limits</span>
           <span className='sm:hidden'>Resources</span>
         </button>
+        <button
+          onClick={() => setActiveSection('ai')}
+          className={`px-3 sm:px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
+            activeSection === 'ai'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Bot className='w-4 h-4 inline-block mr-2' />
+          AI / Assistant
+        </button>
       </div>
 
       {/* Environment Variables Section */}
@@ -228,6 +240,94 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* AI / Assistant Section */}
+      {activeSection === 'ai' && (
+        <div className='glass-card p-6 space-y-6'>
+          <div>
+            <h3 className='text-lg font-semibold text-foreground flex items-center gap-2 mb-1'>
+              <Bot className='w-5 h-5 text-primary' />
+              AI / Assistant Configuration
+            </h3>
+            <p className='text-sm text-muted-foreground'>
+              These values are stored as environment variables and are available to Edge Functions and the Multibase Assistant.
+            </p>
+          </div>
+
+          <div className='space-y-4'>
+            {/* OpenAI API Key */}
+            <div>
+              <label className='block text-sm font-medium mb-1.5'>
+                OpenAI API Key
+                <span className='ml-2 text-xs font-mono text-muted-foreground'>OPENAI_API_KEY</span>
+              </label>
+              <div className='relative'>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={editedEnv['OPENAI_API_KEY'] ?? ''}
+                  onChange={(e) => handleEnvChange('OPENAI_API_KEY', e.target.value)}
+                  placeholder='sk-...'
+                  className='w-full px-3 py-2 pr-10 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-sm'
+                />
+                <button
+                  type='button'
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className='absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  {showApiKey ? <EyeOff className='w-4 h-4' /> : <Eye className='w-4 h-4' />}
+                </button>
+              </div>
+            </div>
+
+            {/* Model */}
+            <div>
+              <label className='block text-sm font-medium mb-1.5'>
+                Model
+                <span className='ml-2 text-xs font-mono text-muted-foreground'>OPENAI_MODEL</span>
+              </label>
+              <select
+                value={editedEnv['OPENAI_MODEL'] ?? 'gpt-4o'}
+                onChange={(e) => handleEnvChange('OPENAI_MODEL', e.target.value)}
+                className='w-full px-3 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm'
+              >
+                <option value='gpt-4o'>gpt-4o</option>
+                <option value='gpt-4o-mini'>gpt-4o-mini</option>
+                <option value='gpt-4-turbo'>gpt-4-turbo</option>
+                <option value='gpt-3.5-turbo'>gpt-3.5-turbo</option>
+                <option value='custom'>Custom (set Base URL)</option>
+              </select>
+            </div>
+
+            {/* Base URL */}
+            <div>
+              <label className='block text-sm font-medium mb-1.5'>
+                Base URL
+                <span className='ml-2 text-xs font-mono text-muted-foreground'>OPENAI_BASE_URL</span>
+                <span className='ml-2 text-xs text-muted-foreground'>(optional — for Azure, Ollama, etc.)</span>
+              </label>
+              <input
+                type='text'
+                value={editedEnv['OPENAI_BASE_URL'] ?? ''}
+                onChange={(e) => handleEnvChange('OPENAI_BASE_URL', e.target.value)}
+                placeholder='https://api.openai.com/v1'
+                className='w-full px-3 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-sm'
+              />
+            </div>
+          </div>
+
+          <div className='flex items-center justify-between pt-4 border-t border-border'>
+            <p className='text-xs text-muted-foreground'>Changes require an instance restart to take effect.</p>
+            <button
+              onClick={handleSaveEnv}
+              disabled={updateEnvMutation.isPending}
+              className='flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors disabled:opacity-50'
+            >
+              {updateEnvMutation.isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
+              Save AI Configuration
+            </button>
+          </div>
         </div>
       )}
 

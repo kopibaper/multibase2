@@ -82,28 +82,42 @@ type TabId =
   | 'log-drains'
   | 'extensions';
 
-const NAV_ITEMS: ({ id: TabId; label: string; icon: React.ElementType } | null)[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'auth', label: 'Authentication', icon: Lock },
-  { id: 'database', label: 'Database', icon: Database },
-  { id: 'storage', label: 'Storage', icon: HardDrive },
-  { id: 'policies', label: 'RLS Policies', icon: Shield },
-  { id: 'functions', label: 'Edge Functions', icon: Zap },
-  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
-  { id: 'cron', label: 'Cron Jobs', icon: Clock },
-  { id: 'vectors', label: 'Vectors', icon: Brain },
-  { id: 'queues', label: 'Queues', icon: ListOrdered },
-  { id: 'api', label: 'API & GraphQL', icon: Plug },
-  { id: 'realtime', label: 'Realtime', icon: Radio },
-  { id: 'replicas', label: 'Read Replicas', icon: GitBranch },
-  { id: 'log-drains', label: 'Log Drains', icon: ArrowUpFromLine },
-  { id: 'extensions', label: 'Extensions', icon: Package },
-  null,
-  { id: 'smtp', label: 'SMTP Settings', icon: Mail },
-  { id: 'keys', label: 'API Keys', icon: Key },
-  { id: 'domains', label: 'Custom Domains', icon: Globe },
-  { id: 'vault', label: 'Vault Secrets', icon: KeyRound },
-  { id: 'security', label: 'Network Security', icon: ShieldCheck },
+const NAV_GROUPS: { title: string; items: { id: TabId; label: string; icon: React.ElementType }[] }[] = [
+  {
+    title: 'Project',
+    items: [
+      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+      { id: 'auth', label: 'Authentication', icon: Lock },
+      { id: 'database', label: 'Database', icon: Database },
+      { id: 'storage', label: 'Storage', icon: HardDrive },
+      { id: 'policies', label: 'RLS Policies', icon: Shield },
+    ],
+  },
+  {
+    title: 'Backend',
+    items: [
+      { id: 'functions', label: 'Edge Functions', icon: Zap },
+      { id: 'webhooks', label: 'Webhooks', icon: Webhook },
+      { id: 'cron', label: 'Cron Jobs', icon: Clock },
+      { id: 'vectors', label: 'Vectors', icon: Brain },
+      { id: 'queues', label: 'Queues', icon: ListOrdered },
+      { id: 'api', label: 'API & GraphQL', icon: Plug },
+      { id: 'realtime', label: 'Realtime', icon: Radio },
+      { id: 'extensions', label: 'Extensions', icon: Package },
+    ],
+  },
+  {
+    title: 'Configuration',
+    items: [
+      { id: 'smtp', label: 'SMTP Settings', icon: Mail },
+      { id: 'keys', label: 'API Keys', icon: Key },
+      { id: 'domains', label: 'Custom Domains', icon: Globe },
+      { id: 'vault', label: 'Vault Secrets', icon: KeyRound },
+      { id: 'security', label: 'Network Security', icon: ShieldCheck },
+      { id: 'replicas', label: 'Read Replicas', icon: GitBranch },
+      { id: 'log-drains', label: 'Log Drains', icon: ArrowUpFromLine },
+    ],
+  },
 ];
 
 function statusInfo(status: string): { color: string; label: string } {
@@ -128,7 +142,8 @@ export default function WorkspaceProjectPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const activeTab: TabId = (tab as TabId) ?? 'overview';
-  const activeSidebarLabel = (NAV_ITEMS.find((item) => item && item.id === activeTab) as any)?.label || 'Overview';
+  const activeSidebarLabel =
+    NAV_GROUPS.flatMap((g) => g.items).find((item) => item.id === activeTab)?.label || 'Overview';
 
   const handleNav = useCallback(
     (tabId: TabId) => {
@@ -206,7 +221,7 @@ export default function WorkspaceProjectPage() {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`shrink-0 border-r border-white/5 flex flex-col bg-background/40 backdrop-blur-sm
+        className={`shrink-0 flex flex-col glass-panel rounded-none
           md:w-60 md:static md:flex
           ${mobileSidebarOpen ? 'fixed top-16 left-0 bottom-0 w-72 z-50' : 'hidden md:flex'}`}
       >
@@ -243,31 +258,37 @@ export default function WorkspaceProjectPage() {
         </div>
 
         {/* Navigation */}
-        <nav className='flex-1 overflow-y-auto p-2'>
-          {NAV_ITEMS.map((item, idx) => {
-            if (!item) {
-              return <div key={`sep-${idx}`} className='my-2 h-px bg-white/5' />;
-            }
-            const Icon = item.icon;
-            const isActive = item.id === activeTab || (item.id === 'overview' && !tab);
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  handleNav(item.id);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left mb-0.5 ${
-                  isActive
-                    ? 'bg-brand-500/15 text-brand-400 font-medium'
-                    : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-                }`}
-              >
-                <Icon className='w-4 h-4 shrink-0' />
-                {item.label}
-              </button>
-            );
-          })}
+        <nav className='flex-1 overflow-y-auto py-3 px-2'>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title} className='mb-3'>
+              <p className='px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60'>
+                {group.title}
+              </p>
+              <div className='space-y-0.5 mt-1'>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.id === activeTab || (item.id === 'overview' && !tab);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        handleNav(item.id);
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-left ${
+                        isActive
+                          ? 'bg-brand-500/15 text-brand-400 shadow-[inset_0_0_0_1px_rgba(62,207,142,0.3)]'
+                          : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className='w-4 h-4 shrink-0' />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Studio button */}

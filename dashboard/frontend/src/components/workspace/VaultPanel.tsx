@@ -11,7 +11,15 @@ import {
   Loader2,
   ShieldCheck,
   X,
+  Bot,
+  Zap,
 } from 'lucide-react';
+
+const AI_PRESETS = [
+  { name: 'OPENAI_API_KEY',     description: 'OpenAI API key for Edge Functions and AI features',  icon: Bot },
+  { name: 'ANTHROPIC_API_KEY',  description: 'Anthropic Claude API key',                           icon: Bot },
+  { name: 'HUGGINGFACE_TOKEN',  description: 'Hugging Face Inference API token',                   icon: Zap },
+];
 import { toast } from 'sonner';
 
 interface VaultPanelProps {
@@ -129,6 +137,31 @@ export default function VaultPanel({ instanceName }: VaultPanelProps) {
           Secrets are stored encrypted in <code className='font-mono'>vault.secrets</code> using
           pgsodium. Only the secret name is shown in the list — reveal the value on demand.
         </p>
+      </div>
+
+      {/* AI Quick-Add */}
+      <div>
+        <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-2'>Quick Add AI Keys</p>
+        <div className='flex flex-wrap gap-2'>
+          {AI_PRESETS.map(({ name, description, icon: Icon }) => {
+            const exists = secrets.some((s) => s.name === name);
+            return (
+              <button
+                key={name}
+                disabled={exists}
+                onClick={() => {
+                  setAddForm({ secretName: name, value: '', description });
+                  setAddOpen(true);
+                }}
+                className='flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 text-sm text-muted-foreground hover:text-foreground hover:border-white/20 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+              >
+                <Icon className='w-3.5 h-3.5' />
+                {name}
+                {exists && <span className='text-xs text-green-400'>✓</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Table */}

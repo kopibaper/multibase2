@@ -137,8 +137,9 @@ export default function InstanceDetail() {
 
   return (
     <div className='min-h-screen bg-background'>
+      <div className='sticky top-0 z-20'>
       <PageHeader>
-        <div className='flex flex-col lg:flex-row lg:items-center gap-4 mb-4'>
+        <div className='flex flex-col lg:flex-row lg:items-center gap-4'>
           <button
             onClick={() => navigate('/dashboard')}
             className='p-2 hover:bg-muted rounded-md transition-colors self-start'
@@ -224,35 +225,6 @@ export default function InstanceDetail() {
             )}
           </div>
         </div>
-
-        {/* Stats */}
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
-          <div className='bg-background rounded-lg p-4 border'>
-            <p className='text-xs text-muted-foreground mb-1'>Services</p>
-            <p className='text-2xl font-bold'>
-              {instance.health.healthyServices}/{instance.health.totalServices}
-            </p>
-            <p className='text-xs text-muted-foreground mt-1'>Healthy</p>
-          </div>
-          {instance.metrics && (
-            <>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>CPU Usage</p>
-                <p className='text-2xl font-bold'>{instance.metrics.cpu.toFixed(1)}%</p>
-              </div>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>Memory</p>
-                <p className='text-2xl font-bold'>{(instance.metrics.memory / 1024).toFixed(1)} GB</p>
-              </div>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>Network</p>
-                <p className='text-2xl font-bold'>
-                  {((instance.metrics.networkRx + instance.metrics.networkTx) / 1024 / 1024).toFixed(1)} MB/s
-                </p>
-              </div>
-            </>
-          )}
-        </div>
       </PageHeader>
 
       {/* Tabs */}
@@ -277,6 +249,7 @@ export default function InstanceDetail() {
             })}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Tab Content */}
