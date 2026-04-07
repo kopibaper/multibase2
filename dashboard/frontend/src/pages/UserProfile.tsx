@@ -18,13 +18,15 @@ import {
   Loader2,
   AlertCircle,
   Bot,
+  Settings,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import PageHeader from '../components/PageHeader';
 import AiKeySection from '../components/AiKeySection';
 
-type ProfileTab = 'profile' | 'security' | 'ai' | 'account';
+type ProfileTab = 'profile' | 'security' | 'ai' | 'account' | 'admin';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -43,7 +45,7 @@ interface TwoFASetupData {
 }
 
 export default function UserProfile() {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token, refreshUser, isAdmin } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
@@ -77,6 +79,10 @@ export default function UserProfile() {
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Admin feature settings
+  const [feedbackEnabled, setFeedbackEnabled] = useState(true);
+  const [savingFeatures, setSavingFeatures] = useState(false);
+
   const { deleteAccount } = useAuth();
 
   // Fetch sessions and 2FA status
@@ -87,7 +93,13 @@ export default function UserProfile() {
       setEditUsername(user.username || '');
       setEditEmail(user.email || '');
     }
-  }, [user, token]);
+    if (isAdmin) {
+      fetch(`${API_URL}/api/settings/public`)
+        .then((r) => r.json())
+        .then((d) => setFeedbackEnabled(d.feedbackEnabled ?? true))
+        .catch(() => {});
+    }
+  }, [user, token, isAdmin]);
 
   const fetchSessions = async () => {
     if (!user || !token) return;
@@ -390,6 +402,27 @@ export default function UserProfile() {
     }
   };
 
+  // Save admin feature settings
+  const handleSaveFeatures = async () => {
+    setSavingFeatures(true);
+    try {
+      const res = await fetch(`${API_URL}/api/settings/features`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ feedbackEnabled }),
+      });
+      if (res.ok) {
+        toast.success('Feature settings saved');
+      } else {
+        toast.error('Failed to save settings');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setSavingFeatures(false);
+    }
+  };
+
   // Format date
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
@@ -463,6 +496,7 @@ export default function UserProfile() {
               { id: 'security' as ProfileTab, label: 'Security', icon: Shield },
               { id: 'ai' as ProfileTab, label: 'AI Assistant', icon: Bot },
               { id: 'account' as ProfileTab, label: 'Account', icon: AlertCircle },
+              ...(isAdmin ? [{ id: 'admin' as ProfileTab, label: 'Admin Settings', icon: Settings }] : []),
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -907,6 +941,60 @@ export default function UserProfile() {
                     className='px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors'
                   >
                     Delete Account
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* ===== ADMIN SETTINGS TAB ===== */}
+            {activeTab === 'admin' && isAdmin && (
+              <div className='bg-card border border-border rounded-lg p-6'>
+                <div className='flex items-center gap-3 mb-6'>
+                  <div className='w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center'>
+                    <Settings className='w-5 h-5 text-orange-400' />
+                  </div>
+                  <div>
+                    <h2 className='text-lg font-semibold text-foreground'>Admin Settings</h2>
+                    <p className='text-sm text-muted-foreground'>Global feature flags for all users</p>
+                  </div>
+                </div>
+
+                <div className='space-y-4'>
+                  {/* Feedback toggle */}
+                  <div className='flex items-center justify-between p-4 bg-secondary/40 border border-border rounded-lg'>
+                    <div className='flex items-center gap-3'>
+                      <MessageSquare className='w-5 h-5 text-violet-400 flex-shrink-0' />
+                      <div>
+                        <p className='text-sm font-medium text-foreground'>Feedback / Feature Requests</p>
+                        <p className='text-xs text-muted-foreground'>
+                          Zeigt den Feedback-Button auf der Landingpage an und aktiviert die /feedback Route.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setFeedbackEnabled((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 ${
+                        feedbackEnabled ? 'bg-violet-500' : 'bg-secondary border border-border'
+                      }`}
+                      role='switch'
+                      aria-checked={feedbackEnabled}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          feedbackEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className='mt-6 flex justify-end'>
+                  <button
+                    onClick={handleSaveFeatures}
+                    disabled={savingFeatures}
+                    className='px-5 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2 transition-colors'
+                  >
+                    {savingFeatures ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
+                    Save Settings
                   </button>
                 </div>
               </div>

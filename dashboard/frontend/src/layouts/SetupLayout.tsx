@@ -103,10 +103,10 @@ export default function SetupLayout({}: SetupLayoutProps) {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className='flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors'
-          aria-label='Sidebar öffnen'
+          aria-label='Open sidebar'
         >
           {sidebarOpen ? <X className='w-4 h-4' /> : <Menu className='w-4 h-4' />}
-          {sidebarOpen ? 'Schließen' : 'Inhaltsverzeichnis'}
+          {sidebarOpen ? 'Close' : 'Table of Contents'}
         </button>
       </div>
 

@@ -5,9 +5,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
     id: 'ecommerce-starter',
     name: 'E-Commerce Starter',
     description:
-      'Vollständiges PostgreSQL-Schema für E-Commerce: Produkte, Bestellungen, Kunden, Inventar, Kategorien.',
+      'Complete PostgreSQL schema for e-commerce: products, orders, customers, inventory, categories.',
     longDescription:
-      'Dieses Schema enthält 12 Tabellen, RLS-Policies, Trigger für Bestandsverwaltung und pgvector-Spalten für Produktempfehlungen. Ideal als Startpunkt für Online-Shops, Marktplätze und Abo-Dienste.',
+      'This schema includes 12 tables, RLS policies, triggers for inventory management and pgvector columns for product recommendations. Ideal as a starting point for online shops, marketplaces and subscription services.',
     version: '1.3.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -38,9 +38,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'stripe-webhooks',
     name: 'Stripe Webhooks',
-    description: 'Stripe-Payment-Events verarbeiten – fertige Edge Function + Webhook-Tabelle.',
+    description: 'Process Stripe payment events – ready-to-use Edge Function + webhook table.',
     longDescription:
-      'Deployt eine Edge Function, die Stripe-Events (checkout.session.completed, payment_intent.succeeded, customer.subscription.updated) empfängt, verifiziert und in einer payments-Tabelle speichert.',
+      'Deploys an Edge Function that receives, verifies and stores Stripe events (checkout.session.completed, payment_intent.succeeded, customer.subscription.updated) in a payments table.',
     version: '2.1.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -71,9 +71,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'social-login-bundle',
     name: 'Social Login Bundle',
-    description: 'Google + GitHub + Discord OAuth-Provider in einem Klick aktivieren.',
+    description: 'Enable Google + GitHub + Discord OAuth providers in one click.',
     longDescription:
-      'Setzt die benötigten Auth-Environment-Variablen für Google, GitHub und Discord OAuth. Enthält eine Schritt-für-Schritt-Dokumentation zur Erstellung der OAuth-Apps und fertige Redirect-URLs.',
+      'Sets the required auth environment variables for Google, GitHub and Discord OAuth. Includes step-by-step documentation for creating OAuth apps and ready-made redirect URLs.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -108,9 +108,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'rag-starter',
     name: 'RAG Starter',
-    description: 'Vollständige RAG-Pipeline: Dokument-Upload → Embedding → Similarity Search.',
+    description: 'Complete RAG pipeline: document upload → embedding → similarity search.',
     longDescription:
-      'Installiert das documents-Schema mit pgvector-Unterstützung und eine Edge Function, die Dokumente chunked, mit OpenAI einbettet und in pgvector speichert. Inklusive Search-Endpoint für semantische Abfragen.',
+      'Installs the documents schema with pgvector support and an Edge Function that chunks documents, embeds them with OpenAI and stores them in pgvector. Includes a search endpoint for semantic queries.',
     version: '1.1.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -148,9 +148,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'grafana-dashboard',
     name: 'Grafana Dashboard',
-    description: 'Vorgefertigtes Grafana-Dashboard für Multibase-Metriken (CPU, RAM, Anfragen).',
+    description: 'Pre-built Grafana dashboard for Multibase metrics (CPU, RAM, requests).',
     longDescription:
-      'Importiert ein JSON-Dashboard in deine Grafana-Instanz. Enthält Panels für Datenbankverbindungen, CPU/RAM-Verbrauch pro Service, HTTP-Request-Latenz und Auth-Login-Events.',
+      'Imports a JSON dashboard into your Grafana instance. Includes panels for database connections, CPU/RAM usage per service, HTTP request latency and auth login events.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -181,9 +181,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'blog-cms',
     name: 'Blog & CMS',
-    description: 'Blog und CMS Schema mit Volltext-Suche, Tags, Draft/Published-Status.',
+    description: 'Blog and CMS schema with full-text search, tags, draft/published status.',
     longDescription:
-      '8 Tabellen für einen vollständigen Blog: Posts, Kategorien, Tags, Kommentare, Autoren, Media. Inklusive Volltextsuche via pg_trgm, Draft/Published-Workflow und RLS für Multi-Author-Setups.',
+      '8 tables for a complete blog: posts, categories, tags, comments, authors, media. Includes full-text search via pg_trgm, draft/published workflow and RLS for multi-author setups.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -213,9 +213,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'saas-starter',
     name: 'SaaS Starter',
-    description: 'Vollständiges SaaS-Plattform-Schema: Orgs, Subscriptions, Feature-Flags.',
+    description: 'Complete SaaS platform schema: orgs, subscriptions, feature flags.',
     longDescription:
-      '15 Tabellen für eine SaaS-Plattform: Organizations, Memberships, Subscriptions, Plans, Feature Flags, Invitations, Billing Events. Nahtlos mit Stripe-Integration kombinierbar.',
+      '15 tables for a SaaS platform: organizations, memberships, subscriptions, plans, feature flags, invitations, billing events. Seamlessly combinable with Stripe integration.',
     version: '1.2.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -246,9 +246,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'multi-tenant-base',
     name: 'Multi-Tenant Base',
-    description: 'Row-Level-Isolation und Tenant-Management für Multi-Tenant-Apps.',
+    description: 'Row-level isolation and tenant management for multi-tenant apps.',
     longDescription:
-      '6 Tabellen mit automatischer Tenant-Isolation via RLS. Jede Query ist automatisch auf den Auth-Kontext des anfragenden Tenant beschränkt. Ideal als Basis für B2B-SaaS.',
+      '6 tables with automatic tenant isolation via RLS. Every query is automatically scoped to the auth context of the requesting tenant. Ideal as a foundation for B2B SaaS.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -273,9 +273,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'audit-trail',
     name: 'Audit Trail',
-    description: 'Trigger-basierte Änderungshistorie für beliebige Tabellen, GDPR-ready.',
+    description: 'Trigger-based change history for any table, GDPR-ready.',
     longDescription:
-      '3 Tabellen + generischer Trigger: Für jede INSERT/UPDATE/DELETE-Operation wird automatisch ein Diff-Eintrag in der audit_log-Tabelle gespeichert. Old/New-Werte als JSONB, Timestamp, User-ID.',
+      '3 tables + generic trigger: for every INSERT/UPDATE/DELETE operation a diff entry is automatically stored in the audit_log table. Old/new values as JSONB, timestamp, user ID.',
     version: '1.1.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -306,9 +306,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'address-book',
     name: 'Address Book',
-    description: 'Adressen und Kontaktverwaltung mit Geocoding-Vorbereitung.',
+    description: 'Address and contact management with geocoding preparation.',
     longDescription:
-      '5 Tabellen: Contacts, Addresses, Phone Numbers, Email Addresses, Tags. Inklusive Geocoding-Spalten (lat/lng) für spätere Kartenintegration und vCard-Export-Funktion.',
+      '5 tables: contacts, addresses, phone numbers, email addresses, tags. Includes geocoding columns (lat/lng) for future map integration and a vCard export function.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -332,9 +332,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'enterprise-sso',
     name: 'Enterprise SSO',
-    description: 'SAML SSO Konfigurationsvorlagen für Azure AD, Okta, Google Workspace.',
+    description: 'SAML SSO configuration templates for Azure AD, Okta, Google Workspace.',
     longDescription:
-      'Vorgefertigte Konfigurationsvorlagen für SAML-basiertes Single Sign-On. Unterstützt Azure Active Directory, Okta und Google Workspace. Inklusive Redirect-URLs und Attribute-Mapping.',
+      'Pre-built configuration templates for SAML-based single sign-on. Supports Azure Active Directory, Okta and Google Workspace. Includes redirect URLs and attribute mapping.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -364,9 +364,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: '2fa-enforcement',
     name: '2FA Enforcement',
-    description: 'Erzwingt Zwei-Faktor-Authentifizierung für alle Nutzer.',
+    description: 'Enforces two-factor authentication for all users.',
     longDescription:
-      'Auth-Hook + SQL-Tabellen, die sicherstellen, dass jeder Nutzer TOTP (Authenticator App) oder SMS-Verifizierung eingerichtet hat, bevor er auf geschützte Inhalte zugreifen kann.',
+      'Auth hook + SQL tables that ensure every user has set up TOTP (authenticator app) or SMS verification before they can access protected content.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -396,9 +396,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'rbac-starter',
     name: 'RBAC Starter',
-    description: 'Rollenbasiertes Berechtigungssystem: Roles, Permissions, RLS-Integration.',
+    description: 'Role-based permission system: roles, permissions, RLS integration.',
     longDescription:
-      'Implementiert ein vollständiges RBAC-System: Roles-Tabelle, Permission-Checks als PostgreSQL-Funktionen und automatische RLS-Policy-Generierung. Vordefinierte Rollen: admin, editor, viewer.',
+      'Implements a complete RBAC system: roles table, permission checks as PostgreSQL functions and automatic RLS policy generation. Predefined roles: admin, editor, viewer.',
     version: '1.1.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -428,9 +428,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'resend-transactional',
     name: 'Resend Transactional',
-    description: 'Transaktions-E-Mails über Resend bei Datenbank-Events versenden.',
+    description: 'Send transactional emails via Resend on database events.',
     longDescription:
-      'Deployt eine Edge Function die auf Datenbank-Webhooks reagiert und E-Mails über die Resend-API versendet. Enthält Templates für Welcome, Password Reset, Order Confirmation und Notification.',
+      'Deploys an Edge Function that responds to database webhooks and sends emails via the Resend API. Includes templates for welcome, password reset, order confirmation and notification.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -461,9 +461,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'slack-notifier',
     name: 'Slack Notifier',
-    description: 'Slack-Benachrichtigungen bei Datenbank-Events automatisch versenden.',
+    description: 'Automatically send Slack notifications on database events.',
     longDescription:
-      'Edge Function + Datenbank-Webhook: Triggert bei definierten DB-Events (INSERT, UPDATE, DELETE auf konfigurierten Tabellen) und sendet formatierte Slack-Nachrichten an einen Webhook-URL.',
+      'Edge Function + database webhook: triggers on defined DB events (INSERT, UPDATE, DELETE on configured tables) and sends formatted Slack messages to a webhook URL.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -494,9 +494,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'pdf-generator',
     name: 'PDF Generator',
-    description: 'PDFs aus HTML-Templates generieren – via HTTP-Endpoint.',
+    description: 'Generate PDFs from HTML templates via HTTP endpoint.',
     longDescription:
-      'Edge Function mit einem HTTP POST-Endpoint, der HTML-Content entgegennimmt und ein PDF zurückgibt. Nutzt Browserless für Headless-Chrome-Rendering. Ideal für Rechnungen, Reports, Zertifikate.',
+      'Edge Function with an HTTP POST endpoint that accepts HTML content and returns a PDF. Uses Browserless for headless Chrome rendering. Ideal for invoices, reports and certificates.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -520,9 +520,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'image-optimizer',
     name: 'Image Optimizer',
-    description: 'Bilder bei Storage-Upload automatisch optimieren und WebP konvertieren.',
+    description: 'Automatically optimize images and convert to WebP on storage upload.',
     longDescription:
-      'Storage-Trigger-basierte Edge Function: Konvertiert Bilder bei Upload automatisch zu WebP, erstellt Thumbnails (100px, 400px, 800px), optimiert Qualität und speichert alle Varianten in einem `/processed`-Ordner.',
+      'Storage-trigger-based Edge Function: automatically converts images to WebP on upload, creates thumbnails (100px, 400px, 800px), optimizes quality and saves all variants in a `/processed` folder.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -553,9 +553,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'sentry-integration',
     name: 'Sentry Integration',
-    description: 'Fehler aus Edge Functions automatisch an Sentry senden.',
+    description: 'Automatically send errors from Edge Functions to Sentry.',
     longDescription:
-      'Sentry SDK als Edge Function Middleware. Fängt ungecatchte Exceptions und Promise Rejections, reichert sie mit Kontext (User, Request, Environment) an und sendet sie an dein Sentry-Projekt.',
+      'Sentry SDK as Edge Function middleware. Catches unhandled exceptions and promise rejections, enriches them with context (user, request, environment) and sends them to your Sentry project.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -585,9 +585,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'uptime-kuma',
     name: 'Uptime Kuma',
-    description: 'Uptime Kuma Monitoring-Konfiguration für alle Multibase-Services.',
+    description: 'Uptime Kuma monitoring configuration for all Multibase services.',
     longDescription:
-      'Exportiert eine JSON-Konfiguration für Uptime Kuma die automatisch Monitore für alle laufenden Services einrichtet: API, Auth, Studio, PostgREST, Realtime. Inklusive Push-Notifikation-Konfiguration.',
+      'Exports a JSON configuration for Uptime Kuma that automatically sets up monitors for all running services: API, Auth, Studio, PostgREST, Realtime. Includes push notification configuration.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -616,9 +616,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'semantic-search',
     name: 'Semantic Search',
-    description: 'Semantische Suche für beliebige Textspalten per Embedding-Trigger.',
+    description: 'Semantic search for any text column via embedding trigger.',
     longDescription:
-      'Installiert eine Datenbank-Trigger-Funktion die bei INSERT/UPDATE automatisch Embeddings via OpenAI generiert und in einer pgvector-Spalte speichert. Plus einen Such-Endpoint der Semantic Similarity nutzt.',
+      'Installs a database trigger function that automatically generates embeddings via OpenAI on INSERT/UPDATE and stores them in a pgvector column. Plus a search endpoint that uses semantic similarity.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -655,9 +655,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'booking-system',
     name: 'Booking System',
-    description: 'Buchungssystem-Schema: Ressourcen, Zeitslots, Reservierungen, Verfügbarkeit.',
+    description: 'Booking system schema: resources, time slots, reservations, availability.',
     longDescription:
-      '10 Tabellen für ein vollständiges Buchungssystem: Resources, TimeSlots, Bookings, Availability Rules, Blackout Dates, Recurring Schedules. Unterstützt Einzel- und Gruppen-Buchungen, Konflikterkennung via Postgres-Constraint und automatische Slot-Generierung per Funktion.',
+      '10 tables for a complete booking system: resources, time slots, bookings, availability rules, blackout dates, recurring schedules. Supports individual and group bookings, conflict detection via Postgres constraints and automatic slot generation via function.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -683,9 +683,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'notification-center',
     name: 'Notification Center',
-    description: 'Benachrichtigungs-Schema: In-App, E-Mail, Push — mit Präferenzen und Batching.',
+    description: 'Notification schema: in-app, email, push — with preferences and batching.',
     longDescription:
-      '6 Tabellen: Notifications, NotificationPreferences, NotificationChannels, DeliveryLog, Templates, Batches. Nutzer können pro Kanal einstellen, welche Ereignisse sie benachrichtigen. Trigger-basiertes Batching verhindert Notification-Spam.',
+      '6 tables: notifications, notification preferences, notification channels, delivery log, templates, batches. Users can configure per channel which events they want to be notified about. Trigger-based batching prevents notification spam.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -711,9 +711,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'survey-builder',
     name: 'Survey Builder',
-    description: 'Umfrage-Schema: Fragen, Logik-Sprünge, Antworten, Ergebnis-Aggregation.',
+    description: 'Survey schema: questions, conditional logic, responses, result aggregation.',
     longDescription:
-      '8 Tabellen: Surveys, Questions, Options, Responses, Answers, Logic Rules. Unterstützt Single/Multi-Choice, Freitext, Rating, Matrix. Bedingte Logik (zeige Frage X wenn Antwort Y) als JSONB gespeichert. Automatische Ergebnis-Aggregation per View.',
+      '8 tables: surveys, questions, options, responses, answers, logic rules. Supports single/multi-choice, free text, rating and matrix questions. Conditional logic (show question X if answer Y) stored as JSONB. Automatic result aggregation via view.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -738,9 +738,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'workflow-engine',
     name: 'Workflow Engine',
-    description: 'State-Machine-Schema: Workflows, States, Transitions, Actions, History.',
+    description: 'State machine schema: workflows, states, transitions, actions, history.',
     longDescription:
-      '7 Tabellen: Workflows, States, Transitions, WorkflowInstances, InstanceHistory, ActionQueue, Hooks. Modelliert beliebige Prozesse als State Machine (z.B. Bestellstatus, Dokumenten-Freigabe). Transition-Guards via Postgres-Funktionen, Action-Hooks für externe Systeme.',
+      '7 tables: workflows, states, transitions, workflow instances, instance history, action queue, hooks. Models any process as a state machine (e.g. order status, document approval). Transition guards via Postgres functions, action hooks for external systems.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -759,9 +759,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'gdpr-toolkit',
     name: 'GDPR Toolkit',
-    description: 'DSGVO-Compliance: Consent-Management, Auskunftsanfragen, Löschfristen.',
+    description: 'GDPR compliance: consent management, data access requests, deletion schedules.',
     longDescription:
-      '5 Tabellen: ConsentRecords, DataRequests, DeletionSchedule, ProcessingActivities, DataRetentionPolicies. Speichert Einwilligungen mit Timestamp und Version, verwaltet Auskunfts- und Löschanfragen nach Art. 15/17 DSGVO, automatisiert Löschfristen per pg_cron.',
+      '5 tables: consent records, data requests, deletion schedule, processing activities, data retention policies. Stores consents with timestamp and version, manages access and deletion requests per Art. 15/17 GDPR, automates deletion schedules via pg_cron.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -787,9 +787,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'chat-schema',
     name: 'Chat & Messaging',
-    description: 'Echtzeit-Chat-Schema: Rooms, Messages, Reactions, Read-Receipts, Threads.',
+    description: 'Real-time chat schema: rooms, messages, reactions, read receipts, threads.',
     longDescription:
-      '7 Tabellen: ChatRooms, Messages, Reactions, ReadReceipts, Threads, RoomMembers, MessageAttachments. RLS stellt sicher, dass nur Room-Mitglieder Nachrichten sehen. Realtime-fähig über Supabase Realtime. Unterstützt Threads, Emojis, Dateianhänge.',
+      '7 tables: chat rooms, messages, reactions, read receipts, threads, room members, message attachments. RLS ensures only room members can see messages. Realtime-ready via Supabase Realtime. Supports threads, emojis and file attachments.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -814,9 +814,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'inventory-manager',
     name: 'Inventory Manager',
-    description: 'Lagerverwaltung: Bestände, Bewegungen, Lagerorte, Lieferanten, Bestellungen.',
+    description: 'Inventory management: stock levels, movements, warehouses, suppliers, orders.',
     longDescription:
-      '9 Tabellen: Products, Warehouses, StockLevels, StockMovements, Suppliers, PurchaseOrders, Locations, BatchTracking, LowStockAlerts. Trigger berechnen Lagerbestand automatisch bei jeder Bewegung. Unterstützt Multi-Warehouse und Batch-/Seriennummer-Tracking.',
+      '9 tables: products, warehouses, stock levels, stock movements, suppliers, purchase orders, locations, batch tracking, low stock alerts. Triggers automatically recalculate stock levels on every movement. Supports multi-warehouse and batch/serial number tracking.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -842,9 +842,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'time-series',
     name: 'Time Series Data',
-    description: 'Zeitreihenspeicher mit Partitionierung, Aggregation und Retention-Policy.',
+    description: 'Time series storage with partitioning, aggregation and retention policy.',
     longDescription:
-      'Partitioniertes Schema für Zeitreihendaten (Metriken, IoT, Events). Automatische Monats-Partitionen via Trigger, materialisierte Views für stündliche/tägliche Aggregate, automatische Partition-Rotation. Ideal für Sensor-Daten, Analytics, Logs.',
+      'Partitioned schema for time series data (metrics, IoT, events). Automatic monthly partitions via trigger, materialized views for hourly/daily aggregates, automatic partition rotation. Ideal for sensor data, analytics and logs.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -871,9 +871,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'phone-auth',
     name: 'Phone Authentication',
-    description: 'SMS-OTP Authentifizierung via Twilio — Login mit Telefonnummer.',
+    description: 'SMS OTP authentication via Twilio — login with phone number.',
     longDescription:
-      'Edge Function + Auth-Hook für SMS-basierte Einmalcodes via Twilio. Nutzer geben ihre Telefonnummer ein und erhalten einen 6-stelligen OTP per SMS. Unterstützt internationales Format (+49...), Rate-Limiting (5 SMS/Stunde) und Blacklist für Premium-Nummern.',
+      'Edge Function + auth hook for SMS-based one-time codes via Twilio. Users enter their phone number and receive a 6-digit OTP by SMS. Supports international format (+1...), rate limiting (5 SMS/hour) and blacklist for premium numbers.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -914,9 +914,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'passkey-auth',
     name: 'Passkey / WebAuthn',
-    description: 'Passwortloser Login mit Passkeys (WebAuthn/FIDO2) — biometrisch oder Hardware-Key.',
+    description: 'Passwordless login with passkeys (WebAuthn/FIDO2) — biometric or hardware key.',
     longDescription:
-      'Edge Functions für WebAuthn Registration und Authentication. Speichert Credential-IDs und Public Keys in einer separaten Tabelle. Unterstützt mehrere Authenticatoren pro User (Face ID, Touch ID, YubiKey). Challenge-basiert, kein Passwort nötig.',
+      'Edge Functions for WebAuthn registration and authentication. Stores credential IDs and public keys in a separate table. Supports multiple authenticators per user (Face ID, Touch ID, YubiKey). Challenge-based, no password required.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -948,9 +948,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'ip-allowlist',
     name: 'IP Allowlist',
-    description: 'Zugriffsbeschränkung auf definierte IP-Adressen oder CIDR-Blöcke.',
+    description: 'Restrict access to defined IP addresses or CIDR blocks.',
     longDescription:
-      'Auth-Hook der jede Anmeldung gegen eine Allowlist aus IP-Adressen und CIDR-Blöcken prüft. Blockierte Logins werden in einer Tabelle protokolliert. Unterstützt IPv4 und IPv6, dynamische Updates ohne Neustart. Ideal für Admin-Bereiche in Unternehmensumgebungen.',
+      'Auth hook that checks every login against an allowlist of IP addresses and CIDR blocks. Blocked logins are recorded in a table. Supports IPv4 and IPv6, dynamic updates without restart. Ideal for admin areas in enterprise environments.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -980,9 +980,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'session-manager',
     name: 'Session Manager',
-    description: 'Erweiterte Session-Verwaltung: Geräte, Standorte, Concurrent-Session-Limit.',
+    description: 'Advanced session management: devices, locations, concurrent session limit.',
     longDescription:
-      'Tabelle für aktive Sessions mit Gerät, Browser, IP, Geo-Location. Nutzer können alle Sessions außer der aktuellen widerrufen ("Logout everywhere"). Konfigurierbare maximale Anzahl gleichzeitiger Sessions pro User. Dashboard-Widget für Sicherheitsübersicht.',
+      'Table for active sessions with device, browser, IP and geo-location. Users can revoke all sessions except the current one ("logout everywhere"). Configurable maximum number of concurrent sessions per user. Dashboard widget for security overview.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1014,9 +1014,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'openai-proxy',
     name: 'OpenAI Proxy',
-    description: 'OpenAI API Proxy mit Rate-Limiting, Kosten-Tracking und User-Quotas.',
+    description: 'OpenAI API proxy with rate limiting, cost tracking and user quotas.',
     longDescription:
-      'Edge Function als sicherer Proxy zur OpenAI API. API-Key wird serverseitig gehalten, nie zum Client gesendet. Rate-Limiting per User, monatliche Token-Budgets, Kosten-Tracking in einer Tabelle. Unterstützt Chat, Completions, Embeddings und DALL-E.',
+      'Edge Function as a secure proxy to the OpenAI API. The API key is held server-side and never sent to the client. Per-user rate limiting, monthly token budgets, cost tracking in a table. Supports chat, completions, embeddings and DALL-E.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1051,9 +1051,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'webhook-dispatcher',
     name: 'Webhook Dispatcher',
-    description: 'Zuverlässiger Webhook-Versand mit Retry-Logic, Signing und Delivery-Log.',
+    description: 'Reliable webhook delivery with retry logic, signing and delivery log.',
     longDescription:
-      'Edge Function + Queue-Tabelle für zuverlässigen Webhook-Versand. Automatische Wiederholung bei Fehlern (exponentielles Backoff, bis zu 5 Versuche). HMAC-SHA256-Signatur für Authentizität. Delivery-Log mit Response-Codes und Latenz. Admin-Endpoint zum manuellen Retry.',
+      'Edge Function + queue table for reliable webhook delivery. Automatic retries on failure (exponential backoff, up to 5 attempts). HMAC-SHA256 signature for authenticity. Delivery log with response codes and latency. Admin endpoint for manual retry.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1084,9 +1084,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'cron-jobs',
     name: 'Cron Jobs (pg_cron)',
-    description: 'Cron-Job-Verwaltung direkt in PostgreSQL via pg_cron Extension.',
+    description: 'Cron job management directly in PostgreSQL via pg_cron extension.',
     longDescription:
-      'Richtet pg_cron ein und erstellt eine Jobs-Verwaltungstabelle mit UI-freundlichem Schema. Enthält fertige Cron-Jobs für häufige Aufgaben: Cleanup alter Datensätze, Aggregation von Statistiken, Refresh materialisierter Views, Session-Cleanup. Alle Jobs sind über die Tabelle verwaltbar.',
+      'Sets up pg_cron and creates a jobs management table with a UI-friendly schema. Includes pre-built cron jobs for common tasks: cleanup of old records, statistics aggregation, materialized view refresh, session cleanup. All jobs are manageable via the table.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1116,9 +1116,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'short-url',
     name: 'URL Shortener',
-    description: 'URL-Shortener mit Click-Analytics, QR-Codes und benutzerdefinierten Slugs.',
+    description: 'URL shortener with click analytics, QR codes and custom slugs.',
     longDescription:
-      'Edge Function + Schema für einen vollständigen URL-Shortener: Kurz-URLs erstellen (zufällig oder benutzerdefiniert), Redirects mit 301/302, Click-Tracking (Timestamp, Referrer, User-Agent, Land). Optional: QR-Code-Generierung, Link-Ablaufdatum, Passwortschutz.',
+      'Edge Function + schema for a complete URL shortener: create short URLs (random or custom), redirects with 301/302, click tracking (timestamp, referrer, user agent, country). Optional: QR code generation, link expiry date, password protection.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1149,9 +1149,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'ai-moderation',
     name: 'AI Content Moderation',
-    description: 'Automatische Inhaltsmoderation via OpenAI Moderation API — Trigger-basiert.',
+    description: 'Automatic content moderation via OpenAI Moderation API — trigger-based.',
     longDescription:
-      'Datenbank-Trigger + Edge Function: Bei INSERT/UPDATE auf konfigurierten Tabellen wird der Text-Inhalt automatisch an die OpenAI Moderation API gesendet. Inhalte mit Score > Threshold werden als `moderation_flagged = true` markiert und optional in eine Review-Queue verschoben.',
+      'Database trigger + Edge Function: on INSERT/UPDATE on configured tables, text content is automatically sent to the OpenAI Moderation API. Content with score above the threshold is marked as `moderation_flagged = true` and optionally moved to a review queue.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1193,9 +1193,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'geo-ip',
     name: 'Geo-IP Lookup',
-    description: 'Geo-Informationen aus IP-Adressen: Land, Stadt, Koordinaten via Edge Function.',
+    description: 'Geo information from IP addresses: country, city, coordinates via Edge Function.',
     longDescription:
-      'Edge Function die IP-Adressen in Geo-Daten auflöst (Land, Region, Stadt, Lat/Lng, Zeitzone, ISP). Nutzt die MaxMind GeoLite2-Datenbank oder ip-api.com. Ergebnisse werden 24h gecacht um API-Limits zu schonen. Ideal für Analytics, Fraud-Detection, personalisierte Inhalte.',
+      'Edge Function that resolves IP addresses to geo data (country, region, city, lat/lng, timezone, ISP). Uses the MaxMind GeoLite2 database or ip-api.com. Results are cached for 24 hours to conserve API limits. Ideal for analytics, fraud detection and personalized content.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1224,9 +1224,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'currency-conversion',
     name: 'Currency Conversion',
-    description: 'Echtzeit-Währungskonvertierung via Edge Function mit täglichem Rate-Cache.',
+    description: 'Real-time currency conversion via Edge Function with daily rate cache.',
     longDescription:
-      'Edge Function für Währungskonvertierung mit täglichem Wechselkurs-Cache in der Datenbank. Unterstützt 170+ Währungen via exchangerate-api.com oder Frankfurter API. Historische Kurse werden 90 Tage gespeichert. Fertige Utility-Funktionen für Preisberechnungen.',
+      'Edge Function for currency conversion with a daily exchange rate cache in the database. Supports 170+ currencies via exchangerate-api.com or the Frankfurter API. Historical rates are stored for 90 days. Ready-made utility functions for price calculations.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1261,9 +1261,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'file-processor',
     name: 'File Processor',
-    description: 'Automatische Dateiverarbeitung bei Storage-Upload: Validierung, Virenscan, Metadaten.',
+    description: 'Automatic file processing on storage upload: validation, virus scan, metadata.',
     longDescription:
-      'Storage-Trigger-basierte Edge Function: Prüft hochgeladene Dateien auf Typ und Größe, extrahiert Metadaten (EXIF für Bilder, Seitenzahl für PDFs), optional Virenscan via ClamAV-API. Ergebnisse werden in einer Metadaten-Tabelle gespeichert. Abgelehnte Dateien werden automatisch gelöscht.',
+      'Storage-trigger-based Edge Function: checks uploaded files for type and size, extracts metadata (EXIF for images, page count for PDFs), optional virus scan via ClamAV API. Results are stored in a metadata table. Rejected files are automatically deleted.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1299,9 +1299,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'slow-query-tracker',
     name: 'Slow Query Tracker',
-    description: 'Langsame Queries erkennen via pg_stat_statements mit automatischen Alerts.',
+    description: 'Detect slow queries via pg_stat_statements with automatic alerts.',
     longDescription:
-      'Aktiviert pg_stat_statements und erstellt eine Slow-Query-Log-Tabelle. Stündlicher Cron-Job sammelt Top-50-Slow-Queries, vergleicht mit Baseline und sendet Alerts (Slack, E-Mail) bei signifikanter Verschlechterung. Dashboard-View zeigt Query-Plans und Index-Empfehlungen.',
+      'Enables pg_stat_statements and creates a slow query log table. An hourly cron job collects the top 50 slow queries, compares them against a baseline and sends alerts (Slack, email) on significant degradation. Dashboard view shows query plans and index recommendations.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1332,9 +1332,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'table-size-monitor',
     name: 'Table Size Monitor',
-    description: 'Überwacht Tabellengrößen und warnt bei ungeplantem Wachstum.',
+    description: 'Monitors table sizes and warns on unexpected growth.',
     longDescription:
-      'Täglicher Snapshot aller Tabellengrößen (Daten + Indizes + Toast). Trend-Analyse erkennt ungewöhnlich schnelles Wachstum. Warnung per Webhook wenn eine Tabelle mehr als X% in einer Woche wächst oder absolute Grenze (z.B. 10 GB) überschreitet. Historische Daten für 6 Monate.',
+      'Daily snapshot of all table sizes (data + indexes + toast). Trend analysis detects unusually fast growth. Sends a webhook warning when a table grows more than X% in a week or exceeds an absolute limit (e.g. 10 GB). Historical data retained for 6 months.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1370,9 +1370,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'datadog-integration',
     name: 'Datadog Integration',
-    description: 'PostgreSQL-Metriken und Custom Events an Datadog senden.',
+    description: 'Send PostgreSQL metrics and custom events to Datadog.',
     longDescription:
-      'Edge Function die minütlich Postgres-Metriken (Verbindungen, Cache-Hit-Rate, Transaktionen, Locks, Replica-Lag) an die Datadog Metrics API sendet. Optionaler Custom-Events-Endpoint für Applikations-Events (Deployments, Incidents). Enthält fertige Datadog-Dashboard-JSON zum Import.',
+      'Edge Function that sends Postgres metrics (connections, cache hit rate, transactions, locks, replica lag) to the Datadog Metrics API every minute. Optional custom events endpoint for application events (deployments, incidents). Includes a ready-to-import Datadog dashboard JSON.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1407,9 +1407,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'error-budget-tracker',
     name: 'Error Budget Tracker',
-    description: 'SLA/SLO-Monitoring: Verfügbarkeit, Error-Rate, Latenz-Budgets tracken.',
+    description: 'SLA/SLO monitoring: track availability, error rate and latency budgets.',
     longDescription:
-      'Schema + Edge Functions für SLO-Tracking (Service Level Objectives). Definiere Ziele für Verfügbarkeit (99,9%), Error-Rate (< 0,1%), Latenz (p95 < 200ms). Stündliche Messung gegen Ziele, Error-Budget-Verbrauch, Burn-Rate-Alerts. Burndown-Chart-Daten für Dashboards.',
+      'Schema + Edge Functions for SLO tracking (service level objectives). Define targets for availability (99.9%), error rate (< 0.1%) and latency (p95 < 200ms). Hourly measurement against targets, error budget consumption, burn rate alerts. Burndown chart data for dashboards.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1446,9 +1446,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'chat-history',
     name: 'AI Chat History',
-    description: 'Persistente Chat-Verläufe für KI-Assistenten mit Kontext-Management.',
+    description: 'Persistent chat history for AI assistants with context management.',
     longDescription:
-      'Schema für KI-Chat-Verläufe: Conversations, Messages, SystemPrompts, UserPreferences. Automatisches Kontext-Trimming wenn Token-Limit erreicht (älteste Nachrichten werden zusammengefasst). Unterstützt mehrere Assistenten-Persönlichkeiten pro User. RLS stellt Privatsphäre sicher.',
+      'Schema for AI chat history: conversations, messages, system prompts, user preferences. Automatic context trimming when the token limit is reached (oldest messages are summarized). Supports multiple assistant personalities per user. RLS ensures privacy.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1473,9 +1473,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'knowledge-base',
     name: 'Knowledge Base',
-    description: 'Strukturierte Wissensbasis mit Vektorsuche, Kategorien und Versionierung.',
+    description: 'Structured knowledge base with vector search, categories and versioning.',
     longDescription:
-      'Schema für eine durchsuchbare Wissensbasis: Articles, Categories, Tags, Versions, Embeddings. Volltextsuche via pg_trgm, semantische Suche via pgvector, automatisches Embedding bei Artikel-Erstellung. Versionierung mit Diff-Ansicht, öffentlich/privat-Sichtbarkeit, Bewertungssystem.',
+      'Schema for a searchable knowledge base: articles, categories, tags, versions, embeddings. Full-text search via pg_trgm, semantic search via pgvector, automatic embedding on article creation. Versioning with diff view, public/private visibility, rating system.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1500,9 +1500,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'ai-image-analysis',
     name: 'AI Image Analysis',
-    description: 'Automatische Bildanalyse bei Storage-Upload via OpenAI Vision — Tags, Alt-Text, NSFW.',
+    description: 'Automatic image analysis on storage upload via OpenAI Vision — tags, alt text, NSFW.',
     longDescription:
-      'Storage-Trigger + Edge Function: Analysiert Bilder bei Upload via GPT-4o Vision. Generiert Alt-Text für Barrierefreiheit, Tags für Suche, NSFW-Bewertung, Objekt-Erkennung. Ergebnisse werden in einer Metadaten-Tabelle gespeichert. Optional: automatische NSFW-Bilder in Quarantäne.',
+      'Storage trigger + Edge Function: analyzes images on upload via GPT-4o Vision. Generates alt text for accessibility, tags for search, NSFW rating and object detection. Results are stored in a metadata table. Optional: automatically quarantine NSFW images.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1537,9 +1537,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'content-summarizer',
     name: 'Content Summarizer',
-    description: 'Automatische Zusammenfassung langer Texte per Trigger via OpenAI.',
+    description: 'Automatic summarization of long texts via trigger using OpenAI.',
     longDescription:
-      'Datenbank-Trigger + Edge Function: Erzeugt bei INSERT/UPDATE eine KI-Zusammenfassung langer Texte (Artikel, Berichte, Support-Tickets). Konfigurierbare Ausgabelänge (Tweet, Paragraph, Bullet Points). Zusammenfassung wird in einer separaten Spalte gespeichert.',
+      'Database trigger + Edge Function: on INSERT/UPDATE, generates an AI summary of long texts (articles, reports, support tickets). Configurable output length (tweet, paragraph, bullet points). The summary is stored in a separate column.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1572,9 +1572,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 's3-mirror',
     name: 'S3 Mirror',
-    description: 'Synchronisiert Storage-Buckets automatisch zu AWS S3 oder kompatiblen Diensten.',
+    description: 'Automatically synchronize storage buckets to AWS S3 or compatible services.',
     longDescription:
-      'Edge Function-basierte Synchronisation: Neue und geänderte Dateien in konfigurierten Buckets werden automatisch zu AWS S3, Cloudflare R2, Backblaze B2 oder MinIO gespiegelt. Unterstützt Versionierung, selektive Sync (Prefix-Filter), Bandbreiten-Throttling. Sync-Log für Nachvollziehbarkeit.',
+      'Edge Function-based synchronization: new and modified files in configured buckets are automatically mirrored to AWS S3, Cloudflare R2, Backblaze B2 or MinIO. Supports versioning, selective sync (prefix filter) and bandwidth throttling. Sync log for traceability.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1601,9 +1601,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'cdn-purge',
     name: 'CDN Cache Purge',
-    description: 'Automatische CDN-Cache-Invalidierung bei Storage-Dateiänderungen.',
+    description: 'Automatic CDN cache invalidation on storage file changes.',
     longDescription:
-      'Storage-Trigger + Edge Function: Bei Dateiänderungen oder -löschungen in Supabase Storage wird automatisch der CDN-Cache für die betroffenen URLs invalidiert. Unterstützt Cloudflare, Fastly und KeyCDN. Batch-Invalidierung für bis zu 30 URLs gleichzeitig. Fallback-Log bei API-Fehlern.',
+      'Storage trigger + Edge Function: when files are changed or deleted in Supabase Storage, the CDN cache for the affected URLs is automatically invalidated. Supports Cloudflare, Fastly and KeyCDN. Batch invalidation for up to 30 URLs at once. Fallback log on API errors.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',
@@ -1633,9 +1633,9 @@ export const MARKETPLACE_EXTENSIONS: Prisma.ExtensionCreateInput[] = [
   {
     id: 'storage-analytics',
     name: 'Storage Analytics',
-    description: 'Storage-Nutzungsanalyse: Buckets, Top-Dateien, Zugriffsstatistiken, Kosten.',
+    description: 'Storage usage analysis: buckets, top files, access statistics, costs.',
     longDescription:
-      'Täglicher Snapshot der Storage-Nutzung: Bucket-Größen, Dateianzahl, Top-10-Dateien nach Größe, Upload/Download-Statistiken, geschätzte Kosten basierend auf Supabase-Preismodell. Trend-Analyse über 90 Tage. Warnung wenn Storage-Limit zu 80% erreicht ist.',
+      'Daily snapshot of storage usage: bucket sizes, file counts, top 10 files by size, upload/download statistics, estimated costs based on the Supabase pricing model. Trend analysis over 90 days. Warning when the storage limit reaches 80%.',
     version: '1.0.0',
     author: 'Multibase',
     authorUrl: 'https://github.com/multibase',

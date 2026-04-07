@@ -46,6 +46,7 @@ const queryClient = new QueryClient({
 });
 
 import LandingPage from './pages/LandingPage';
+import FeedbackPage from './pages/FeedbackPage';
 
 function AppContent() {
   // Initialize WebSocket connection for real-time updates
@@ -58,6 +59,7 @@ function AppContent() {
         {/* Public Routes */}
         <Route path='/' element={<LandingPage />} />
         <Route path='/reset-password' element={<ResetPassword />} />
+        <Route path='/feedback' element={<FeedbackPage />} />
         {/* Redirect old auth routes to landing page */}
         <Route path='/login' element={<Navigate to='/' replace />} />
         <Route path='/register' element={<Navigate to='/' replace />} />

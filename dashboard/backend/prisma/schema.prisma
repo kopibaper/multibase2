@@ -367,6 +367,7 @@ model GlobalSettings {
   smtp_sender_name  String?
   smtp_admin_email  String?
   app_url           String?  // Public URL for email links
+  feedbackEnabled   Boolean  @default(true)
   updatedAt         DateTime @updatedAt
 }
 
@@ -476,4 +477,23 @@ model ExtensionReview {
   extension   Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
 
   @@index([extensionId])
+}
+
+model Feedback {
+  id          Int      @id @default(autoincrement())
+  type        String   // 'feature' | 'bug'
+  title       String
+  description String
+  urgency     String   // 'low' | 'medium' | 'high' | 'critical'
+  authorName  String?
+  authorEmail String?  // never exposed in GET responses
+  status      String   @default("open") // 'open' | 'in_progress' | 'resolved' | 'closed'
+  ipAddress   String?  // stored for moderation, never exposed
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }

@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { Database, Shield, Activity, Zap, Layers, Github, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Database, Shield, Activity, Zap, Layers, Github, Menu, X, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Generic Button component to avoid dependency issues if shadcn isn't fully set up or we want custom Supabase style
 const SupabaseButton = ({ className, variant = 'primary', children, ...props }: any) => {
@@ -42,6 +44,14 @@ const LandingPage = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/settings/public`)
+      .then((r) => r.json())
+      .then((d) => setFeedbackEnabled(d.feedbackEnabled ?? true))
+      .catch(() => {});
+  }, []);
 
   const openAuth = (view: 'login' | 'register' | 'forgot') => {
     setAuthView(view);
@@ -214,6 +224,16 @@ const LandingPage = () => {
               <Github className='w-5 h-5 mr-2' />
               Repository
             </SupabaseButton>
+            {feedbackEnabled && (
+              <SupabaseButton
+                variant='ghost'
+                className='h-12 px-8 text-base text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/30 hover:border-violet-400/50 shadow-[0_0_12px_rgba(139,92,246,0.2)] hover:shadow-[0_0_20px_rgba(139,92,246,0.35)] transition-all'
+                onClick={() => navigate('/feedback')}
+              >
+                <MessageSquare className='w-5 h-5 mr-2' />
+                Feedback
+              </SupabaseButton>
+            )}
           </div>
         </div>
 
@@ -330,6 +350,13 @@ const LandingPage = () => {
                   Discussions
                 </a>
               </li>
+              {feedbackEnabled && (
+                <li>
+                  <a href='/feedback' className='hover:text-brand-500 transition-colors'>
+                    Feature Requests
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
         </div>

@@ -189,6 +189,18 @@ export const IdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, 'ID muss eine Zahl sein'),
 });
 
+// ===== Feedback Schema =====
+
+export const FeedbackSchema = z.object({
+  type: z.enum(['feature', 'bug']),
+  title: z.string().min(5, 'Titel muss mindestens 5 Zeichen haben').max(120),
+  description: z.string().min(10, 'Beschreibung muss mindestens 10 Zeichen haben').max(2000),
+  urgency: z.enum(['low', 'medium', 'high', 'critical']),
+  authorName: z.string().max(80).optional().or(z.literal('')),
+  authorEmail: z.string().email().optional().or(z.literal('')),
+  website: z.literal('').optional(), // honeypot — bots fill this, Zod rejects non-empty
+});
+
 // ===== Type Exports (für TypeScript Type Inference) =====
 
 export type LoginInput = z.infer<typeof LoginSchema>;

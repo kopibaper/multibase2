@@ -87,6 +87,7 @@ import { QueueService } from './services/QueueService';
 import { createMarketplaceRoutes } from './routes/marketplace';
 import { createExtensionRoutes } from './routes/extensions';
 import { ExtensionUpdateChecker } from './services/ExtensionUpdateChecker';
+import { createFeedbackRoutes } from './routes/feedback';
 
 // Utils
 import { logger } from './utils/logger';
@@ -228,6 +229,7 @@ app.use('/api/mcp', createMcpRoutes(mcpService));
 app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
 app.use('/api/marketplace', createMarketplaceRoutes(prisma));
+app.use('/api/feedback', createFeedbackRoutes(prisma));
 app.use(
   '/api/instances/:name/extensions',
   createExtensionRoutes(prisma, instanceManager, redisCache, functionService)

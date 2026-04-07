@@ -52,6 +52,22 @@ export const registerLimiter = rateLimit({
 });
 
 /**
+ * Feedback Rate Limiter - Anti-spam for public submissions
+ * 3 submissions per hour per IP
+ */
+export const feedbackLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 Stunde
+  max: 3,
+  message: { error: 'Zu viele Feedback-Einreichungen. Bitte warte 1 Stunde.', retryAfter: 60 },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    logger.warn('Feedback rate limit exceeded');
+    res.status(429).json({ error: 'Zu viele Feedback-Einreichungen. Bitte warte 1 Stunde.', retryAfter: 60 });
+  },
+});
+
+/**
  * General API Rate Limiter - For other endpoints if needed
  * 100 requests per 15 minutes per IP
  */

@@ -23,7 +23,16 @@
       "Bash(GH_REPO=skipper159/multibase2 gh run list --limit 10)",
       "Bash(GH_REPO=skipper159/multibase2 gh run view 24010790258 --log)",
       "Bash(GH_REPO=skipper159/multibase2 gh run view 24010790258)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx --version)",
+      "Read(//home/thomas/.nvm/versions/node/**)",
+      "Bash(node20 --version)",
+      "Bash(sqlite3 /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/prisma/data/multibase.db 'CREATE TABLE IF NOT EXISTS \"Feedback\" \\(:*)",
+      "Bash(sqlite3 /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/prisma/data/multibase.db \"PRAGMA table_info\\(GlobalSettings\\);\")",
+      "Bash(journalctl --user -u multibase-backend)",
+      "Bash(npm run:*)"
     ]
   }
 }
