@@ -181,7 +181,7 @@ const customDomainService = new CustomDomainService(prisma, PROJECTS_PATH);
 const vectorService = new VectorService(instanceManager);
 const queueService = new QueueService(instanceManager);
 const logDrainService = new LogDrainService(prisma, dockerManager);
-const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma);
+const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma, functionService, storageService);
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);

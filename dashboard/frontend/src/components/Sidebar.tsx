@@ -16,6 +16,7 @@ import {
   HardDrive,
   Cloud,
   Server,
+  Bot,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
 
@@ -146,6 +147,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           <SidebarGroup title='Resources'>
             <SidebarLink to='/setup' icon={BookOpen}>
               Setup Guide
+            </SidebarLink>
+            <SidebarLink to='/setup/ai-assistant/overview' icon={Bot}>
+              AI Assistant Docs
             </SidebarLink>
           </SidebarGroup>
         </nav>
