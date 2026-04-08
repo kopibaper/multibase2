@@ -646,6 +646,23 @@ install_dependencies() {
             step_new "Docker Compose (installed)"
         fi
 
+        # Docker log rotation (prevent unbounded log growth)
+        if [ ! -f /etc/docker/daemon.json ] || ! grep -q "max-size" /etc/docker/daemon.json 2>/dev/null; then
+            cat > /etc/docker/daemon.json << 'DAEMON_EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "20"
+  }
+}
+DAEMON_EOF
+            systemctl reload docker >> "$LOG_FILE" 2>&1 || true
+            step_new "Docker log rotation configured (50m × 20 = 1GB max per container)"
+        else
+            step_ok "Docker log rotation (already configured)"
+        fi
+
         # Python 3
         if command -v python3 &>/dev/null; then
             step_ok "Python $(python3 --version | awk '{print $2}') (already installed)"

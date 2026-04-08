@@ -594,46 +594,65 @@ export default function FeedbackPage() {
 
       {detailItem && createPortal(
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'
+          className='fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/60 backdrop-blur-sm'
           onClick={() => setDetailItem(null)}
         >
           <div
-            className='relative w-full max-w-lg rounded-xl border border-white/15 bg-[#1a1a1a] shadow-2xl p-6'
+            className='relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#1a1a1a] shadow-2xl flex flex-col max-h-[85vh]'
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => setDetailItem(null)}
-              className='absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors'
-              aria-label='Close'
-            >
-              <X className='w-4 h-4' />
-            </button>
-
-            <div className='flex items-center gap-3 mb-4'>
-              <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+            {/* Header */}
+            <div className='flex items-start gap-3 p-6 border-b border-white/10 flex-shrink-0'>
+              <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                 detailItem.type === 'feature' ? 'bg-brand-500/10 text-brand-400' : 'bg-red-500/10 text-red-400'
               }`}>
-                {detailItem.type === 'feature' ? <Lightbulb className='w-4 h-4' /> : <Bug className='w-4 h-4' />}
+                {detailItem.type === 'feature' ? <Lightbulb className='w-5 h-5' /> : <Bug className='w-5 h-5' />}
               </div>
-              <div className='flex items-center gap-1.5 flex-wrap'>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_BADGE[detailItem.urgency]}`}>
-                  {URGENCY_LABEL[detailItem.urgency] ?? detailItem.urgency}
-                </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[detailItem.status as Status] ?? STATUS_BADGE.open}`}>
-                  {STATUS_LABEL[detailItem.status as Status] ?? detailItem.status}
-                </span>
+              <div className='flex-1 min-w-0'>
+                <h3 className='font-semibold text-base leading-snug pr-8'>{detailItem.title}</h3>
+                <div className='flex items-center gap-1.5 flex-wrap mt-2'>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_BADGE[detailItem.urgency]}`}>
+                    {URGENCY_LABEL[detailItem.urgency] ?? detailItem.urgency}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[detailItem.status as Status] ?? STATUS_BADGE.open}`}>
+                    {STATUS_LABEL[detailItem.status as Status] ?? detailItem.status}
+                  </span>
+                  <span className='text-xs text-muted-foreground capitalize ml-1'>
+                    {detailItem.type === 'feature' ? 'Feature Request' : 'Bug Report'}
+                  </span>
+                </div>
               </div>
+              <button
+                onClick={() => setDetailItem(null)}
+                className='absolute top-5 right-5 p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-lg transition-colors'
+                aria-label='Close'
+              >
+                <X className='w-4 h-4' />
+              </button>
             </div>
 
-            <h3 className='font-semibold text-base leading-snug mb-3'>{detailItem.title}</h3>
-            <p className='text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap'>{detailItem.description}</p>
+            {/* Scrollable body */}
+            <div className='p-6 overflow-y-auto flex-1'>
+              <p className='text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap'>
+                {detailItem.description}
+              </p>
+            </div>
 
-            <div className='flex items-center gap-3 mt-5 pt-4 border-t border-white/10 text-xs text-muted-foreground'>
-              {detailItem.authorName && <span>{detailItem.authorName}</span>}
+            {/* Footer */}
+            <div className='flex items-center gap-3 px-6 py-4 border-t border-white/10 flex-shrink-0 text-xs text-muted-foreground'>
+              {detailItem.authorName && (
+                <span className='font-medium text-foreground/70'>{detailItem.authorName}</span>
+              )}
               <span className='flex items-center gap-1'>
                 <Clock className='w-3 h-3' />
                 {timeAgo(detailItem.createdAt)}
               </span>
+              <button
+                onClick={() => setDetailItem(null)}
+                className='ml-auto px-4 py-1.5 rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 text-xs font-medium transition-colors'
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>,
