@@ -32,7 +32,9 @@
       "Bash(sqlite3 /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/prisma/data/multibase.db 'CREATE TABLE IF NOT EXISTS \"Feedback\" \\(:*)",
       "Bash(sqlite3 /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/prisma/data/multibase.db \"PRAGMA table_info\\(GlobalSettings\\);\")",
       "Bash(journalctl --user -u multibase-backend)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find /home/thomas/Dokumente/GitHub/multibase2/dashboard/frontend/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"SaveTemplate\\\\|save.*template\" {} \\\\;)",
+      "Bash(ls -la /home/thomas/Dokumente/GitHub/multibase2/shared/.env*)"
     ]
   }
 }

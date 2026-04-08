@@ -15,12 +15,15 @@ import {
   Save,
   Database,
   Cloud,
+  Building2,
 } from 'lucide-react';
 import { useStartInstance, useStopInstance } from '../hooks/useInstances';
 import { useAlerts } from '../hooks/useAlerts';
 import SaveTemplateModal from './SaveTemplateModal';
 import ConfirmDialog from './ConfirmDialog';
 import { UptimeChart } from './UptimeChart';
+
+import { startStudioHeartbeat } from '../lib/studioHeartbeat';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -115,7 +118,8 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
           throw new Error(err.message || `HTTP ${res.status}`);
         }
         const data = await res.json();
-        window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+        const win = window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+        if (win) startStudioHeartbeat(win, instance.name, API_BASE_URL, token);
       } catch (err: any) {
         console.error('Studio activation failed:', err);
         alert(`Studio activation failed: ${err.message}`);
@@ -176,6 +180,12 @@ export default function InstanceCard({ instance, isSelected, onToggleSelect }: I
                 </span>
               )}
             </h3>
+            {instance.orgName && (
+              <span className='inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/5 text-muted-foreground border border-white/10'>
+                <Building2 className='w-3 h-3' />
+                {instance.orgName}
+              </span>
+            )}
             <p className='text-sm text-muted-foreground mt-1'>{instance.credentials.project_url}</p>
           </div>
 

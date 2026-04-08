@@ -30,12 +30,21 @@ export const useInstanceUptime = (name: string, days: number = 30) => {
   });
 };
 
-// List all instances
+// List all instances (org-scoped via active org header)
 export const useInstances = () => {
   return useQuery({
     queryKey: instanceKeys.list(),
     queryFn: instancesApi.list,
     refetchInterval: 10000, // Refetch every 10 seconds
+  });
+};
+
+// List ALL instances across all orgs (admin only, no org header sent)
+export const useInstancesAll = () => {
+  return useQuery({
+    queryKey: ['instances', 'all'],
+    queryFn: instancesApi.listAll,
+    refetchInterval: 10000,
   });
 };
 

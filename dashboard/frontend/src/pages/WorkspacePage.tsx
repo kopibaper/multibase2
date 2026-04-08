@@ -23,6 +23,8 @@ import KeysQuickModal from '../components/workspace/KeysQuickModal';
 import WorkspaceSmtpPanel from '../components/workspace/WorkspaceSmtpPanel';
 import WorkspaceManagerPanel from '../components/workspace/WorkspaceManagerPanel';
 
+import { startStudioHeartbeat } from '../lib/studioHeartbeat';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function WorkspacePage() {
@@ -80,7 +82,8 @@ export default function WorkspacePage() {
         throw new Error(err.message || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      const win = window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      if (win) startStudioHeartbeat(win, instance.name, API_BASE_URL, token);
     } catch (err: any) {
       console.error('Studio activation failed:', err);
     } finally {

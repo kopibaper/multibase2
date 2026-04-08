@@ -50,7 +50,7 @@ export function createOrgRoutes() {
         // Global admin sees every org — but use their actual membership role if they are a member
         const orgs = await prisma.organisation.findMany({
           include: {
-            _count: { select: { members: true } },
+            _count: { select: { members: true, instances: true } },
             members: { where: { userId }, select: { role: true } },
           },
           orderBy: { name: 'asc' },
@@ -65,6 +65,7 @@ export function createOrgRoutes() {
             // Prefer actual membership role (e.g. 'owner') over generic 'admin'
             role: (org.members[0]?.role ?? 'admin') as string,
             memberCount: org._count.members,
+            instanceCount: org._count.instances,
           }))
         );
       }
@@ -72,7 +73,7 @@ export function createOrgRoutes() {
       const memberships = await prisma.orgMember.findMany({
         where: { userId },
         include: {
-          org: { include: { _count: { select: { members: true } } } },
+          org: { include: { _count: { select: { members: true, instances: true } } } },
         },
         orderBy: { org: { name: 'asc' } },
       });
@@ -86,6 +87,7 @@ export function createOrgRoutes() {
           createdAt: m.org.createdAt,
           role: m.role,
           memberCount: m.org._count.members,
+          instanceCount: m.org._count.instances,
         }))
       );
     } catch (error) {

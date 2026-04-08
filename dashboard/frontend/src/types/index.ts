@@ -15,6 +15,7 @@ export interface SupabaseInstance {
   health: HealthStatus;
   metrics?: ResourceMetrics;
   orgId?: string | null;
+  orgName?: string | null;
   environment?: 'production' | 'staging' | 'dev' | 'preview' | null;
   createdAt: string;
   updatedAt: string;

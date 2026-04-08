@@ -67,6 +67,31 @@ export function createInstanceRoutes(
 
       // Admin with no org header → return everything
       if (isAdmin && !orgId) {
+        // Enrich with orgId + orgName from DB
+        const allDbRecords = await prisma.instance.findMany({
+          select: { name: true, orgId: true },
+        });
+        const orgIds = [...new Set(allDbRecords.map((r) => r.orgId).filter(Boolean) as string[])];
+        const orgNameMap = new Map<string, string>();
+        if (orgIds.length > 0) {
+          const orgs = await prisma.organisation.findMany({
+            where: { id: { in: orgIds } },
+            select: { id: true, name: true },
+          });
+          orgs.forEach((o) => orgNameMap.set(o.id, o.name));
+        }
+        const orgInfoMap = new Map(
+          allDbRecords.map((r) => [
+            r.name,
+            { orgId: r.orgId ?? null, orgName: r.orgId ? (orgNameMap.get(r.orgId) ?? null) : null },
+          ])
+        );
+        allInstances.forEach((inst) => {
+          const info = orgInfoMap.get(inst.name);
+          (inst as any).orgId = info?.orgId ?? null;
+          (inst as any).orgName = info?.orgName ?? null;
+        });
+
         // Enrich with diskUsedMB in parallel
         if (metricsCollector) {
           await Promise.all(
@@ -220,9 +245,10 @@ export function createInstanceRoutes(
           (await metricsCollector.getDiskUsageForInstance(name)) ?? undefined;
       }
 
-      // Enrich with environment label from DB
-      const dbRecord = await prisma.instance.findFirst({ where: { name }, select: { environment: true } });
+      // Enrich with environment label and orgId from DB
+      const dbRecord = await prisma.instance.findFirst({ where: { name }, select: { environment: true, orgId: true } });
       (instance as any).environment = dbRecord?.environment ?? null;
+      (instance as any).orgId = dbRecord?.orgId ?? null;
 
       return res.json(instance);
     } catch (error: any) {

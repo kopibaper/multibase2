@@ -85,6 +85,19 @@ export function createStudioRoutes(studioManager: StudioManager): Router {
   });
 
   /**
+   * POST /api/studio/heartbeat/:tenantName
+   * Resets the idle timer for the tenant's Studio.
+   * Called periodically by the frontend while the Studio tab is open.
+   */
+  router.post('/heartbeat/:tenantName', (req: Request, res: Response) => {
+    const { tenantName } = req.params;
+    if (tenantName && /^[a-z0-9-]+$/.test(tenantName)) {
+      studioManager.keepAlive(tenantName);
+    }
+    res.status(204).send();
+  });
+
+  /**
    * POST /api/studio/deactivate
    * Deactivates the current tenant from Studio.
    */

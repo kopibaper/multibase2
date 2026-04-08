@@ -37,7 +37,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login' }: Au
     if (isAuthenticated && isOpen && !requires2FA) {
       toast.success('Login successful!');
       handleClose();
-      navigate('/dashboard');
+      navigate('/workspace');
     }
   }, [isAuthenticated, isOpen, requires2FA]);
 
@@ -75,7 +75,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login' }: Au
         await loginWith2FA(loginEmail, password, twoFactorCode);
         toast.success('Login successful!');
         handleClose();
-        navigate('/dashboard');
+        navigate('/workspace');
       } else {
         await login(email, password);
         // After login() call, check if 2FA is now required

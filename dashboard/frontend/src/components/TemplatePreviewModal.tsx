@@ -19,7 +19,7 @@ export default function TemplatePreviewModal({ isOpen, template, onClose }: Temp
 
   const handleUseTemplate = () => {
     // Navigate to dashboard and open create modal with template
-    navigate('/', { state: { openCreateModal: true, template } });
+    navigate('/dashboard', { state: { openCreateModal: true, template } });
     onClose();
   };
 

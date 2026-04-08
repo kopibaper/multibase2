@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Bug, MessageSquarePlus, Clock, InboxIcon, Menu, X, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
+import { createPortal } from 'react-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -118,6 +119,7 @@ export default function FeedbackPage() {
   }, [navigate]);
   const [filter, setFilter] = useState<'all' | 'feature' | 'bug'>('all');
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [detailItem, setDetailItem] = useState<FeedbackItem | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
@@ -542,7 +544,12 @@ export default function FeedbackPage() {
                         </span>
                       </div>
                     </div>
-                    <p className='text-xs text-muted-foreground mt-1 line-clamp-2'>{item.description}</p>
+                    <button
+                      onClick={() => setDetailItem(item)}
+                      className='text-left text-xs text-muted-foreground mt-1 line-clamp-2 hover:text-foreground transition-colors cursor-pointer w-full'
+                    >
+                      {item.description}
+                    </button>
                     <div className='flex items-center justify-between mt-2'>
                       <div className='flex items-center gap-3 text-xs text-muted-foreground'>
                         {item.authorName && <span>{item.authorName}</span>}
@@ -584,6 +591,54 @@ export default function FeedbackPage() {
           )}
         </div>
       </main>
+
+      {detailItem && createPortal(
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'
+          onClick={() => setDetailItem(null)}
+        >
+          <div
+            className='relative w-full max-w-lg rounded-xl border border-white/15 bg-[#1a1a1a] shadow-2xl p-6'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setDetailItem(null)}
+              className='absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors'
+              aria-label='Close'
+            >
+              <X className='w-4 h-4' />
+            </button>
+
+            <div className='flex items-center gap-3 mb-4'>
+              <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                detailItem.type === 'feature' ? 'bg-brand-500/10 text-brand-400' : 'bg-red-500/10 text-red-400'
+              }`}>
+                {detailItem.type === 'feature' ? <Lightbulb className='w-4 h-4' /> : <Bug className='w-4 h-4' />}
+              </div>
+              <div className='flex items-center gap-1.5 flex-wrap'>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_BADGE[detailItem.urgency]}`}>
+                  {URGENCY_LABEL[detailItem.urgency] ?? detailItem.urgency}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[detailItem.status as Status] ?? STATUS_BADGE.open}`}>
+                  {STATUS_LABEL[detailItem.status as Status] ?? detailItem.status}
+                </span>
+              </div>
+            </div>
+
+            <h3 className='font-semibold text-base leading-snug mb-3'>{detailItem.title}</h3>
+            <p className='text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap'>{detailItem.description}</p>
+
+            <div className='flex items-center gap-3 mt-5 pt-4 border-t border-white/10 text-xs text-muted-foreground'>
+              {detailItem.authorName && <span>{detailItem.authorName}</span>}
+              <span className='flex items-center gap-1'>
+                <Clock className='w-3 h-3' />
+                {timeAgo(detailItem.createdAt)}
+              </span>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <AuthModal
         isOpen={authModalOpen}

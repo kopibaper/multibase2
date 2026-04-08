@@ -79,6 +79,7 @@ function AppContent() {
           <Route path='/workspace/projects/:project' element={<WorkspaceProjectPage />} />
           <Route path='/workspace/projects/:project/:tab' element={<WorkspaceProjectPage />} />
           <Route path='/marketplace' element={<MarketplacePage />} />
+          <Route path='/profile' element={<UserProfile />} />
           {/* Legacy workspace route kept as alias */}
           <Route path='/workspace/legacy' element={<WorkspacePage />} />
         </Route>
@@ -97,7 +98,6 @@ function AppContent() {
           <Route path='/alerts' element={<Alerts />} />
           <Route path='/alert-rules' element={<AlertRules />} />
           <Route path='/backups' element={<BackupManagement />} />
-          <Route path='/profile' element={<UserProfile />} />
           <Route path='/notifications' element={<NotificationSettings />} />
           <Route path='/api-keys' element={<ApiKeys />} />
           <Route path='/api-docs' element={<ApiDocs />} />

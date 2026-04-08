@@ -24,7 +24,7 @@ const execAsync = promisify(exec);
 const STUDIO_IMAGE = process.env.STUDIO_IMAGE || 'supabase/studio:latest';
 const TENANT_STUDIO_IDLE_MS = Math.max(
   60_000,
-  parseInt(process.env.TENANT_STUDIO_IDLE_MS || '300000', 10)
+  parseInt(process.env.TENANT_STUDIO_IDLE_MS || '600000', 10)
 );
 const TENANT_STUDIO_CLEANUP_INTERVAL_MS = Math.max(
   30_000,
@@ -163,6 +163,16 @@ export class StudioManager {
     return `http://${host}:${port}`;
   }
 
+  /**
+   * Keep a tenant's Studio alive (resets the idle timer).
+   * Only effective if the tenant already has a running Studio.
+   */
+  keepAlive(tenantName: string): void {
+    if (this.tenantLastAccess.has(tenantName)) {
+      this.markTenantAccess(tenantName);
+    }
+  }
+
   private markTenantAccess(tenantName: string): void {
     this.tenantLastAccess.set(tenantName, Date.now());
   }
@@ -207,6 +217,8 @@ export class StudioManager {
       sharedEnv['SHARED_POSTGRES_PASSWORD'] || tenantEnv['POSTGRES_PASSWORD'] || '';
     const logflareApiKey =
       sharedEnv['SHARED_LOGFLARE_API_KEY'] || sharedEnv['LOGFLARE_API_KEY'] || '';
+    const openaiApiKey =
+      tenantEnv['OPENAI_API_KEY'] || sharedEnv['OPENAI_API_KEY'] || process.env.OPENAI_API_KEY || '';
     const studioOrg = sharedEnv['SHARED_STUDIO_ORG'] || 'Multibase';
     const studioProject = tenantName;
     const tenantFunctionsHostPath = path
@@ -268,6 +280,7 @@ export class StudioManager {
       '-e NEXT_ANALYTICS_BACKEND_PROVIDER=postgres',
       '-e EDGE_FUNCTIONS_MANAGEMENT_FOLDER=/home/studio/functions',
       '-e DOCKER_SOCKET_LOCATION=/var/run/docker.sock',
+      ...(openaiApiKey ? [`-e "OPENAI_API_KEY=${openaiApiKey}"`] : []),
       STUDIO_IMAGE,
     ].join(' ');
 

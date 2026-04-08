@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useOrg, type Organisation } from '../contexts/OrgContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Building2,
   Users,
@@ -32,6 +33,7 @@ function RoleIcon({ role }: { role: string }) {
 export default function WorkspaceOrgsPage() {
   const { orgs, loading, setActiveOrg } = useOrg();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const handleSelect = (org: Organisation) => {
     setActiveOrg(org);
@@ -66,6 +68,7 @@ export default function WorkspaceOrgsPage() {
             <p className='text-sm text-muted-foreground mb-6'>
               Create your first organisation to get started
             </p>
+            {isAdmin && (
             <button
               onClick={() => navigate('/orgs/new')}
               className='inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-medium hover:bg-brand-600 transition-colors'
@@ -73,6 +76,7 @@ export default function WorkspaceOrgsPage() {
               <Plus className='w-4 h-4' />
               New Organisation
             </button>
+            )}
           </div>
         ) : (
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
@@ -126,6 +130,7 @@ export default function WorkspaceOrgsPage() {
             ))}
 
             {/* New Organisation card */}
+            {isAdmin && (
             <button
               onClick={() => navigate('/orgs/new')}
               className='p-5 rounded-2xl border border-dashed border-white/10 hover:border-brand-500/30 hover:bg-white/[0.02] transition-all group flex items-center justify-center gap-3 min-h-[140px]'
@@ -137,6 +142,7 @@ export default function WorkspaceOrgsPage() {
                 New Organisation
               </span>
             </button>
+            )}
           </div>
         )}
       </div>

@@ -58,6 +58,8 @@ import LogDrainsPanel from '../components/workspace/LogDrainsPanel';
 import ExtensionsTab from '../components/ExtensionsTab';
 import type { SupabaseInstance } from '../types';
 
+import { startStudioHeartbeat } from '../lib/studioHeartbeat';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 type TabId =
@@ -175,7 +177,8 @@ export default function WorkspaceProjectPage() {
         },
       });
       const data = await res.json();
-      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      const win = window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      if (win) startStudioHeartbeat(win, instance.name, API_BASE_URL, token);
     } catch {
       // fail silently
     } finally {

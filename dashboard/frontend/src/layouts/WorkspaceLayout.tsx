@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 export default function WorkspaceLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +60,7 @@ export default function WorkspaceLayout() {
                 <FolderKanban className='w-4 h-4' />
                 Workspace
               </button>
+              {isAdmin && (
               <button
                 onClick={() => navigate('/dashboard')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -71,6 +72,7 @@ export default function WorkspaceLayout() {
                 <LayoutDashboard className='w-4 h-4' />
                 <span className={location.pathname.startsWith('/dashboard') ? 'text-red-400' : ''}>Dashboard</span>
               </button>
+              )}
               <button
                 onClick={() => navigate('/marketplace')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -155,6 +157,7 @@ export default function WorkspaceLayout() {
           <Package className='w-5 h-5' />
           Marketplace
         </button>
+        {isAdmin && (
         <button
           onClick={() => navigate('/dashboard')}
           className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
@@ -164,6 +167,7 @@ export default function WorkspaceLayout() {
           <LayoutDashboard className='w-5 h-5' />
           Dashboard
         </button>
+        )}
       </nav>
     </div>
   );

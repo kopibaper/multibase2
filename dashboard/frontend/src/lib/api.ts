@@ -17,6 +17,22 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+// Fetch helper without X-Org-Id header (admin all-instances view)
+async function fetchApiNoOrg<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...((options?.headers as Record<string, string>) || {}),
+  };
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // Generic fetch helper
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('auth_token');
@@ -68,6 +84,10 @@ export interface UptimeStats {
 export const instancesApi = {
   list: (): Promise<SupabaseInstance[]> => {
     return fetchApi<SupabaseInstance[]>('/api/instances');
+  },
+
+  listAll: (): Promise<SupabaseInstance[]> => {
+    return fetchApiNoOrg<SupabaseInstance[]>('/api/instances');
   },
 
   get: (name: string): Promise<SupabaseInstance> => {
