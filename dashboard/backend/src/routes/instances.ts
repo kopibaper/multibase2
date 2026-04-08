@@ -289,14 +289,17 @@ export function createInstanceRoutes(
 
           const templateConfig = JSON.parse(template.config);
 
-          // Merge: Template Config < Request Overrides
+          // Merge: Template provides defaults, request-level fields take priority
+          const mergedEnv = { ...(templateConfig.env || {}), ...(createRequest.env || {}) };
           createRequest = {
             ...templateConfig,
             ...createRequest,
+            env: mergedEnv,
+            resourceLimits: createRequest.resourceLimits || templateConfig.resourceLimits,
+            extensions: createRequest.extensions || templateConfig.extensions,
+            initSql: createRequest.initSql || templateConfig.initSql,
+            environment: createRequest.environment || templateConfig.environment,
           };
-
-          // Ensure basePort is unique/handled by manager if not provided?
-          // The manager handles it if not provided? instanceManager.createInstance checks it.
         }
 
         // Validation is now handled by Zod middleware
@@ -315,13 +318,45 @@ export function createInstanceRoutes(
           }
         }
 
-        // Apply Template Overrides (Post-Processing)
-        // Only apply if there are actual services or env overrides
-        const hasServiceOverrides = (createRequest as any).services?.length > 0;
+        // Apply Template Overrides (Post-Processing): env overrides
         const hasEnvOverrides =
-          (createRequest as any).env && Object.keys((createRequest as any).env).length > 0;
-        if (hasServiceOverrides || hasEnvOverrides) {
+          createRequest.env && Object.keys(createRequest.env).length > 0;
+        if (hasEnvOverrides) {
           await instanceManager.applyTemplateConfig(instance.name, createRequest);
+        }
+
+        // Set environment label on DB record
+        if (createRequest.environment) {
+          try {
+            await prisma.instance.updateMany({
+              where: { name: instance.name },
+              data: { environment: createRequest.environment },
+            });
+          } catch (envErr) {
+            logger.warn(`Failed to set environment for instance ${instance.name}:`, envErr);
+          }
+        }
+
+        // Auto-install extensions if specified
+        if (createRequest.extensions && createRequest.extensions.length > 0) {
+          for (const extensionId of createRequest.extensions) {
+            try {
+              const extension = await prisma.extension.findUnique({ where: { id: extensionId } });
+              if (extension) {
+                await prisma.installedExtension.create({
+                  data: {
+                    instanceId: instance.id,
+                    extensionId: extension.id,
+                    version: extension.version,
+                    status: 'active',
+                  },
+                });
+                logger.info(`Auto-installed extension ${extensionId} on ${instance.name}`);
+              }
+            } catch (extErr) {
+              logger.warn(`Failed to auto-install extension ${extensionId}:`, extErr);
+            }
+          }
         }
 
         res.status(201).json(instance);

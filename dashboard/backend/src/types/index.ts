@@ -122,7 +122,6 @@ export const RESOURCE_PRESETS: Record<string, ResourceLimits> = {
 
 export interface CreateInstanceRequest {
   name: string;
-  basePort?: number;
   deploymentType: 'localhost' | 'cloud';
   domain?: string;
   protocol?: 'http' | 'https';
@@ -130,6 +129,13 @@ export interface CreateInstanceRequest {
   templateId?: number;
   env?: Record<string, string>;
   resourceLimits?: ResourceLimits;
+  extensions?: string[];
+  initSql?: string;
+  environment?: 'production' | 'staging' | 'dev' | 'preview';
+  /** @deprecated Ports dynamisch via Nginx Gateway */
+  basePort?: number;
+  /** @deprecated Alle 5 Tenant-Services laufen immer */
+  services?: string[];
 }
 
 export interface UpdateInstanceRequest {

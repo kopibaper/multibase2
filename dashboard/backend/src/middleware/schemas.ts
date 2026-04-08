@@ -66,7 +66,7 @@ export const CreateInstanceSchema = z.object({
   protocol: z.enum(['http', 'https']).optional(),
   corsOrigins: z.array(z.string()).optional(),
   templateId: z.number().int().positive().optional(),
-  env: z.record(z.string()).optional(), // Environment variable overrides for cloud deployment
+  env: z.record(z.string()).optional(),
   resourceLimits: z
     .object({
       cpus: z.number().min(0.1).max(64).optional(),
@@ -74,6 +74,9 @@ export const CreateInstanceSchema = z.object({
       preset: z.string().optional(),
     })
     .optional(),
+  extensions: z.array(z.string()).optional(),
+  initSql: z.string().max(50000).optional(),
+  environment: z.enum(['production', 'staging', 'dev', 'preview']).optional(),
 });
 
 export const InstanceNameParamSchema = z.object({

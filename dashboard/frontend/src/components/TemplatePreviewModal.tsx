@@ -1,4 +1,5 @@
-import { X, Check, Server, Box, Globe, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { X, Check, Server, Shield, Cpu, Puzzle, Database, ChevronDown, ChevronUp } from 'lucide-react';
 import { InstanceTemplate } from '../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,15 +11,16 @@ interface TemplatePreviewModalProps {
 
 export default function TemplatePreviewModal({ isOpen, template, onClose }: TemplatePreviewModalProps) {
   const navigate = useNavigate();
+  const [showInitSql, setShowInitSql] = useState(false);
 
   if (!isOpen || !template) return null;
 
   const config = template.config || {};
-  const services = config.services || [];
   const envVars = config.env || {};
+  const extensions = config.extensions || [];
+  const resourceLimits = config.resourceLimits;
 
   const handleUseTemplate = () => {
-    // Navigate to dashboard and open create modal with template
     navigate('/dashboard', { state: { openCreateModal: true, template } });
     onClose();
   };
@@ -28,7 +30,14 @@ export default function TemplatePreviewModal({ isOpen, template, onClose }: Temp
       <div className='glass-modal w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-xl'>
         <div className='flex items-start justify-between p-4 sm:p-6 border-b border-border flex-shrink-0'>
           <div className='min-w-0 pr-3'>
-            <h2 className='text-xl sm:text-2xl font-bold text-foreground truncate'>{template.name}</h2>
+            <div className='flex items-center gap-2'>
+              <h2 className='text-xl sm:text-2xl font-bold text-foreground truncate'>{template.name}</h2>
+              {config.environment && (
+                <span className='text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium capitalize'>
+                  {config.environment}
+                </span>
+              )}
+            </div>
             <p className='text-muted-foreground mt-1 text-sm'>{template.description || 'No description provided'}</p>
           </div>
           <button onClick={onClose} className='p-2 hover:bg-muted rounded-full transition-colors'>
@@ -44,40 +53,69 @@ export default function TemplatePreviewModal({ isOpen, template, onClose }: Temp
                 <Server className='w-4 h-4' />
                 <span className='font-medium'>Deployment</span>
               </div>
-              <p className='text-foreground capitalize'>{config.deploymentType || 'Localhost'}</p>
+              <p className='text-foreground capitalize'>{config.deploymentType || 'Cloud'}</p>
             </div>
 
-            <div className='bg-secondary/30 p-4 rounded-lg border border-border'>
-              <div className='flex items-center gap-2 mb-2 text-primary'>
-                <Globe className='w-4 h-4' />
-                <span className='font-medium'>Base Port</span>
+            {resourceLimits && (
+              <div className='bg-secondary/30 p-4 rounded-lg border border-border'>
+                <div className='flex items-center gap-2 mb-2 text-primary'>
+                  <Cpu className='w-4 h-4' />
+                  <span className='font-medium'>Resources</span>
+                </div>
+                <p className='text-foreground'>
+                  {resourceLimits.preset ? (
+                    <span className='capitalize'>{resourceLimits.preset}</span>
+                  ) : (
+                    <>
+                      {resourceLimits.cpus && `${resourceLimits.cpus} CPU`}
+                      {resourceLimits.cpus && resourceLimits.memory && ' / '}
+                      {resourceLimits.memory && `${resourceLimits.memory} MB`}
+                    </>
+                  )}
+                </p>
               </div>
-              <p className='text-foreground'>{config.basePort || 'Auto-assigned'}</p>
-            </div>
+            )}
           </div>
 
-          {/* Services */}
-          <div>
-            <h3 className='text-lg font-semibold mb-3 flex items-center gap-2'>
-              <Box className='w-5 h-5' />
-              Included Services
-            </h3>
-            {services.length > 0 ? (
+          {/* Extensions */}
+          {extensions.length > 0 && (
+            <div>
+              <h3 className='text-lg font-semibold mb-3 flex items-center gap-2'>
+                <Puzzle className='w-5 h-5' />
+                Extensions
+              </h3>
               <div className='grid grid-cols-2 md:grid-cols-3 gap-3'>
-                {services.map((service: string) => (
+                {extensions.map((ext: string) => (
                   <div
-                    key={service}
+                    key={ext}
                     className='flex items-center gap-2 bg-muted/50 px-3 py-2 rounded-md border border-border'
                   >
-                    <div className='w-2 h-2 rounded-full bg-green-500' />
-                    <span className='text-sm font-medium capitalize'>{service}</span>
+                    <div className='w-2 h-2 rounded-full bg-blue-500' />
+                    <span className='text-sm font-medium'>{ext}</span>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className='text-muted-foreground italic'>No specific services configured (defaults will be used)</p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Init SQL */}
+          {config.initSql && (
+            <div>
+              <button
+                onClick={() => setShowInitSql(!showInitSql)}
+                className='flex items-center gap-2 text-lg font-semibold mb-3 hover:text-primary transition-colors'
+              >
+                <Database className='w-5 h-5' />
+                Initial SQL
+                {showInitSql ? <ChevronUp className='w-4 h-4' /> : <ChevronDown className='w-4 h-4' />}
+              </button>
+              {showInitSql && (
+                <pre className='bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto max-h-48 overflow-y-auto border border-border'>
+                  {config.initSql}
+                </pre>
+              )}
+            </div>
+          )}
 
           {/* Env Vars */}
           {Object.keys(envVars).length > 0 && (

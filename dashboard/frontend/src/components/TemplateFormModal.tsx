@@ -17,13 +17,16 @@ import {
   Disc,
   Server,
   Zap,
+  Cpu,
+  Puzzle,
 } from 'lucide-react';
 import { templatesApi, settingsApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { InstanceTemplate } from '../types';
+import { InstanceTemplate, RESOURCE_PRESETS } from '../types';
 import { toast } from 'sonner';
 import { Switch } from './ui/Switch';
 import { cn } from '../lib/utils';
+import ResourceLimitsForm from './ResourceLimitsForm';
 
 // Helper to manage Auth Provider Icon mapping
 const ProviderIcons: Record<string, any> = {
@@ -51,7 +54,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   const isEditMode = !!template;
 
   const [activeTab, setActiveTab] = useState<
-    'general' | 'deployment' | 'services' | 'database' | 'auth' | 'api' | 'storage' | 'env'
+    'general' | 'deployment' | 'resources' | 'extensions' | 'database' | 'auth' | 'api' | 'storage' | 'env'
   >('general');
   const [formData, setFormData] = useState({
     name: '',
@@ -59,37 +62,43 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
     isPublic: false,
     config: {
       deploymentType: 'localhost',
-      basePort: 8000,
-      services: [] as string[],
       env: {} as Record<string, string>,
+      resourceLimits: RESOURCE_PRESETS.medium,
+      extensions: [] as string[],
+      initSql: '',
+      environment: undefined as string | undefined,
     } as any,
   });
 
   // Populate form when editing
   useEffect(() => {
     if (template) {
+      const config = template.config || {};
       setFormData({
         name: template.name,
         description: template.description || '',
         isPublic: template.isPublic,
-        config: template.config || {
-          deploymentType: 'localhost',
-          basePort: 8000,
-          services: [],
-          env: {},
+        config: {
+          deploymentType: config.deploymentType || 'localhost',
+          env: config.env || {},
+          resourceLimits: config.resourceLimits || RESOURCE_PRESETS.medium,
+          extensions: config.extensions || [],
+          initSql: config.initSql || '',
+          environment: config.environment,
         },
       });
     } else if (isOpen) {
-      // Reset for create mode
       setFormData({
         name: '',
         description: '',
         isPublic: false,
         config: {
           deploymentType: 'localhost',
-          basePort: 8000,
-          services: [],
           env: {},
+          resourceLimits: RESOURCE_PRESETS.medium,
+          extensions: [],
+          initSql: '',
+          environment: undefined,
         },
       });
     }
@@ -115,7 +124,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   });
 
   useEffect(() => {
-    if (isEditMode) return; // Don't overwrite existing templates
+    if (isEditMode) return;
 
     if (formData.config.deploymentType === 'cloud' && formData.name) {
       const domain = derivedDomain;
@@ -133,29 +142,16 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
           },
         },
       }));
-    } else if (formData.config.deploymentType === 'localhost') {
-      setFormData((prev) => ({
-        ...prev,
-        config: {
-          ...prev.config,
-          env: {
-            ...prev.config.env,
-            SUPABASE_PUBLIC_URL: `http://localhost:${prev.config.basePort}`,
-            API_EXTERNAL_URL: `http://localhost:${prev.config.basePort}`,
-          },
-        },
-      }));
     }
   }, [
     formData.name,
     formData.config.deploymentType,
-    formData.config.basePort,
     isEditMode,
     derivedDomain,
     systemSettings,
   ]);
 
-  // Fetch System Template
+  // Fetch System Template (shared infra metadata)
   const { data: systemTemplate } = useQuery({
     queryKey: ['systemTemplate'],
     queryFn: templatesApi.getSystemTemplate,
@@ -193,10 +189,12 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
     }
   };
 
-  const toggleService = (service: string) => {
-    const current = formData.config.services || [];
-    const updated = current.includes(service) ? current.filter((s: string) => s !== service) : [...current, service];
-    setFormData({ ...formData, config: { ...formData.config, services: updated } });
+  const toggleExtension = (extensionId: string) => {
+    const current = formData.config.extensions || [];
+    const updated = current.includes(extensionId)
+      ? current.filter((id: string) => id !== extensionId)
+      : [...current, extensionId];
+    setFormData({ ...formData, config: { ...formData.config, extensions: updated } });
   };
 
   const updateEnv = (key: string, value: string) => {
@@ -219,7 +217,8 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
   const tabs = [
     { id: 'general', label: 'General Info', shortLabel: 'General', icon: Layers },
     { id: 'deployment', label: 'Deployment', shortLabel: 'Deploy', icon: () => <Settings className='w-4 h-4' /> },
-    { id: 'services', label: 'Services', shortLabel: 'Services', icon: Box },
+    { id: 'resources', label: 'Resources', shortLabel: 'Resources', icon: Cpu },
+    { id: 'extensions', label: 'Extensions', shortLabel: 'Ext.', icon: Puzzle },
     { id: 'database', label: 'Database', shortLabel: 'Database', icon: Database },
     { id: 'auth', label: 'Authentication', shortLabel: 'Auth', icon: Lock },
     { id: 'api', label: 'API & Realtime', shortLabel: 'API', icon: Server },
@@ -332,6 +331,27 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                   )}
 
                   <div className='grid gap-2 border-t border-border pt-4 mt-4'>
+                    <label className='text-sm font-medium'>Environment Label</label>
+                    <select
+                      className='w-full px-3 py-2 rounded-md border border-input bg-background'
+                      value={formData.config.environment || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, environment: e.target.value || undefined },
+                        })
+                      }
+                    >
+                      <option value=''>-- None --</option>
+                      <option value='production'>Production</option>
+                      <option value='staging'>Staging</option>
+                      <option value='dev'>Development</option>
+                      <option value='preview'>Preview</option>
+                    </select>
+                    <p className='text-xs text-muted-foreground'>Default environment stage for instances created from this template.</p>
+                  </div>
+
+                  <div className='grid gap-2 border-t border-border pt-4 mt-4'>
                     <label className='text-sm font-medium flex items-center gap-2'>
                       <Zap className='w-4 h-4 text-yellow-500' />
                       OpenAI API Key (Optional)
@@ -368,22 +388,6 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                     <p className='text-xs text-muted-foreground'>
                       Defaults to this mode when user selects this template.
                     </p>
-                  </div>
-
-                  <div className='grid gap-2'>
-                    <label className='text-sm font-medium'>Base Port Offset</label>
-                    <input
-                      type='number'
-                      className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                      value={formData.config.basePort}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          config: { ...formData.config, basePort: parseInt(e.target.value) },
-                        })
-                      }
-                    />
-                    <p className='text-xs text-muted-foreground'>Starting port number logic.</p>
                   </div>
 
                   <div className='bg-secondary/20 p-4 rounded-lg border border-border mt-6'>
@@ -440,42 +444,54 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                 </div>
               )}
 
-              {activeTab === 'services' && (
+              {activeTab === 'resources' && (
+                <div className='space-y-6 animate-in fade-in'>
+                  <p className='text-sm text-muted-foreground bg-secondary/20 p-3 rounded-md border border-border'>
+                    Configure default resource limits for instances created from this template.
+                  </p>
+                  <ResourceLimitsForm
+                    value={formData.config.resourceLimits || RESOURCE_PRESETS.medium}
+                    onChange={(limits) =>
+                      setFormData({ ...formData, config: { ...formData.config, resourceLimits: limits } })
+                    }
+                  />
+                </div>
+              )}
+
+              {activeTab === 'extensions' && (
                 <div className='space-y-4 animate-in fade-in'>
+                  <p className='text-sm text-muted-foreground bg-secondary/20 p-3 rounded-md border border-border'>
+                    Select extensions to automatically install when using this template.
+                  </p>
                   <div className='flex items-center justify-between'>
-                    <p className='text-sm text-muted-foreground'>Enable services included in this template.</p>
+                    <span className='text-sm font-medium'>Available Extensions</span>
                     <span className='text-xs bg-secondary px-2 py-1 rounded'>
-                      {(formData.config.services || []).length} Enabled
+                      {(formData.config.extensions || []).length} selected
                     </span>
                   </div>
-
                   <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-                    {systemTemplate?.services.map((service) => {
-                      const isEnabled =
-                        (formData.config.services || []).includes(service.name) ||
-                        (formData.config.services || []).length === 0;
-
+                    {systemTemplate?.availableExtensions?.map((ext) => {
+                      const isSelected = (formData.config.extensions || []).includes(ext.id);
                       return (
                         <div
-                          key={service.name}
+                          key={ext.id}
                           className={cn(
                             'flex items-center justify-between p-3 border rounded-md transition-all',
-                            isEnabled ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-secondary/10'
+                            isSelected ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-secondary/10'
                           )}
                         >
                           <div className='flex flex-col'>
-                            <span className='font-medium text-sm'>{service.name}</span>
-                            <span className='text-xs text-muted-foreground truncate w-32' title={service.image}>
-                              {service.image?.split(':')[0]}
-                            </span>
+                            <span className='font-medium text-sm'>{ext.name}</span>
+                            <span className='text-xs text-muted-foreground'>{ext.id}</span>
                           </div>
-
-                          <Switch checked={isEnabled} onCheckedChange={() => toggleService(service.name)} />
+                          <Switch checked={isSelected} onCheckedChange={() => toggleExtension(ext.id)} />
                         </div>
                       );
                     })}
-                    {!systemTemplate && (
-                      <div className='col-span-2 text-center py-8 text-muted-foreground'>Loading services...</div>
+                    {!systemTemplate?.availableExtensions?.length && (
+                      <div className='col-span-2 text-center py-8 text-muted-foreground'>
+                        No extensions available in the marketplace yet.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -530,270 +546,30 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                         />
                       </div>
 
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Postgres Port</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POSTGRES_PORT')}
-                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
-                          placeholder='5432'
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'api' && (
-                <div className='space-y-6 animate-in fade-in'>
-                  {/* PostgREST */}
-                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
-                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
-                      <Server className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>API (PostgREST)</h3>
-                    </div>
-
-                    <div className='grid gap-4'>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Exposed Schemas</label>
-                        <input
-                          type='text'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('PGRST_DB_SCHEMAS')}
-                          onChange={(e) => updateEnv('PGRST_DB_SCHEMAS', e.target.value)}
-                          placeholder='public,storage,graphql_public'
-                        />
-                        <p className='text-xs text-muted-foreground'>
-                          Comma-separated list of schemas accessible via the API.
-                        </p>
-                      </div>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Rows (Limit)</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('PGRST_MAX_ROWS')}
-                          onChange={(e) => updateEnv('PGRST_MAX_ROWS', e.target.value)}
-                          placeholder='Undefined (No limit)'
-                        />
-                      </div>
                     </div>
                   </div>
 
-                  {/* Realtime */}
-                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
-                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
-                      <Zap className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>Realtime</h3>
-                    </div>
-                    <div className='grid gap-4'>
-                      <div className='flex items-center justify-between'>
-                        <div className='space-y-0.5'>
-                          <label className='text-sm font-medium'>Enable Realtime</label>
-                          <p className='text-xs text-muted-foreground'>Allow WebSocket connections.</p>
-                        </div>
-                        {/* Often controlled by service presence, but maybe we can toggle env? 
-                                    Realtime service is usually always there if enabled in Services tab.
-                                    Here we can configure limits. */}
-                      </div>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Header Length</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('REALTIME_MAX_HEADER_LENGTH')}
-                          onChange={(e) => updateEnv('REALTIME_MAX_HEADER_LENGTH', e.target.value)}
-                          placeholder='4096'
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'database' && (
-                <div className='space-y-6 animate-in fade-in'>
+                  {/* Init SQL */}
                   <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
                     <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
                       <Database className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>
+                      <h3 className='font-semibold'>Initial SQL (Seed / Schema)</h3>
                     </div>
                     <p className='text-sm text-muted-foreground mb-4'>
-                      Configure how clients connect to your database.
+                      SQL to execute after database creation. Use this for schemas, seed data, or RLS policies.
                     </p>
-
-                    <div className='grid gap-4 md:grid-cols-2'>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Pool Mode</label>
-                        <select
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_POOL_MODE') || 'transaction'}
-                          onChange={(e) => updateEnv('POOLER_POOL_MODE', e.target.value)}
-                        >
-                          <option value='transaction'>Transaction (Recommended)</option>
-                          <option value='session'>Session</option>
-                        </select>
-                        <p className='text-xs text-muted-foreground'>
-                          Transaction mode creates a temporary connection for each transaction.
-                        </p>
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Client Connections</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_MAX_CLIENT_CONN')}
-                          onChange={(e) => updateEnv('POOLER_MAX_CLIENT_CONN', e.target.value)}
-                          placeholder='100'
-                        />
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Default Pool Size</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_DEFAULT_POOL_SIZE')}
-                          onChange={(e) => updateEnv('POOLER_DEFAULT_POOL_SIZE', e.target.value)}
-                          placeholder='20'
-                        />
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Postgres Port</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POSTGRES_PORT')}
-                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
-                          placeholder='5432'
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'api' && (
-                <div className='space-y-6 animate-in fade-in'>
-                  {/* PostgREST */}
-                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
-                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
-                      <Server className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>API (PostgREST)</h3>
-                    </div>
-
-                    <div className='grid gap-4'>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Exposed Schemas</label>
-                        <input
-                          type='text'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('PGRST_DB_SCHEMAS')}
-                          onChange={(e) => updateEnv('PGRST_DB_SCHEMAS', e.target.value)}
-                          placeholder='public,storage,graphql_public'
-                        />
-                        <p className='text-xs text-muted-foreground'>
-                          Comma-separated list of schemas accessible via the API. Note: `public` is always recommended.
-                        </p>
-                      </div>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Rows (Limit)</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('PGRST_MAX_ROWS')}
-                          onChange={(e) => updateEnv('PGRST_MAX_ROWS', e.target.value)}
-                          placeholder='Undefined (No limit)'
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Realtime */}
-                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
-                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
-                      <Zap className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>Realtime</h3>
-                    </div>
-                    <div className='grid gap-4'>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Header Length</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('REALTIME_MAX_HEADER_LENGTH')}
-                          onChange={(e) => updateEnv('REALTIME_MAX_HEADER_LENGTH', e.target.value)}
-                          placeholder='4096'
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'database' && (
-                <div className='space-y-6 animate-in fade-in'>
-                  <div className='bg-secondary/20 p-4 rounded-lg border border-border'>
-                    <div className='flex items-center gap-2 border-b border-border pb-2 mb-4'>
-                      <Database className='w-5 h-5 text-primary' />
-                      <h3 className='font-semibold'>Connection Pooling (Supavisor)</h3>
-                    </div>
-                    <p className='text-sm text-muted-foreground mb-4'>
-                      Configure how clients connect to your database.
-                    </p>
-
-                    <div className='grid gap-4 md:grid-cols-2'>
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Pool Mode</label>
-                        <select
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_POOL_MODE') || 'transaction'}
-                          onChange={(e) => updateEnv('POOLER_POOL_MODE', e.target.value)}
-                        >
-                          <option value='transaction'>Transaction (Recommended)</option>
-                          <option value='session'>Session</option>
-                        </select>
-                        <p className='text-xs text-muted-foreground'>
-                          Transaction mode creates a temporary connection for each transaction.
-                        </p>
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Max Client Connections</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_MAX_CLIENT_CONN')}
-                          onChange={(e) => updateEnv('POOLER_MAX_CLIENT_CONN', e.target.value)}
-                          placeholder='100'
-                        />
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Default Pool Size</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POOLER_DEFAULT_POOL_SIZE')}
-                          onChange={(e) => updateEnv('POOLER_DEFAULT_POOL_SIZE', e.target.value)}
-                          placeholder='20'
-                        />
-                      </div>
-
-                      <div className='space-y-2'>
-                        <label className='text-sm font-medium'>Postgres Port</label>
-                        <input
-                          type='number'
-                          className='w-full px-3 py-2 rounded-md border border-input bg-background'
-                          value={getEnv('POSTGRES_PORT')}
-                          onChange={(e) => updateEnv('POSTGRES_PORT', e.target.value)}
-                          placeholder='5432'
-                        />
-                      </div>
-                    </div>
+                    <textarea
+                      rows={8}
+                      className='w-full px-3 py-2 rounded-md border border-input bg-background font-mono text-sm'
+                      value={formData.config.initSql || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, initSql: e.target.value },
+                        })
+                      }
+                      placeholder={`-- Example: Create tables and enable RLS\nCREATE TABLE public.profiles (\n  id uuid PRIMARY KEY REFERENCES auth.users,\n  name text\n);\nALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;`}
+                    />
                   </div>
                 </div>
               )}
@@ -1193,7 +969,7 @@ export default function TemplateFormModal({ isOpen, template, onClose, onSuccess
                   </p>
 
                   <div className='space-y-3'>
-                    {systemTemplate?.envVars.map((envVar) => (
+                    {systemTemplate?.configurableEnvVars?.map((envVar) => (
                       <div
                         key={envVar}
                         className='grid grid-cols-12 gap-3 items-center p-2 rounded hover:bg-secondary/10'

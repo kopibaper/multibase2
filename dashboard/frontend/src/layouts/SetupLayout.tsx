@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Book, Code, Layers, FileText, Cloud, Network, Building2, Menu, X, Package } from 'lucide-react';
+import { Book, Code, Layers, FileText, Cloud, Network, Building2, Menu, X, Package, Terminal } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import Navbar from '../components/Navbar';
@@ -81,6 +81,10 @@ export default function SetupLayout({}: SetupLayoutProps) {
         <SidebarLink to='/setup/reference/cloud-architecture' icon={Cloud} onClick={onClick}>Cloud Architecture</SidebarLink>
         <SidebarLink to='/setup/reference/kong-nginx-migration' icon={Network} onClick={onClick}>Kong→Nginx Migration</SidebarLink>
         <SidebarLink to='/setup/reference/scripts' icon={Code} onClick={onClick}>Scripts Guide</SidebarLink>
+      </SidebarGroup>
+      <SidebarGroup title='Development'>
+        <SidebarLink to='/setup/development/local-setup' icon={Terminal} onClick={onClick}>Local Setup</SidebarLink>
+        <SidebarLink to='/setup/development/nginx-gateway' icon={Network} onClick={onClick}>Nginx Gateway</SidebarLink>
       </SidebarGroup>
     </>
   );
