@@ -22,6 +22,7 @@ import MetricsCollector from '../services/MetricsCollector';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
 import { requireAuth } from '../middleware/authMiddleware';
+import { auditLog } from '../middleware/auditLog';
 
 const execAsync = promisify(exec);
 
@@ -113,7 +114,7 @@ export function createSharedRoutes(
    * POST /api/shared/start
    * Start shared infrastructure via docker compose
    */
-  router.post('/start', async (_req: Request, res: Response) => {
+  router.post('/start', auditLog('SHARED_INFRA_START'), async (_req: Request, res: Response) => {
     try {
       const sharedDir = getSharedDir();
       const composePath = path.join(sharedDir, 'docker-compose.shared.yml');
@@ -143,7 +144,7 @@ export function createSharedRoutes(
    * POST /api/shared/stop
    * Stop shared infrastructure
    */
-  router.post('/stop', async (_req: Request, res: Response) => {
+  router.post('/stop', auditLog('SHARED_INFRA_STOP'), async (_req: Request, res: Response) => {
     try {
       const sharedDir = getSharedDir();
 
@@ -196,7 +197,7 @@ export function createSharedRoutes(
    * Create a new project database
    * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
-  router.post('/databases', async (req: Request, res: Response) => {
+  router.post('/databases', auditLog('SHARED_DATABASE_CREATE', { includeBody: true, getResource: (req) => req.body?.projectName || 'unknown' }), async (req: Request, res: Response) => {
     try {
       const { projectName } = req.body;
       if (!projectName) {
@@ -225,7 +226,7 @@ export function createSharedRoutes(
    * Drop a project database
    * Uses docker exec to avoid Docker Desktop Windows TCP auth issues
    */
-  router.delete('/databases/:name', async (req: Request, res: Response) => {
+  router.delete('/databases/:name', auditLog('SHARED_DATABASE_DROP', { getResource: (req) => req.params.name }), async (req: Request, res: Response) => {
     try {
       const dbName = `project_${req.params.name}`.replace(/-/g, '_');
 

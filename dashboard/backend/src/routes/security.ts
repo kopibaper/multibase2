@@ -9,6 +9,7 @@ import {
 } from '../services/NginxGatewayGenerator';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 /** IPv4 or CIDR notation, e.g. 1.2.3.4 or 10.0.0.0/24 */
 const CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
@@ -38,7 +39,7 @@ export function createSecurityRoutes(instanceManager: InstanceManager, projectsP
   });
 
   /** PATCH / — write SECURITY_* env vars and regenerate nginx config */
-  router.patch('/', requireAuth, requireScope(SCOPES.SECURITY.WRITE), async (req, res) => {
+  router.patch('/', requireAuth, requireScope(SCOPES.SECURITY.WRITE), auditLog('SECURITY_SETTING_UPDATE', { includeBody: true, getResource: (req) => req.params.name }), async (req, res) => {
     try {
       const { name } = req.params;
       const { sslOnly, ipWhitelistEnabled, ipWhitelist, rateLimitEnabled, rateLimitRpm } = req.body;

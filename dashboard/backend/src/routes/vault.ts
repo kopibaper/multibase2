@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SECRET_NAME_RE = /^[\w\-\.]+$/;
@@ -38,7 +39,7 @@ export function createVaultRoutes(instanceManager: InstanceManager) {
   });
 
   /** POST / — create a new secret */
-  router.post('/', requireAuth, requireScope(SCOPES.VAULT.WRITE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.VAULT.WRITE), auditLog('VAULT_SECRET_CREATE', { includeBody: false, getResource: (req) => `${req.params.name}/${req.body?.secretName || 'unknown'}` }), async (req, res) => {
     try {
       const { name } = req.params;
       const { secretName, value, description = '' } = req.body;
@@ -62,7 +63,7 @@ export function createVaultRoutes(instanceManager: InstanceManager) {
   });
 
   /** GET /:id/reveal — return the decrypted secret value */
-  router.get('/:id/reveal', requireAuth, requireScope(SCOPES.VAULT.READ), async (req, res) => {
+  router.get('/:id/reveal', requireAuth, requireScope(SCOPES.VAULT.READ), auditLog('VAULT_SECRET_REVEAL', { getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params;
       if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid secret id' });
@@ -78,7 +79,7 @@ export function createVaultRoutes(instanceManager: InstanceManager) {
   });
 
   /** PATCH /:id — update a secret's value */
-  router.patch('/:id', requireAuth, requireScope(SCOPES.VAULT.WRITE), async (req, res) => {
+  router.patch('/:id', requireAuth, requireScope(SCOPES.VAULT.WRITE), auditLog('VAULT_SECRET_UPDATE', { includeBody: false, getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params;
       if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid secret id' });
@@ -97,7 +98,7 @@ export function createVaultRoutes(instanceManager: InstanceManager) {
   });
 
   /** DELETE /:id — delete a secret */
-  router.delete('/:id', requireAuth, requireScope(SCOPES.VAULT.WRITE), async (req, res) => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.VAULT.WRITE), auditLog('VAULT_SECRET_DELETE', { getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params;
       if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid secret id' });

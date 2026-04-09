@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import InstanceManager from '../services/InstanceManager';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createReplicaRoutes(instanceManager: InstanceManager, prisma: PrismaClient) {
   const router = Router({ mergeParams: true });
@@ -23,7 +24,7 @@ export function createReplicaRoutes(instanceManager: InstanceManager, prisma: Pr
   });
 
   // POST /api/instances/:name/replicas
-  router.post('/', requireAuth, requireScope(SCOPES.REPLICAS.CREATE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.REPLICAS.CREATE), auditLog('REPLICA_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.name || 'unknown'}` }), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const { name: replicaName, url } = req.body;
@@ -68,7 +69,7 @@ export function createReplicaRoutes(instanceManager: InstanceManager, prisma: Pr
   });
 
   // DELETE /api/instances/:name/replicas/:id
-  router.delete('/:id', requireAuth, requireScope(SCOPES.REPLICAS.DELETE), async (req, res) => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.REPLICAS.DELETE), auditLog('REPLICA_DELETE', { getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);

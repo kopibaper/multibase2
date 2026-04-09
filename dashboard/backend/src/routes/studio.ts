@@ -9,6 +9,7 @@
 import { Router, Request, Response } from 'express';
 import { StudioManager } from '../services/StudioManager';
 import { logger } from '../utils/logger';
+import { auditLog } from '../middleware/auditLog';
 
 export function createStudioRoutes(studioManager: StudioManager): Router {
   const router = Router();
@@ -18,7 +19,7 @@ export function createStudioRoutes(studioManager: StudioManager): Router {
    * Switches the shared Studio + Nginx Gateway + pg-meta to serve the specified tenant.
    * Takes ~3-5 seconds (Nginx reload + pg-meta restart).
    */
-  router.post('/activate/:tenantName', async (req: Request, res: Response): Promise<any> => {
+  router.post('/activate/:tenantName', auditLog('STUDIO_TENANT_ACTIVATE', { getResource: (req) => req.params.tenantName }), async (req: Request, res: Response): Promise<any> => {
     try {
       const { tenantName } = req.params;
 
@@ -101,7 +102,7 @@ export function createStudioRoutes(studioManager: StudioManager): Router {
    * POST /api/studio/deactivate
    * Deactivates the current tenant from Studio.
    */
-  router.post('/deactivate', async (_req: Request, res: Response) => {
+  router.post('/deactivate', auditLog('STUDIO_DEACTIVATE'), async (_req: Request, res: Response) => {
     try {
       await studioManager.deactivate();
       res.json({ success: true, message: 'Studio deactivated' });

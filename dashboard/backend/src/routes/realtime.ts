@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createRealtimeRoutes(
   instanceManager: InstanceManager,
@@ -42,7 +43,7 @@ export function createRealtimeRoutes(
   });
 
   /** PATCH /config — Update maxConcurrentUsers and restart realtime container */
-  router.patch('/config', requireAuth, requireScope(SCOPES.REALTIME.WRITE), async (req, res) => {
+  router.patch('/config', requireAuth, requireScope(SCOPES.REALTIME.WRITE), auditLog('REALTIME_CONFIG_UPDATE', { includeBody: true, getResource: (req) => req.params.name }), async (req, res) => {
     try {
       const { name } = req.params;
       const { maxConcurrentUsers } = req.body;

@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import axios from 'axios';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createFunctionRoutes(functionService: FunctionService, instanceManager?: InstanceManager) {
   const router = Router({ mergeParams: true });
@@ -35,7 +36,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Save function
-  router.put('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), async (req, res) => {
+  router.put('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), auditLog('FUNCTION_SAVE', { getResource: (req) => `${req.params.name}/${req.params.functionName}` }), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const { code } = req.body;
@@ -48,7 +49,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Delete function
-  router.delete('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.DELETE), async (req, res) => {
+  router.delete('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.DELETE), auditLog('FUNCTION_DELETE', { getResource: (req) => `${req.params.name}/${req.params.functionName}` }), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       await functionService.deleteFunction(name, functionName);
@@ -60,7 +61,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Deploy function (simulated)
-  router.post('/:functionName/deploy', requireAuth, requireScope(SCOPES.FUNCTIONS.CREATE), async (req, res) => {
+  router.post('/:functionName/deploy', requireAuth, requireScope(SCOPES.FUNCTIONS.CREATE), auditLog('FUNCTION_DEPLOY', { getResource: (req) => `${req.params.name}/${req.params.functionName}` }), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       await functionService.deployFunction(name, functionName);
@@ -96,7 +97,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Save function env vars
-  router.put('/:functionName/env', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), async (req, res) => {
+  router.put('/:functionName/env', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), auditLog('FUNCTION_ENV_UPDATE', { getResource: (req) => `${req.params.name}/${req.params.functionName}` }), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const { envVars } = req.body;

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createQueueRoutes(queueService: QueueService) {
   const router = Router({ mergeParams: true });
@@ -20,7 +21,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Enable pgmq
-  router.post('/enable', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
+  router.post('/enable', requireAuth, requireScope(SCOPES.QUEUES.WRITE), auditLog('QUEUE_EXTENSION_ENABLE', { getResource: (req) => req.params.name }), async (req, res) => {
     try {
       const result = await queueService.enableExtension(req.params.name);
       return res.json(result);
@@ -42,7 +43,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Create a queue
-  router.post('/', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.QUEUES.WRITE), auditLog('QUEUE_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.queueName || 'unknown'}` }), async (req, res) => {
     try {
       const { queueName } = req.body;
       if (!queueName) return res.status(400).json({ error: 'queueName is required' });
@@ -56,7 +57,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Drop a queue
-  router.delete('/:queueName', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
+  router.delete('/:queueName', requireAuth, requireScope(SCOPES.QUEUES.WRITE), auditLog('QUEUE_DELETE', { getResource: (req) => `${req.params.name}/${req.params.queueName}` }), async (req, res) => {
     try {
       const result = await queueService.dropQueue(req.params.name, req.params.queueName);
       return res.json(result);
@@ -94,7 +95,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Purge a queue
-  router.post('/:queueName/purge', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
+  router.post('/:queueName/purge', requireAuth, requireScope(SCOPES.QUEUES.WRITE), auditLog('QUEUE_PURGE', { getResource: (req) => `${req.params.name}/${req.params.queueName}` }), async (req, res) => {
     try {
       const result = await queueService.purgeQueue(req.params.name, req.params.queueName);
       return res.json(result);

@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { z } from 'zod';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 const DestinationConfigSchema = z.object({
   name: z.string().min(1).max(100),
@@ -35,7 +36,7 @@ export function createBackupDestinationRoutes() {
    * POST /api/backup-destinations
    * Create a new destination
    */
-  router.post('/', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.CREATE), async (req: Request, res: Response): Promise<any> => {
+  router.post('/', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.CREATE), auditLog('BACKUP_DESTINATION_CREATE', { includeBody: false, getResource: (req) => req.body?.name || 'unknown' }), async (req: Request, res: Response): Promise<any> => {
     try {
       const parsed = DestinationConfigSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -81,7 +82,7 @@ export function createBackupDestinationRoutes() {
    * PUT /api/backup-destinations/:id
    * Update destination (partial update — only provided fields are changed)
    */
-  router.put('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.UPDATE), async (req: Request, res: Response): Promise<any> => {
+  router.put('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.UPDATE), auditLog('BACKUP_DESTINATION_UPDATE', { includeBody: false, getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const UpdateSchema = DestinationConfigSchema.partial();
       const parsed = UpdateSchema.safeParse(req.body);
@@ -104,7 +105,7 @@ export function createBackupDestinationRoutes() {
   /**
    * DELETE /api/backup-destinations/:id
    */
-  router.delete('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.DELETE), async (req: Request, res: Response): Promise<any> => {
+  router.delete('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.DELETE), auditLog('BACKUP_DESTINATION_DELETE', { getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const existing = await prisma.backupDestination.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: 'Destination not found' });
@@ -121,7 +122,7 @@ export function createBackupDestinationRoutes() {
    * POST /api/backup-destinations/:id/test
    * Test connectivity to the destination
    */
-  router.post('/:id/test', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.TEST), async (req: Request, res: Response): Promise<any> => {
+  router.post('/:id/test', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.TEST), auditLog('BACKUP_DESTINATION_TEST', { getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const existing = await prisma.backupDestination.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: 'Destination not found' });

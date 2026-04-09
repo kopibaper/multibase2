@@ -34,7 +34,10 @@
       "Bash(journalctl --user -u multibase-backend)",
       "Bash(npm run:*)",
       "Bash(find /home/thomas/Dokumente/GitHub/multibase2/dashboard/frontend/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"SaveTemplate\\\\|save.*template\" {} \\\\;)",
-      "Bash(ls -la /home/thomas/Dokumente/GitHub/multibase2/shared/.env*)"
+      "Bash(ls -la /home/thomas/Dokumente/GitHub/multibase2/shared/.env*)",
+      "Bash(grep -oP \"['\\\\\"]\\([\\\\w_]+\\)['\\\\\"]\\(?=,|\\\\\\)|'|\\\\{\\)\")",
+      "Bash(grep -B3 -A3 \"auditLog\\('INSTANCE_START\" /home/thomas/Dokumente/GitHub/multibase2/dashboard/backend/src/routes/*.ts)",
+      "Bash(grep -l \"auditLog\" dashboard/backend/src/routes/*.ts)"
     ]
   }
 }

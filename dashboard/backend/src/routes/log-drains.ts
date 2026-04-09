@@ -5,6 +5,7 @@ import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
 import InstanceManager from '../services/InstanceManager';
 import LogDrainService from '../services/LogDrainService';
+import { auditLog } from '../middleware/auditLog';
 
 export function createLogDrainRoutes(
   prisma: PrismaClient,
@@ -28,7 +29,7 @@ export function createLogDrainRoutes(
   });
 
   // POST /api/instances/:name/log-drains
-  router.post('/', requireAuth, requireScope(SCOPES.LOG_DRAINS.CREATE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.LOG_DRAINS.CREATE), auditLog('LOG_DRAIN_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.name || 'unknown'}` }), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const { name: drainName, url, services = [], format = 'json', enabled = true } = req.body;
@@ -58,7 +59,7 @@ export function createLogDrainRoutes(
   });
 
   // PATCH /api/instances/:name/log-drains/:id
-  router.patch('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.UPDATE), async (req, res) => {
+  router.patch('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.UPDATE), auditLog('LOG_DRAIN_UPDATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const { name: drainName, url, services, format, enabled } = req.body;
@@ -104,7 +105,7 @@ export function createLogDrainRoutes(
   });
 
   // DELETE /api/instances/:name/log-drains/:id
-  router.delete('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.DELETE), async (req, res) => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.DELETE), auditLog('LOG_DRAIN_DELETE', { getResource: (req) => `${req.params.name}/${req.params.id}` }), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createWebhookRoutes(webhookService: WebhookService) {
   const router = Router({ mergeParams: true });
@@ -21,7 +22,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Create a new webhook
-  router.post('/', requireAuth, requireScope(SCOPES.WEBHOOKS.CREATE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.WEBHOOKS.CREATE), auditLog('WEBHOOK_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.name || 'unknown'}` }), async (req, res) => {
     try {
       const { name } = req.params;
       const { name: whName, tableSchema, tableName, events, url, method, headers, timeoutMs } = req.body;
@@ -48,7 +49,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Delete a webhook
-  router.delete('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.DELETE), async (req, res) => {
+  router.delete('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.DELETE), auditLog('WEBHOOK_DELETE', { getResource: (req) => `${req.params.name}/${req.params.webhookId}` }), async (req, res) => {
     try {
       const { name, webhookId } = req.params;
       const id = parseInt(webhookId, 10);
@@ -63,7 +64,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Toggle enabled / disabled
-  router.patch('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.UPDATE), async (req, res) => {
+  router.patch('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.UPDATE), auditLog('WEBHOOK_UPDATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.params.webhookId}` }), async (req, res) => {
     try {
       const { name, webhookId } = req.params;
       const { enabled } = req.body;

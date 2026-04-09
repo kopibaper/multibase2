@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 
@@ -23,7 +24,7 @@ export function createDomainRoutes(domainService: CustomDomainService) {
   });
 
   // Add a new custom domain
-  router.post('/', requireAuth, requireScope(SCOPES.DOMAINS.CREATE), async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.DOMAINS.CREATE), auditLog('DOMAIN_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.domain || 'unknown'}` }), async (req, res) => {
     try {
       const { name } = req.params;
       const { domain } = req.body;
@@ -60,7 +61,7 @@ export function createDomainRoutes(domainService: CustomDomainService) {
   });
 
   // Attempt automated SSL via certbot (requires certbot installed on server)
-  router.post('/:domain/activate-ssl', requireAuth, requireScope(SCOPES.DOMAINS.UPDATE), async (req, res) => {
+  router.post('/:domain/activate-ssl', requireAuth, requireScope(SCOPES.DOMAINS.UPDATE), auditLog('DOMAIN_SSL_ACTIVATE', { getResource: (req) => `${req.params.name}/${req.params.domain}` }), async (req, res) => {
     try {
       const { name, domain } = req.params;
       const { adminEmail } = req.body;
@@ -81,7 +82,7 @@ export function createDomainRoutes(domainService: CustomDomainService) {
   });
 
   // Manual activation after operator has run certbot themselves
-  router.post('/:domain/manual-activate', requireAuth, requireScope(SCOPES.DOMAINS.UPDATE), async (req, res) => {
+  router.post('/:domain/manual-activate', requireAuth, requireScope(SCOPES.DOMAINS.UPDATE), auditLog('DOMAIN_SSL_MANUAL', { getResource: (req) => `${req.params.name}/${req.params.domain}` }), async (req, res) => {
     try {
       const { name, domain } = req.params;
       const { certDir } = req.body;
@@ -107,7 +108,7 @@ export function createDomainRoutes(domainService: CustomDomainService) {
   });
 
   // Remove a custom domain
-  router.delete('/:domain', requireAuth, requireScope(SCOPES.DOMAINS.DELETE), async (req, res) => {
+  router.delete('/:domain', requireAuth, requireScope(SCOPES.DOMAINS.DELETE), auditLog('DOMAIN_DELETE', { getResource: (req) => `${req.params.name}/${req.params.domain}` }), async (req, res) => {
     try {
       const { name, domain } = req.params;
       if (!DOMAIN_RE.test(domain)) {

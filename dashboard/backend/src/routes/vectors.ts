@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { requireScope } from '../middleware/requireScope';
 import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createVectorRoutes(vectorService: VectorService) {
   const router = Router({ mergeParams: true });
@@ -20,7 +21,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Enable pgvector extension
-  router.post('/enable', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
+  router.post('/enable', requireAuth, requireScope(SCOPES.VECTORS.WRITE), auditLog('VECTOR_EXTENSION_ENABLE', { getResource: (req) => req.params.name }), async (req, res) => {
     try {
       const result = await vectorService.enableExtension(req.params.name);
       return res.json(result);
@@ -42,7 +43,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Add a vector column
-  router.post('/columns', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
+  router.post('/columns', requireAuth, requireScope(SCOPES.VECTORS.WRITE), auditLog('VECTOR_COLUMN_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.tableName || 'unknown'}.${req.body?.columnName || 'unknown'}` }), async (req, res) => {
     try {
       const { tableSchema, tableName, columnName, dimension } = req.body;
       if (!tableName || !columnName || !dimension) {
@@ -73,7 +74,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Create a vector index
-  router.post('/indexes', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
+  router.post('/indexes', requireAuth, requireScope(SCOPES.VECTORS.WRITE), auditLog('VECTOR_INDEX_CREATE', { includeBody: true, getResource: (req) => `${req.params.name}/${req.body?.tableName || 'unknown'}` }), async (req, res) => {
     try {
       const { tableSchema, tableName, columnName, indexType, metric, lists } = req.body;
       if (!tableName || !columnName || !indexType || !metric) {
@@ -95,7 +96,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Drop a vector index
-  router.delete('/indexes/:indexName', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
+  router.delete('/indexes/:indexName', requireAuth, requireScope(SCOPES.VECTORS.WRITE), auditLog('VECTOR_INDEX_DROP', { getResource: (req) => `${req.params.name}/${req.params.indexName}` }), async (req, res) => {
     try {
       const result = await vectorService.dropIndex(req.params.name, req.params.indexName);
       return res.json(result);
