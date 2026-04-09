@@ -1,9 +1,7 @@
 name: Deploy Backend (Feature_Roadmap)
 
 on:
-  push:
-    branches: [Feature_Roadmap]
-  workflow_dispatch:
+  workflow_dispatch: # automatic deploy disabled — use release.yml
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
