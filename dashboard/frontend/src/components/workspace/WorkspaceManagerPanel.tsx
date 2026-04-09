@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { instancesApi } from '../../lib/api';
 import {
@@ -81,6 +81,7 @@ export function DatabasePanel({ instanceName }: { instanceName: string }) {
   });
   const [sqlQuery, setSqlQuery] = useState('SELECT * FROM auth.users LIMIT 10;');
   const [sqlResult, setSqlResult] = useState<any[] | null>(null);
+  const sqlTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     data: schemaData,
@@ -124,11 +125,17 @@ export function DatabasePanel({ instanceName }: { instanceName: string }) {
     sqlMutation.mutate(sqlQuery);
   };
 
+  const handleSqlChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setSqlQuery(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
+  };
+
   const tableList = schemaData?.tables || [];
 
   return (
     <div className='space-y-4'>
-      <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[700px]'>
+      <div className='flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[80vh]'>
         {/* Sidebar: Table List */}
         <div className='w-full lg:w-1/4 glass-card flex flex-col max-h-60 lg:max-h-none'>
           <div className='p-4 border-b border-white/10 flex items-center justify-between'>
@@ -199,7 +206,7 @@ export function DatabasePanel({ instanceName }: { instanceName: string }) {
         </div>
 
         {/* Main Content Area */}
-        <div className='flex-1 flex flex-col gap-4 overflow-hidden'>
+        <div className='flex-1 flex flex-col overflow-hidden'>
           {/* Table View */}
           {selectedTable ? (
             <div className='glass-card flex-1 flex flex-col p-4 overflow-hidden'>
@@ -212,39 +219,41 @@ export function DatabasePanel({ instanceName }: { instanceName: string }) {
               <p className='text-sm'>Select a table from the sidebar to view its data and schema</p>
             </div>
           )}
-
-          {/* SQL Editor */}
-          <div className='glass-card p-4 min-h-[250px] flex flex-col'>
-            <h3 className='text-sm font-semibold flex items-center gap-2 mb-3'>
-              <Code className='w-4 h-4 text-brand-400' />
-              Quick SQL Editor
-            </h3>
-            <textarea
-              value={sqlQuery}
-              onChange={(e) => setSqlQuery(e.target.value)}
-              placeholder='SELECT * FROM ...'
-              className='flex-1 w-full p-3 bg-white/5 border border-white/10 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/50 text-foreground placeholder:text-muted-foreground/40'
-            />
-            <div className='flex justify-between items-center mt-3'>
-              <span className='text-xs text-muted-foreground'>
-                {sqlResult ? `${sqlResult.length} rows returned` : 'Ready to execute'}
-              </span>
-              <button
-                onClick={handleRunQuery}
-                disabled={sqlMutation.isPending}
-                className='flex items-center gap-2 px-4 py-1.5 bg-brand-500 text-white text-sm rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 shadow-[0_0_10px_rgba(62,207,142,0.2)]'
-              >
-                {sqlMutation.isPending ? <Loader2 className='w-3 h-3 animate-spin' /> : <Play className='w-3 h-3' />}
-                Run
-              </button>
-            </div>
-            {sqlResult && sqlResult.length > 0 && (
-              <div className='mt-3 bg-white/5 border border-white/10 rounded-lg p-2 overflow-x-auto h-32 text-xs font-mono text-muted-foreground'>
-                {JSON.stringify(sqlResult, null, 2)}
-              </div>
-            )}
-          </div>
         </div>
+      </div>
+
+      {/* SQL Editor – outside the fixed-height table area so it auto-grows freely */}
+      <div className='glass-card p-4 flex flex-col'>
+        <h3 className='text-sm font-semibold flex items-center gap-2 mb-3'>
+          <Code className='w-4 h-4 text-brand-400' />
+          Quick SQL Editor
+        </h3>
+        <textarea
+          ref={sqlTextareaRef}
+          value={sqlQuery}
+          onChange={handleSqlChange}
+          placeholder='SELECT * FROM ...'
+          style={{ minHeight: '12rem' }}
+          className='w-full p-3 bg-white/5 border border-white/10 rounded-lg font-mono text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500/50 text-foreground placeholder:text-muted-foreground/40'
+        />
+        <div className='flex justify-between items-center mt-3'>
+          <span className='text-xs text-muted-foreground'>
+            {sqlResult ? `${sqlResult.length} rows returned` : 'Ready to execute'}
+          </span>
+          <button
+            onClick={handleRunQuery}
+            disabled={sqlMutation.isPending}
+            className='flex items-center gap-2 px-4 py-1.5 bg-brand-500 text-white text-sm rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 shadow-[0_0_10px_rgba(62,207,142,0.2)]'
+          >
+            {sqlMutation.isPending ? <Loader2 className='w-3 h-3 animate-spin' /> : <Play className='w-3 h-3' />}
+            Run
+          </button>
+        </div>
+        {sqlResult && sqlResult.length > 0 && (
+          <div className='mt-3 bg-white/5 border border-white/10 rounded-lg p-2 overflow-x-auto max-h-64 text-xs font-mono text-muted-foreground'>
+            {JSON.stringify(sqlResult, null, 2)}
+          </div>
+        )}
       </div>
 
       {showCreateModal && (

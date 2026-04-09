@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Loader2, RefreshCw, Plus, Trash2, Columns, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, Trash2, Columns, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import AddRowModal from './AddRowModal';
 import AddColumnModal from './AddColumnModal';
 import ConfirmationModal from './ConfirmationModal';
+import EditRowModal from './EditRowModal';
 
 interface TableDataBrowserProps {
   instanceName: string;
@@ -17,6 +18,7 @@ export default function TableDataBrowser({ instanceName, tableName }: TableDataB
   const [page, setPage] = useState(0);
   const [showAddRowModal, setShowAddRowModal] = useState(false);
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+  const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     type: 'row' | 'column' | null;
@@ -142,7 +144,7 @@ export default function TableDataBrowser({ instanceName, tableName }: TableDataB
         <div className='border border-border rounded-lg overflow-hidden flex-1'>
           <div className='overflow-x-auto h-full'>
             <table className='w-full text-sm text-left'>
-              <thead className='bg-secondary/50 border-b border-border sticky top-0'>
+              <thead className='bg-secondary border-b border-border sticky top-0 z-10'>
                 <tr>
                   <th className='px-4 py-3 font-medium text-muted-foreground w-12'>#</th>
                   {columns.map((col: any) => (
@@ -182,14 +184,23 @@ export default function TableDataBrowser({ instanceName, tableName }: TableDataB
                           {formatCellValue(row[col.column_name])}
                         </td>
                       ))}
-                      <td className='px-4 py-2 w-10 text-right'>
-                        <button
-                          onClick={() => handleDeleteRow(row)}
-                          className='opacity-50 hover:opacity-100 p-1 hover:text-destructive transition-opacity'
-                          title='Delete Row'
-                        >
-                          <Trash2 className='w-3 h-3' />
-                        </button>
+                      <td className='px-4 py-2 w-20 text-right'>
+                        <div className='flex items-center justify-end gap-1'>
+                          <button
+                            onClick={() => setEditingRow(row)}
+                            className='opacity-50 hover:opacity-100 p-1 hover:text-primary transition-opacity'
+                            title='Edit Row'
+                          >
+                            <Pencil className='w-3 h-3' />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRow(row)}
+                            className='opacity-50 hover:opacity-100 p-1 hover:text-destructive transition-opacity'
+                            title='Delete Row'
+                          >
+                            <Trash2 className='w-3 h-3' />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -229,6 +240,16 @@ export default function TableDataBrowser({ instanceName, tableName }: TableDataB
           </button>
         </div>
       </div>
+
+      {editingRow && (
+        <EditRowModal
+          instanceName={instanceName}
+          tableName={tableName}
+          row={editingRow}
+          onClose={() => setEditingRow(null)}
+          onSuccess={() => refetch()}
+        />
+      )}
 
       {showAddRowModal && (
         <AddRowModal

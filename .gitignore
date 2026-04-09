@@ -137,3 +137,7 @@ pids/
 *.seed
 *.pid.lock
 dashboard/backend/src/routes/instances.ts
+dashboard/backups/backup-database-2026-04-09T07-35-21-428Z.zip
+dashboard/backups/backup-full-2026-04-09T07-35-44-434Z.zip
+dashboard/backups/backup-instance-2026-04-09T07-31-05-800Z.zip
+dashboard/backups/my-project-db-1775719865804.sql
