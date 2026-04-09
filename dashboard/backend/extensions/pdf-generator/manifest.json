@@ -1,0 +1,13 @@
+{
+  "id": "pdf-generator",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "function",
+    "steps": [
+      { "label": "Deploy PDF generator", "file": "index.ts", "functionName": "generate-pdf" }
+    ]
+  }
+}

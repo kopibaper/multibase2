@@ -23,7 +23,6 @@ export const RegisterSchema = z.object({
     .regex(/[a-z]/, 'Passwort muss mindestens einen Kleinbuchstaben enthalten')
     .regex(/[0-9]/, 'Passwort muss mindestens eine Zahl enthalten')
     .regex(/[^a-zA-Z0-9]/, 'Passwort muss mindestens ein Sonderzeichen enthalten'),
-  role: z.enum(['admin', 'user', 'viewer']).optional(),
 });
 
 export const UpdateUserSchema = z.object({
@@ -67,7 +66,7 @@ export const CreateInstanceSchema = z.object({
   protocol: z.enum(['http', 'https']).optional(),
   corsOrigins: z.array(z.string()).optional(),
   templateId: z.number().int().positive().optional(),
-  env: z.record(z.string()).optional(), // Environment variable overrides for cloud deployment
+  env: z.record(z.string()).optional(),
   resourceLimits: z
     .object({
       cpus: z.number().min(0.1).max(64).optional(),
@@ -75,6 +74,9 @@ export const CreateInstanceSchema = z.object({
       preset: z.string().optional(),
     })
     .optional(),
+  extensions: z.array(z.string()).optional(),
+  initSql: z.string().max(50000).optional(),
+  environment: z.enum(['production', 'staging', 'dev', 'preview']).optional(),
 });
 
 export const InstanceNameParamSchema = z.object({
@@ -126,6 +128,7 @@ export const CreateBackupSchema = z.object({
   }),
   instanceId: z.string().optional(),
   name: z.string().max(100, 'Backup-Name darf maximal 100 Zeichen haben').optional(),
+  destinationIds: z.array(z.string()).optional(),
 });
 
 export const RestoreBackupSchema = z.object({
@@ -188,6 +191,18 @@ export const UpdateAlertRuleSchema = z.object({
 
 export const IdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, 'ID muss eine Zahl sein'),
+});
+
+// ===== Feedback Schema =====
+
+export const FeedbackSchema = z.object({
+  type: z.enum(['feature', 'bug']),
+  title: z.string().min(5, 'Titel muss mindestens 5 Zeichen haben').max(120),
+  description: z.string().min(10, 'Beschreibung muss mindestens 10 Zeichen haben').max(2000),
+  urgency: z.enum(['low', 'medium', 'high', 'critical']),
+  authorName: z.string().max(80).optional().or(z.literal('')),
+  authorEmail: z.string().email().optional().or(z.literal('')),
+  website: z.literal('').optional(), // honeypot — bots fill this, Zod rejects non-empty
 });
 
 // ===== Type Exports (für TypeScript Type Inference) =====

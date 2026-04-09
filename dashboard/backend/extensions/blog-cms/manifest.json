@@ -1,0 +1,14 @@
+{
+  "id": "blog-cms",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": ["uuid-ossp"]
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create blog CMS schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

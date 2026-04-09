@@ -1,0 +1,15 @@
+{
+  "id": "webhook-dispatcher",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create webhook queue table", "file": "schema.sql" },
+      { "label": "Deploy dispatcher", "file": "index.ts", "functionName": "webhook-dispatch" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

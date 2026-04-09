@@ -1,0 +1,19 @@
+{
+  "id": "grafana-dashboard",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "config",
+    "steps": [
+      {
+        "label": "Configure Grafana connection",
+        "envVars": {
+          "GRAFANA_URL": "{{grafanaUrl}}",
+          "GRAFANA_TOKEN": "{{grafanaToken}}"
+        }
+      }
+    ]
+  }
+}

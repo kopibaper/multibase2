@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
 import BackupService from '../services/BackupService';
+import { ExternalStorageService } from '../services/ExternalStorageService';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
 import { CreateBackupSchema } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser, requireAdmin } from '../middleware/authMiddleware';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createBackupRoutes() {
   const router = Router();
@@ -16,6 +20,7 @@ export function createBackupRoutes() {
   router.post(
     '/',
     requireUser,
+    requireScope(SCOPES.BACKUPS.CREATE),
     validate(CreateBackupSchema),
     auditLog('BACKUP_CREATE', {
       includeBody: true,
@@ -23,7 +28,7 @@ export function createBackupRoutes() {
     }),
     async (req: Request, res: Response): Promise<any> => {
       try {
-        const { type, instanceId, name } = req.body;
+        const { type, instanceId, name, destinationIds } = req.body;
         const user = (req as any).user;
 
         // Validation is now handled by Zod middleware
@@ -36,6 +41,7 @@ export function createBackupRoutes() {
           instanceId,
           name,
           createdBy: user.id,
+          destinationIds: Array.isArray(destinationIds) ? destinationIds : undefined,
         });
 
         res.json(backup);
@@ -54,7 +60,7 @@ export function createBackupRoutes() {
    * GET /api/backups
    * List all backups
    */
-  router.get('/', requireViewer, async (req: Request, res: Response) => {
+  router.get('/', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response) => {
     try {
       const { type } = req.query;
 
@@ -72,7 +78,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id
    * Get backup by ID
    */
-  router.get('/:id', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -90,10 +96,68 @@ export function createBackupRoutes() {
   });
 
   /**
+   * GET /api/backups/:id/uploads
+   * Get upload status for a specific backup
+   */
+  router.get('/:id/uploads', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
+    try {
+      const backup = await BackupService.getBackup(req.params.id);
+      if (!backup) return res.status(404).json({ error: 'Backup not found' });
+
+      const uploads = await prisma.backupUpload.findMany({
+        where: { backupId: req.params.id },
+        include: {
+          destination: {
+            select: { id: true, name: true, type: true },
+          },
+        },
+        orderBy: { startedAt: 'asc' },
+      });
+      res.json(uploads);
+    } catch (error) {
+      logger.error('Error fetching backup uploads:', error);
+      res.status(500).json({ error: 'Failed to fetch upload status' });
+    }
+  });
+
+  /**
+   * POST /api/backups/:id/upload
+   * Manually upload a backup to one or more destinations
+   */
+  router.post(
+    '/:id/upload',
+    requireAdmin,
+    requireScope(SCOPES.BACKUPS.UPLOAD),
+    async (req: Request, res: Response): Promise<any> => {
+      try {
+        const backup = await BackupService.getBackup(req.params.id);
+        if (!backup) return res.status(404).json({ error: 'Backup not found' });
+
+        const { destinationIds } = req.body;
+        if (!Array.isArray(destinationIds) || destinationIds.length === 0) {
+          return res.status(400).json({ error: 'destinationIds array is required' });
+        }
+
+        // Fire-and-forget uploads; respond immediately
+        for (const destinationId of destinationIds) {
+          ExternalStorageService.uploadBackup(backup.path, backup.id, destinationId).catch(
+            (err) => logger.error(`Upload to ${destinationId} failed:`, err)
+          );
+        }
+
+        res.json({ message: `Upload started for ${destinationIds.length} destination(s)` });
+      } catch (error) {
+        logger.error('Error triggering backup upload:', error);
+        res.status(500).json({ error: 'Failed to start upload' });
+      }
+    }
+  );
+
+  /**
    * GET /api/backups/:id/preview
    * Preview what's in a backup (before restoring)
    */
-  router.get('/:id/preview', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id/preview', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -139,6 +203,7 @@ export function createBackupRoutes() {
   router.post(
     '/:id/restore',
     requireAdmin,
+    requireScope(SCOPES.BACKUPS.RESTORE),
     auditLog('BACKUP_RESTORE', {
       getResource: (req) => req.params.id,
       includeBody: true,
@@ -176,6 +241,7 @@ export function createBackupRoutes() {
   router.delete(
     '/:id',
     requireAdmin,
+    requireScope(SCOPES.BACKUPS.DELETE),
     auditLog('BACKUP_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {

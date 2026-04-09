@@ -1,0 +1,15 @@
+{
+  "id": "phone-auth",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create OTP table", "file": "schema.sql" },
+      { "label": "Deploy OTP handler", "file": "index.ts", "functionName": "phone-otp" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

@@ -17,7 +17,6 @@ interface CreateInstanceModalProps {
 }
 
 interface FormData extends Omit<CreateInstanceRequest, 'basePort' | 'resourceLimits'> {
-  basePort: string | number | undefined;
   corsOriginsList: string; // Comma-separated list for UI
   templateId?: number;
   resourceLimits: ResourceLimits;
@@ -25,13 +24,13 @@ interface FormData extends Omit<CreateInstanceRequest, 'basePort' | 'resourceLim
 
 const initialFormData: FormData = {
   name: '',
-  deploymentType: 'localhost', // Default to localhost
-  basePort: undefined,
+  deploymentType: 'localhost',
   domain: '',
-  protocol: 'https', // Default HTTPS for cloud
+  protocol: 'https',
   corsOriginsList: '',
   templateId: undefined,
-  resourceLimits: RESOURCE_PRESETS.medium, // Default to medium preset
+  resourceLimits: RESOURCE_PRESETS.medium,
+  environment: undefined,
 };
 
 export default function CreateInstanceModal({ open, onOpenChange, initialTemplate }: CreateInstanceModalProps) {
@@ -75,12 +74,12 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
       setFormData((prev) => ({
         ...prev,
         templateId: initialTemplate.id,
-        // Pre-fill fields if they exist in config
         deploymentType: config.deploymentType || prev.deploymentType,
-        basePort: config.basePort || prev.basePort,
         domain: config.domain || (derivedDomain !== 'localhost' ? derivedDomain : prev.domain),
         protocol: config.protocol || prev.protocol,
         corsOriginsList: config.corsOrigins ? config.corsOrigins.join(', ') : prev.corsOriginsList,
+        resourceLimits: config.resourceLimits || prev.resourceLimits,
+        environment: config.environment || prev.environment,
       }));
       toast.info(`Loaded template: ${initialTemplate.name}`);
     } else if (open && !initialTemplate) {
@@ -89,6 +88,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
         ...initialFormData,
         domain: derivedDomain !== 'localhost' ? derivedDomain : '',
         corsOriginsList: systemSettings?.cors || '',
+        environment: undefined,
       });
       setErrors({});
     } else if (!open) {
@@ -131,10 +131,10 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
     const requestData: CreateInstanceRequest = {
       name: formData.name.trim(),
       deploymentType: formData.deploymentType,
-      ...(formData.basePort && { basePort: Number(formData.basePort) }),
       ...(formData.domain && { domain: formData.domain.trim() }),
       ...(formData.protocol && { protocol: formData.protocol }),
       ...(formData.templateId && { templateId: Number(formData.templateId) }),
+      ...(formData.environment && { environment: formData.environment }),
     };
 
     if (formData.corsOriginsList.trim()) {
@@ -310,10 +310,11 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                             ...p,
                             templateId: t.id,
                             deploymentType: config.deploymentType || p.deploymentType,
-                            basePort: config.basePort || p.basePort,
                             domain: config.domain || p.domain,
                             protocol: config.protocol || p.protocol,
                             corsOriginsList: config.corsOrigins ? config.corsOrigins.join(', ') : p.corsOriginsList,
+                            resourceLimits: config.resourceLimits || p.resourceLimits,
+                            environment: config.environment || p.environment,
                           }));
                           toast.info(`Loaded template: ${t.name}`);
                         } else {
@@ -345,15 +346,19 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                 </h3>
 
                 <div>
-                  <label className='block text-sm font-medium mb-1'>Base Port (Optional)</label>
-                  <input
-                    type='number'
-                    value={formData.basePort || ''}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, basePort: e.target.value }))}
-                    placeholder='Auto-assigned'
+                  <label className='block text-sm font-medium mb-1'>Environment (Optional)</label>
+                  <select
+                    value={formData.environment || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, environment: (e.target.value || undefined) as CreateInstanceRequest['environment'] }))}
                     className='w-full px-3 py-2 border border-border rounded-md bg-input'
-                  />
-                  <p className='text-xs text-muted-foreground mt-1'>If empty, we'll find a free port automatically.</p>
+                  >
+                    <option value=''>-- None --</option>
+                    <option value='production'>Production</option>
+                    <option value='staging'>Staging</option>
+                    <option value='dev'>Development</option>
+                    <option value='preview'>Preview</option>
+                  </select>
+                  <p className='text-xs text-muted-foreground mt-1'>Label for this instance's environment stage.</p>
                 </div>
 
                 <div>
@@ -385,7 +390,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                     <span className='text-muted-foreground'>Studio URL:</span>
                     <code className='bg-secondary px-2 py-0.5 rounded text-primary font-mono text-xs break-all'>
                       {isLocal
-                        ? `http://localhost:${formData.basePort || '54323'}`
+                        ? `http://localhost:<auto>`
                         : `https://${formData.name || '<name>'}.${formData.domain || 'example.com'}`}
                     </code>
                   </div>
@@ -393,7 +398,7 @@ export default function CreateInstanceModal({ open, onOpenChange, initialTemplat
                     <span className='text-muted-foreground'>API URL:</span>
                     <code className='bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs break-all'>
                       {isLocal
-                        ? `http://localhost:${formData.basePort || '54323'}`
+                        ? `http://localhost:<auto>`
                         : `https://${formData.name || '<name>'}-api.${formData.domain || 'example.com'}`}
                     </code>
                   </div>

@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 /**
  * Notification message structure
@@ -137,7 +139,7 @@ export function createNotificationRoutes() {
    * GET /api/notifications/channels
    * List available notification channels
    */
-  router.get('/channels', requireAuth, (_req: Request, res: Response) => {
+  router.get('/channels', requireAuth, requireScope(SCOPES.NOTIFICATIONS.READ), (_req: Request, res: Response) => {
     const channels = notificationService.getAvailableChannels();
     res.json({ channels });
   });
@@ -149,6 +151,7 @@ export function createNotificationRoutes() {
   router.post(
     '/test',
     requireAuth,
+    requireScope(SCOPES.NOTIFICATIONS.WRITE),
     auditLog('NOTIFICATION_TEST', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -197,6 +200,7 @@ export function createNotificationRoutes() {
   router.post(
     '/webhook',
     requireAuth,
+    requireScope(SCOPES.NOTIFICATIONS.WRITE),
     auditLog('NOTIFICATION_WEBHOOK_TRIGGER', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {

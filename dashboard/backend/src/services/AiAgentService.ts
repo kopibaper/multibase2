@@ -399,6 +399,41 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ['instanceName', 'bucketId', 'filePath'],
     },
   },
+  {
+    name: 'get_file_url',
+    description: 'Get the public URL or a signed download URL for a file in a storage bucket.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        bucketId: { type: 'string', description: 'Bucket ID' },
+        filePath: { type: 'string', description: 'Path to the file' },
+        signed: {
+          type: 'boolean',
+          description: 'If true, generate a signed (temporary) URL. Default: false (public URL).',
+        },
+        expiresIn: {
+          type: 'number',
+          description: 'Expiry for signed URL in seconds (default: 3600)',
+        },
+      },
+      required: ['instanceName', 'bucketId', 'filePath'],
+    },
+  },
+  {
+    name: 'list_auth_users',
+    description:
+      'List Auth users of a Supabase instance with pagination. Does NOT require confirmation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        page: { type: 'number', description: 'Page number (default: 1)' },
+        perPage: { type: 'number', description: 'Users per page (default: 50, max: 200)' },
+      },
+      required: ['instanceName'],
+    },
+  },
 
   // ===== EDGE FUNCTIONS =====
   {
@@ -408,6 +443,99 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: 'object',
       properties: { instanceName: { type: 'string', description: 'Instance name' } },
       required: ['instanceName'],
+    },
+  },
+  {
+    name: 'get_function',
+    description: 'Get the source code of a specific Edge Function.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: { type: 'string', description: 'Function name' },
+      },
+      required: ['instanceName', 'functionName'],
+    },
+  },
+  {
+    name: 'create_function',
+    description:
+      'Create a new Edge Function with Deno TypeScript code. If no code is provided, a minimal starter template is created. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: {
+          type: 'string',
+          description: 'Name of the new function (alphanumeric and hyphens only)',
+        },
+        code: {
+          type: 'string',
+          description: 'Deno TypeScript source code (index.ts). If omitted a minimal template is used.',
+        },
+      },
+      required: ['instanceName', 'functionName'],
+    },
+  },
+  {
+    name: 'update_function',
+    description:
+      'Update (overwrite) the source code of an existing Edge Function. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: { type: 'string', description: 'Function name to update' },
+        code: { type: 'string', description: 'New Deno TypeScript source code' },
+      },
+      required: ['instanceName', 'functionName', 'code'],
+    },
+  },
+  {
+    name: 'delete_function',
+    description: 'Delete an Edge Function permanently. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: { type: 'string', description: 'Function name to delete' },
+      },
+      required: ['instanceName', 'functionName'],
+    },
+  },
+  {
+    name: 'deploy_function',
+    description:
+      'Deploy (activate/restart) an Edge Function so code changes take effect. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: { type: 'string', description: 'Function name to deploy' },
+      },
+      required: ['instanceName', 'functionName'],
+    },
+  },
+  {
+    name: 'invoke_function',
+    description:
+      'Invoke (call/test) an Edge Function and return its response. Useful for testing.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        functionName: { type: 'string', description: 'Function name to invoke' },
+        payload: {
+          type: 'object',
+          description: 'JSON payload to send in the request body (optional)',
+        },
+        method: {
+          type: 'string',
+          enum: ['GET', 'POST', 'PUT', 'DELETE'],
+          description: 'HTTP method (default: POST)',
+        },
+      },
+      required: ['instanceName', 'functionName'],
     },
   },
   {
@@ -435,6 +563,125 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         sql: { type: 'string', description: 'SQL query to execute' },
       },
       required: ['instanceName', 'sql'],
+    },
+  },
+  {
+    name: 'list_tables',
+    description:
+      'List all tables in a given schema of a Supabase instance database. Does NOT require confirmation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: {
+          type: 'string',
+          description: 'Schema name (default: public)',
+        },
+      },
+      required: ['instanceName'],
+    },
+  },
+  {
+    name: 'describe_table',
+    description:
+      'Describe the columns, types, nullability and default values of a specific table. Does NOT require confirmation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name' },
+      },
+      required: ['instanceName', 'table'],
+    },
+  },
+  {
+    name: 'list_rls_policies',
+    description:
+      'List all Row-Level Security (RLS) policies for a table or all tables in a schema. Does NOT require confirmation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name (optional, omit to list all)' },
+      },
+      required: ['instanceName'],
+    },
+  },
+  {
+    name: 'create_rls_policy',
+    description:
+      'Create a new Row-Level Security (RLS) policy on a table. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name' },
+        policyName: { type: 'string', description: 'Name for the new policy' },
+        command: {
+          type: 'string',
+          enum: ['ALL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+          description: 'SQL command the policy applies to',
+        },
+        roles: {
+          type: 'string',
+          description: 'Comma-separated roles (e.g. "authenticated, anon"). Use "PUBLIC" for all.',
+        },
+        usingExpression: {
+          type: 'string',
+          description: 'USING expression (for SELECT/UPDATE/DELETE) — boolean SQL expression',
+        },
+        withCheckExpression: {
+          type: 'string',
+          description: 'WITH CHECK expression (for INSERT/UPDATE) — boolean SQL expression',
+        },
+      },
+      required: ['instanceName', 'table', 'policyName', 'command'],
+    },
+  },
+  {
+    name: 'drop_rls_policy',
+    description:
+      'Drop (delete) a Row-Level Security policy from a table. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name' },
+        policyName: { type: 'string', description: 'Policy name to drop' },
+      },
+      required: ['instanceName', 'table', 'policyName'],
+    },
+  },
+  {
+    name: 'enable_rls',
+    description:
+      'Enable Row-Level Security (RLS) on a table. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name' },
+      },
+      required: ['instanceName', 'table'],
+    },
+  },
+  {
+    name: 'disable_rls',
+    description:
+      'Disable Row-Level Security (RLS) on a table. The user MUST confirm this action.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instanceName: { type: 'string', description: 'Instance name' },
+        schema: { type: 'string', description: 'Schema name (default: public)' },
+        table: { type: 'string', description: 'Table name' },
+      },
+      required: ['instanceName', 'table'],
     },
   },
 
@@ -537,6 +784,16 @@ const DESTRUCTIVE_TOOLS = [
   'delete_bucket',
   'delete_file',
   'execute_sql',
+  // Edge Functions
+  'create_function',
+  'update_function',
+  'delete_function',
+  'deploy_function',
+  // RLS / Database
+  'create_rls_policy',
+  'drop_rls_policy',
+  'enable_rls',
+  'disable_rls',
 ];
 
 // ============================================================
@@ -851,12 +1108,23 @@ You have FULL ACCESS to the entire dashboard and can help users with:
 **Storage:**
 - List, create, and delete storage buckets
 - Browse and manage files in buckets
+- Get public or signed (temporary) download URLs for files
 
 **Edge Functions:**
-- List functions, view logs
+- List, create, update, delete, and deploy Deno edge functions
+- Invoke/test functions and view their logs
 
 **Database:**
-- Execute SQL queries on instance PostgreSQL databases
+- Execute arbitrary SQL queries on instance PostgreSQL databases
+- List tables and describe their schema (columns, types, constraints)
+
+**Row-Level Security (RLS):**
+- List all RLS policies on tables
+- Create, drop, enable, and disable RLS policies
+- Build policies for roles like \`authenticated\` or \`anon\`
+
+**Auth:**
+- List Auth users of an instance with pagination
 
 **Audit & Security:**
 - View audit logs and statistics
@@ -875,12 +1143,14 @@ Rules:
    - For instances: ask about name, deployment type (localhost/cloud), domain, resource limits, etc.
    - For templates: ask about the configuration they want to save
    - Present options clearly and let the user choose
-3. When performing destructive actions (create, stop, delete, SQL execute), always explain what will happen before executing.
+3. When performing destructive actions (create, stop, delete, SQL execute, modify RLS, deploy functions), always explain what will happen before executing.
 4. Format your responses in Markdown for readability.
 5. If a tool call fails, explain the error clearly and suggest alternatives.
 6. When listing data, present it in a clear, structured format using tables or lists.
 7. Respond in the same language the user writes in.
 8. You can chain multiple tool calls to gather information and answer complex questions.
+9. For RLS policies, always use \`list_tables\` and \`list_rls_policies\` first to understand the current state before making changes.
+10. For edge functions, always use \`list_functions\` first and \`get_function\` when you need to read existing code before updating it.
 
 You are part of the Multibase Dashboard and have direct access to ALL dashboard features via tools. Use them proactively to help the user.`;
 
@@ -1869,6 +2139,77 @@ export class AiAgentService {
           return { success: true, functions };
         }
 
+        case 'get_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          const code = await this.functionService.getFunction(args.instanceName, args.functionName);
+          return { success: true, functionName: args.functionName, code };
+        }
+
+        case 'create_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          const starterCode =
+            args.code ||
+            `import { serve } from "https://deno.land/std@0.177.0/http/server.ts";\n\nserve(async (_req) => {\n  return new Response(JSON.stringify({ message: "Hello from ${args.functionName}!" }), {\n    headers: { "Content-Type": "application/json" },\n  });\n});\n`;
+          await this.functionService.saveFunction(args.instanceName, args.functionName, starterCode);
+          return {
+            success: true,
+            message: `Edge function "${args.functionName}" created successfully.`,
+          };
+        }
+
+        case 'update_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          await this.functionService.saveFunction(args.instanceName, args.functionName, args.code);
+          return {
+            success: true,
+            message: `Edge function "${args.functionName}" updated successfully.`,
+          };
+        }
+
+        case 'delete_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          await this.functionService.deleteFunction(args.instanceName, args.functionName);
+          return {
+            success: true,
+            message: `Edge function "${args.functionName}" deleted successfully.`,
+          };
+        }
+
+        case 'deploy_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          await this.functionService.deployFunction(args.instanceName, args.functionName);
+          return {
+            success: true,
+            message: `Edge function "${args.functionName}" deployed successfully.`,
+          };
+        }
+
+        case 'invoke_function': {
+          if (!this.functionService)
+            return { success: false, error: 'Function service not available.' };
+          const instance = await this.instanceManager.getInstance(args.instanceName);
+          if (!instance) return { success: false, error: `Instance "${args.instanceName}" not found.` };
+          const port = instance.ports?.kong || instance.ports?.gateway;
+          if (!port) return { success: false, error: 'Could not determine instance port.' };
+          const method = args.method || 'POST';
+          const url = `http://localhost:${port}/functions/v1/${args.functionName}`;
+          const fetchOptions: RequestInit = { method };
+          if (args.payload && method !== 'GET') {
+            (fetchOptions as any).headers = { 'Content-Type': 'application/json' };
+            fetchOptions.body = JSON.stringify(args.payload);
+          }
+          const resp = await fetch(url, fetchOptions);
+          const text = await resp.text();
+          let body: any = text;
+          try { body = JSON.parse(text); } catch { /* keep as text */ }
+          return { success: true, status: resp.status, body };
+        }
+
         case 'get_function_logs': {
           if (!this.functionService)
             return { success: false, error: 'Function service not available.' };
@@ -1890,6 +2231,132 @@ export class AiAgentService {
             true
           );
           return { success: true, result: sqlResult };
+        }
+
+        case 'list_tables': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const result = await migrationService.executeSql(
+            args.instanceName,
+            `SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '${schema}' ORDER BY table_name;`,
+            userId,
+            false
+          );
+          return { success: true, schema, tables: result };
+        }
+
+        case 'describe_table': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const result = await migrationService.executeSql(
+            args.instanceName,
+            `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${schema}' AND table_name = '${args.table}' ORDER BY ordinal_position;`,
+            userId,
+            false
+          );
+          return { success: true, schema, table: args.table, columns: result };
+        }
+
+        case 'list_rls_policies': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const tableFilter = args.table ? `AND tablename = '${args.table}'` : '';
+          const result = await migrationService.executeSql(
+            args.instanceName,
+            `SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname = '${schema}' ${tableFilter} ORDER BY tablename, policyname;`,
+            userId,
+            false
+          );
+          return { success: true, policies: result };
+        }
+
+        case 'create_rls_policy': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const roles = args.roles ? `TO ${args.roles}` : '';
+          const using = args.usingExpression ? `USING (${args.usingExpression})` : '';
+          const withCheck = args.withCheckExpression
+            ? `WITH CHECK (${args.withCheckExpression})`
+            : '';
+          const sql = `CREATE POLICY "${args.policyName}" ON "${schema}"."${args.table}" AS PERMISSIVE FOR ${args.command} ${roles} ${using} ${withCheck};`;
+          const result = await migrationService.executeSql(args.instanceName, sql, userId, true);
+          return {
+            success: true,
+            message: `RLS policy "${args.policyName}" created on "${args.table}".`,
+            result,
+          };
+        }
+
+        case 'drop_rls_policy': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const sql = `DROP POLICY IF EXISTS "${args.policyName}" ON "${schema}"."${args.table}";`;
+          const result = await migrationService.executeSql(args.instanceName, sql, userId, true);
+          return {
+            success: true,
+            message: `RLS policy "${args.policyName}" dropped from "${args.table}".`,
+            result,
+          };
+        }
+
+        case 'enable_rls': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const sql = `ALTER TABLE "${schema}"."${args.table}" ENABLE ROW LEVEL SECURITY;`;
+          const result = await migrationService.executeSql(args.instanceName, sql, userId, true);
+          return {
+            success: true,
+            message: `RLS enabled on "${args.table}".`,
+            result,
+          };
+        }
+
+        case 'disable_rls': {
+          const migrationService = new MigrationService(this.prisma);
+          const schema = args.schema || 'public';
+          const sql = `ALTER TABLE "${schema}"."${args.table}" DISABLE ROW LEVEL SECURITY;`;
+          const result = await migrationService.executeSql(args.instanceName, sql, userId, true);
+          return {
+            success: true,
+            message: `RLS disabled on "${args.table}".`,
+            result,
+          };
+        }
+
+        // ===== STORAGE (extra) =====
+        case 'get_file_url': {
+          if (!this.storageService)
+            return { success: false, error: 'Storage service not available.' };
+          if (args.signed) {
+            const signedResult = await this.storageService.createSignedUrl(
+              args.instanceName,
+              args.bucketId,
+              args.filePath,
+              args.expiresIn || 3600
+            );
+            return { success: true, url: signedResult.signedUrl, type: 'signed' };
+          }
+          const pubResult = await this.storageService.getPublicUrl(
+            args.instanceName,
+            args.bucketId,
+            args.filePath
+          );
+          return { success: true, url: pubResult.publicUrl, type: 'public' };
+        }
+
+        // ===== AUTH USERS =====
+        case 'list_auth_users': {
+          const migrationService = new MigrationService(this.prisma);
+          const page = Math.max(1, args.page || 1);
+          const perPage = Math.min(args.perPage || 50, 200);
+          const offset = (page - 1) * perPage;
+          const result = await migrationService.executeSql(
+            args.instanceName,
+            `SELECT id, email, phone, email_confirmed_at, created_at, last_sign_in_at, role, banned_until FROM auth.users ORDER BY created_at DESC LIMIT ${perPage} OFFSET ${offset};`,
+            userId,
+            false
+          );
+          return { success: true, page, perPage, users: result };
         }
 
         // ===== AUDIT =====

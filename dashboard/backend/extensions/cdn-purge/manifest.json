@@ -1,0 +1,10 @@
+{
+  "id": "cdn-purge",
+  "version": "1.0.0",
+  "install": {
+    "type": "function",
+    "steps": [
+      { "label": "Deploy CDN purge handler", "file": "index.ts", "functionName": "cdn-purge" }
+    ]
+  }
+}

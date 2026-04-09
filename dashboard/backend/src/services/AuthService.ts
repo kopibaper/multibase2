@@ -1,14 +1,12 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger';
 import EmailService from './EmailService';
-
-const prisma = new PrismaClient();
 
 export interface LoginCredentials {
   email: string;
@@ -100,6 +98,32 @@ export class AuthService {
 
       // Send verification email
       await EmailService.sendVerificationEmail(user.email, verificationToken, user.username);
+
+      // Auto-create a personal organisation for the user
+      try {
+        let slug = data.username
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .substring(0, 60);
+
+        const existingOrg = await prisma.organisation.findUnique({ where: { slug } });
+        if (existingOrg) slug = `${slug}-${Date.now().toString(36)}`;
+
+        await prisma.organisation.create({
+          data: {
+            name: `${data.username}'s Organisation`,
+            slug,
+            description: 'Automatically created personal organisation',
+            members: { create: { userId: user.id, role: 'owner' } },
+          },
+        });
+        logger.info(`Auto-created organisation for user: ${user.email}`);
+      } catch (orgError) {
+        logger.error('Failed to create auto-organisation (non-fatal):', orgError);
+      }
 
       logger.info(`User registered: ${user.email}`);
       return user;

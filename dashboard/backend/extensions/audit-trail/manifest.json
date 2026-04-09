@@ -1,0 +1,14 @@
+{
+  "id": "audit-trail",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create audit trail schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

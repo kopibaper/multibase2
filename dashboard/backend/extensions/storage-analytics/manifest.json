@@ -1,0 +1,12 @@
+{
+  "id": "storage-analytics",
+  "version": "1.0.0",
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create analytics tables", "file": "schema.sql" },
+      { "label": "Deploy analytics collector", "file": "index.ts", "functionName": "storage-analytics" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

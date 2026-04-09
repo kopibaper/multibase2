@@ -1,8 +1,3 @@
----
-title: Version 1.2 - Implemented Features
-description: Overview of features released in Version 1.2
----
-
 # Version 1.2 - Feature Overview
 
 **Release:** February 2026  

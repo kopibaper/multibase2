@@ -4,6 +4,8 @@ import { execSync } from 'child_process';
 import MetricsCollector from '../services/MetricsCollector';
 import { RedisCache } from '../services/RedisCache';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 function getHostDiskInfo(): { totalMB: number; usedMB: number } | null {
   try {
@@ -42,7 +44,7 @@ export function createMetricsRoutes(
    * GET /api/metrics/system
    * Get system-wide metrics
    */
-  router.get('/system', async (req: Request, res: Response) => {
+  router.get('/system', requireScope(SCOPES.METRICS.READ), async (req: Request, res: Response) => {
     try {
       const { since, limit } = req.query;
 
@@ -80,7 +82,7 @@ export function createMetricsRoutes(
    * GET /api/metrics/instances/:name
    * Get latest metrics for an instance (from Redis cache)
    */
-  router.get('/instances/:name', async (req: Request, res: Response) => {
+  router.get('/instances/:name', requireScope(SCOPES.METRICS.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const metricsMap = await redisCache.getAllMetrics(name);
@@ -101,7 +103,7 @@ export function createMetricsRoutes(
    * GET /api/metrics/instances/:name/history
    * Get historical metrics for an instance
    */
-  router.get('/instances/:name/history', async (req: Request, res: Response) => {
+  router.get('/instances/:name/history', requireScope(SCOPES.METRICS.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { service, since, limit, hours } = req.query;
@@ -138,6 +140,7 @@ export function createMetricsRoutes(
    */
   router.get(
     '/instances/:name/services/:service',
+    requireScope(SCOPES.METRICS.READ),
     async (req: Request, res: Response): Promise<any> => {
       try {
         const { name, service } = req.params;

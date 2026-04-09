@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { promises as fs } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -7,15 +7,17 @@ import archiver from 'archiver';
 import extract from 'extract-zip';
 import { logger } from '../utils/logger';
 import { parseEnvFile } from '../utils/envParser';
+import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 const execAsync = promisify(exec);
-const prisma = new PrismaClient();
 
 export interface BackupOptions {
   type: 'full' | 'instance' | 'database';
   instanceId?: string;
   name?: string;
   createdBy: string;
+  destinationIds?: string[];
 }
 
 export interface RestoreOptions {
@@ -98,6 +100,17 @@ export class BackupService {
 
       logger.info(`Backup created: ${backupName} (${this.formatBytes(size)})`);
 
+      // Async upload to requested external destinations (fire-and-forget)
+      if (options.destinationIds && options.destinationIds.length > 0) {
+        // Import lazily to avoid circular dependency
+        const { ExternalStorageService } = await import('./ExternalStorageService');
+        for (const destinationId of options.destinationIds) {
+          ExternalStorageService.uploadBackup(backup.path, backup.id, destinationId).catch((err) =>
+            logger.error(`Background upload to destination ${destinationId} failed:`, err)
+          );
+        }
+      }
+
       return backup;
     } catch (error) {
       logger.error('Error creating backup:', error);
@@ -106,8 +119,32 @@ export class BackupService {
   }
 
   /**
-   * Get all backups
+   * Enforce retention policy: delete oldest backups beyond the retention count for a given instanceId+type
    */
+  async enforceRetention(instanceId: string, type: string, retention: number): Promise<void> {
+    try {
+      const backups = await prisma.backup.findMany({
+        where: { instanceId, type },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, path: true, createdAt: true },
+      });
+
+      if (backups.length <= retention) return;
+
+      const toDelete = backups.slice(retention);
+      for (const b of toDelete) {
+        try {
+          await fs.unlink(b.path);
+        } catch {
+          // file may already be gone
+        }
+        await prisma.backup.delete({ where: { id: b.id } });
+        logger.info(`Retention: deleted old backup ${b.id} (${b.createdAt.toISOString()})`);
+      }
+    } catch (error) {
+      logger.error('Error enforcing retention:', error);
+    }
+  }
   async listBackups(type?: string) {
     try {
       const where = type ? { type } : {};
@@ -252,28 +289,172 @@ export class BackupService {
 
   /**
    * Get files for instance backup
-   * For cloud tenants, also dump the project database from the shared cluster
+   * For cloud tenants, also dump the project database from the shared cluster.
+   * For classic instances, dump the dedicated PostgreSQL container + optionally backup S3 storage.
    */
   private async getInstanceBackupFiles(instanceId: string): Promise<string[]> {
     const projectPath = path.join(process.cwd(), '../../projects', instanceId);
     const files = [projectPath];
 
-    // Check if this is a cloud tenant (has PROJECT_DB in .env)
     const envPath = path.join(projectPath, '.env');
     try {
       const envContent = await fs.readFile(envPath, 'utf-8');
+      const envConfig = parseEnvFile(envPath);
+
       if (envContent.includes('PROJECT_DB=')) {
         // Cloud tenant → dump project database from shared cluster
         const dbDumpPath = await this.dumpCloudTenantDb(instanceId);
-        if (dbDumpPath) {
-          files.push(dbDumpPath);
-        }
+        if (dbDumpPath) files.push(dbDumpPath);
+      } else {
+        // Classic instance → dump its own dedicated PostgreSQL container
+        const dbDumpPath = await this.dumpClassicInstanceDb(instanceId, envConfig);
+        if (dbDumpPath) files.push(dbDumpPath);
+      }
+
+      // If storage backend is S3, download bucket contents into a temp folder
+      if (envConfig['STORAGE_BACKEND'] === 's3') {
+        const s3DumpPath = await this.backupS3Storage(instanceId, envConfig);
+        if (s3DumpPath) files.push(s3DumpPath);
       }
     } catch {
-      // Not a cloud tenant or no env file
+      // No env file or read error – proceed with files-only backup
     }
 
     return files;
+  }
+
+  /**
+   * Dump a classic (dedicated Docker-stack) instance's PostgreSQL database via docker exec pg_dump.
+   * Container name convention: <instanceName>-db
+   */
+  async dumpClassicInstanceDb(
+    instanceName: string,
+    envConfig: Record<string, string>
+  ): Promise<string | null> {
+    try {
+      const containerName = `${instanceName}-db`;
+      const password = envConfig['POSTGRES_PASSWORD'];
+      if (!password) {
+        logger.warn(`No POSTGRES_PASSWORD found for classic instance ${instanceName}, skipping pg_dump`);
+        return null;
+      }
+
+      const dumpPath = path.join(this.BACKUP_DIR, `${instanceName}-classic-db-${Date.now()}.sql`);
+
+      const cmd = `docker exec -e PGPASSWORD=${password} ${containerName} pg_dump -U postgres -d postgres --no-owner --no-privileges`;
+      const { stdout } = await execAsync(cmd, { maxBuffer: 200 * 1024 * 1024 });
+
+      await fs.writeFile(dumpPath, stdout, 'utf-8');
+      logger.info(`Classic instance DB dump created: ${dumpPath} (${this.formatBytes(stdout.length)})`);
+      return dumpPath;
+    } catch (error) {
+      logger.error(`Error dumping classic instance DB for ${instanceName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Download all objects from an instance's S3 storage bucket into a temporary directory.
+   * Returns the folder path so it can be included in the ZIP.
+   */
+  async backupS3Storage(
+    instanceName: string,
+    envConfig: Record<string, string>
+  ): Promise<string | null> {
+    try {
+      const bucket = envConfig['GLOBAL_S3_BUCKET'];
+      const accessKeyId = envConfig['AWS_ACCESS_KEY_ID'];
+      const secretAccessKey = envConfig['AWS_SECRET_ACCESS_KEY'];
+      const region = envConfig['AWS_REGION'] || 'us-east-1';
+      const endpoint = envConfig['AWS_S3_ENDPOINT']; // optional custom endpoint (MinIO etc.)
+
+      if (!bucket || !accessKeyId || !secretAccessKey) {
+        logger.warn(`Missing S3 credentials for ${instanceName}, skipping S3 storage backup`);
+        return null;
+      }
+
+      const s3 = new S3Client({
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+        ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+      });
+
+      const dumpDir = path.join(this.BACKUP_DIR, `${instanceName}-s3-storage-${Date.now()}`);
+      await fs.mkdir(dumpDir, { recursive: true });
+
+      let continuationToken: string | undefined;
+      let totalObjects = 0;
+      do {
+        const listCmd = new ListObjectsV2Command({
+          Bucket: bucket,
+          ContinuationToken: continuationToken,
+        });
+        const listResult = await s3.send(listCmd);
+
+        for (const obj of listResult.Contents || []) {
+          if (!obj.Key) continue;
+          const getCmd = new GetObjectCommand({ Bucket: bucket, Key: obj.Key });
+          const getResult = await s3.send(getCmd);
+          const filePath = path.join(dumpDir, obj.Key);
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(
+            filePath,
+            Buffer.from(await getResult.Body!.transformToByteArray())
+          );
+          totalObjects++;
+        }
+        continuationToken = listResult.NextContinuationToken;
+      } while (continuationToken);
+
+      logger.info(`S3 storage backup for ${instanceName}: ${totalObjects} objects → ${dumpDir}`);
+      return dumpDir;
+    } catch (error) {
+      logger.error(`Error backing up S3 storage for ${instanceName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Restore S3 storage from a backup directory to the bucket.
+   */
+  async restoreS3Storage(
+    instanceName: string,
+    s3BackupDir: string,
+    envConfig: Record<string, string>
+  ): Promise<void> {
+    const bucket = envConfig['GLOBAL_S3_BUCKET'];
+    const accessKeyId = envConfig['AWS_ACCESS_KEY_ID'];
+    const secretAccessKey = envConfig['AWS_SECRET_ACCESS_KEY'];
+    const region = envConfig['AWS_REGION'] || 'us-east-1';
+    const endpoint = envConfig['AWS_S3_ENDPOINT'];
+
+    if (!bucket || !accessKeyId || !secretAccessKey) {
+      logger.warn(`Missing S3 credentials for ${instanceName}, skipping S3 storage restore`);
+      return;
+    }
+
+    const s3 = new S3Client({
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+    });
+
+    const uploadDir = async (dir: string, prefix: string) => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const key = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          await uploadDir(fullPath, key);
+        } else {
+          const content = await fs.readFile(fullPath);
+          await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: content }));
+        }
+      }
+    };
+
+    await uploadDir(s3BackupDir, '');
+    logger.info(`S3 storage restored for ${instanceName}`);
   }
 
   /**
@@ -304,6 +485,37 @@ export class BackupService {
     } catch (error) {
       logger.error(`Error dumping cloud tenant DB for ${instanceName}:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Restore a classic instance's database into its dedicated PostgreSQL container.
+   */
+  async restoreClassicInstanceDb(instanceName: string, sqlDumpPath: string): Promise<boolean> {
+    try {
+      const envPath = path.join(process.cwd(), '../../projects', instanceName, '.env');
+      const envConfig = parseEnvFile(envPath);
+      const containerName = `${instanceName}-db`;
+      const password = envConfig['POSTGRES_PASSWORD'];
+
+      if (!password) {
+        logger.warn(`No POSTGRES_PASSWORD found for classic instance ${instanceName}`);
+        return false;
+      }
+
+      // Terminate connections
+      const terminateCmd = `docker exec -e PGPASSWORD=${password} ${containerName} psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='postgres' AND pid<>pg_backend_pid();"`;
+      await execAsync(terminateCmd).catch(() => {}); // non-fatal
+
+      const sqlContent = await fs.readFile(sqlDumpPath, 'utf-8');
+      const restoreCmd = `docker exec -i -e PGPASSWORD=${password} ${containerName} psql -U postgres -d postgres`;
+      await execAsync(restoreCmd, { input: sqlContent } as any);
+
+      logger.info(`Classic instance DB restored for ${instanceName}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error restoring classic instance DB for ${instanceName}:`, error);
+      return false;
     }
   }
 
@@ -391,24 +603,58 @@ export class BackupService {
   }
 
   /**
-   * Restore instance backup (cloud-aware)
+   * Restore instance backup (cloud-aware, with S3 storage restore and container restart)
    */
   private async restoreInstanceBackup(extractPath: string, instanceId: string): Promise<void> {
     const projectsDest = path.join(process.cwd(), '../../projects', instanceId);
     const extractedDirs = await fs.readdir(extractPath);
 
-    // Check for cloud tenant DB dump (.sql file)
+    // Check for any .sql file (cloud or classic DB dump)
     const sqlDump = extractedDirs.find((f) => f.endsWith('.sql'));
     if (sqlDump) {
       const sqlPath = path.join(extractPath, sqlDump);
-      await this.restoreCloudTenantDb(instanceId, sqlPath);
+      if (sqlDump.includes('-classic-db-')) {
+        // Classic instance: restore into dedicated DB container
+        await this.restoreClassicInstanceDb(instanceId, sqlPath);
+      } else {
+        // Cloud tenant: restore into shared cluster
+        await this.restoreCloudTenantDb(instanceId, sqlPath);
+      }
     }
 
-    // Restore project files
-    const projectDir = extractedDirs.find((f) => !f.endsWith('.sql'));
+    // Find S3 storage backup directory if present
+    const s3BackupDir = extractedDirs.find((f) => f.includes('-s3-storage-') || f === 's3-storage');
+    const projectDir = extractedDirs.find(
+      (f) => !f.endsWith('.sql') && f !== s3BackupDir
+    );
+
     if (projectDir) {
       const src = path.join(extractPath, projectDir);
       await this.copyRecursive(src, projectsDest);
+    }
+
+    // Restore S3 storage if backup exists
+    if (s3BackupDir) {
+      const envPath = path.join(projectsDest, '.env');
+      try {
+        const envConfig = parseEnvFile(envPath);
+        await this.restoreS3Storage(instanceId, path.join(extractPath, s3BackupDir), envConfig);
+      } catch (err) {
+        logger.warn(`Could not restore S3 storage for ${instanceId}: ${err}`);
+      }
+    }
+
+    // Restart instance containers so they pick up the restored data
+    const composeFile = path.join(projectsDest, 'docker-compose.yml');
+    try {
+      if (await fs.stat(composeFile).catch(() => null)) {
+        logger.info(`Restarting containers for ${instanceId} after restore...`);
+        await execAsync('docker compose stop', { cwd: projectsDest });
+        await execAsync('docker compose up -d', { cwd: projectsDest });
+        logger.info(`Containers restarted for ${instanceId}`);
+      }
+    } catch (err) {
+      logger.warn(`Could not restart containers for ${instanceId} after restore (non-fatal): ${err}`);
     }
   }
 

@@ -1,0 +1,1 @@
+-- No database objects to roll back for resend-transactional (function only)

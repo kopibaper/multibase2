@@ -1,19 +1,40 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { functionsApi } from '../lib/api';
-import { Cloud, Plus, Save, Trash2, RefreshCw, Loader2, Code as CodeIcon, Play } from 'lucide-react';
+import {
+  Cloud, Plus, Save, Trash2, RefreshCw, Loader2, Code as CodeIcon,
+  Play, FlaskConical, KeyRound, X, Check,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import CreateFunctionModal from './CreateFunctionModal';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 interface FunctionsTabProps {
   instanceName: string;
 }
 
 export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
+  const queryClient = useQueryClient();
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+
+  // Env vars state
+  const [showEnv, setShowEnv] = useState(false);
+  const [envEdits, setEnvEdits] = useState<Record<string, string>>({});
+  const [newEnvKey, setNewEnvKey] = useState('');
+  const [newEnvVal, setNewEnvVal] = useState('');
+
+  // Test runner state
+  const [showTestRunner, setShowTestRunner] = useState(false);
+  const [invokeMethod, setInvokeMethod] = useState('POST');
+  const [invokeHeaders, setInvokeHeaders] = useState('{}');
+  const [invokeBody, setInvokeBody] = useState('{}');
+  const [invokeResponse, setInvokeResponse] = useState<{ status: number; body: string } | null>(null);
+  const [isInvoking, setIsInvoking] = useState(false);
 
   // Fetch functions list
   const {
@@ -32,6 +53,18 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
     enabled: !!selectedFunction,
   });
 
+  // Fetch env vars
+  const { data: envData, isLoading: isLoadingEnv } = useQuery({
+    queryKey: ['function-env', instanceName, selectedFunction],
+    queryFn: () => functionsApi.getEnv(instanceName, selectedFunction!),
+    enabled: !!selectedFunction && showEnv,
+  });
+
+  // Sync envEdits when data loads
+  useEffect(() => {
+    if (envData) setEnvEdits({ ...envData.env });
+  }, [envData]);
+
   // Fetch logs
   const {
     data: logsData,
@@ -42,7 +75,7 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
     queryKey: ['function-logs', instanceName, selectedFunction],
     queryFn: () => functionsApi.getLogs(instanceName, selectedFunction!),
     enabled: !!selectedFunction,
-    refetchInterval: 5000, // Auto-refresh every 5s
+    refetchInterval: 5000,
   });
 
   // Update code state when data loads
@@ -53,6 +86,8 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
     }
   }, [functionData]);
 
+  // Ctrl+S to save
+  const saveRef = useRef<(() => void) | null>(null);
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedFunction) return;
@@ -64,6 +99,29 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
     },
     onError: (error: any) => {
       toast.error('Failed to save function', { description: error.message });
+    },
+  });
+  saveRef.current = () => { if (isDirty) saveMutation.mutate(); };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveRef.current?.();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const saveEnvMutation = useMutation({
+    mutationFn: () => functionsApi.saveEnv(instanceName, selectedFunction!, envEdits),
+    onSuccess: () => {
+      toast.success('Environment variables saved');
+      queryClient.invalidateQueries({ queryKey: ['function-env', instanceName, selectedFunction] });
+    },
+    onError: (error: any) => {
+      toast.error('Failed to save env vars', { description: error.message });
     },
   });
 
@@ -94,6 +152,25 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
       toast.error('Failed to deploy function', { description: error.message });
     },
   });
+
+  const handleInvoke = useCallback(async () => {
+    if (!selectedFunction) return;
+    setIsInvoking(true);
+    try {
+      let headers: Record<string, string> = {};
+      try { headers = JSON.parse(invokeHeaders); } catch { headers = {}; }
+      const result = await functionsApi.invoke(instanceName, selectedFunction, {
+        method: invokeMethod,
+        headers,
+        body: invokeMethod !== 'GET' ? invokeBody : undefined,
+      });
+      setInvokeResponse({ status: result.status, body: typeof result.body === 'string' ? result.body : JSON.stringify(result.body, null, 2) });
+    } catch (err: any) {
+      toast.error('Invoke failed', { description: err.message });
+    } finally {
+      setIsInvoking(false);
+    }
+  }, [selectedFunction, instanceName, invokeMethod, invokeHeaders, invokeBody]);
 
   const handleCreateSuccess = () => {
     refetchFunctions();
@@ -140,6 +217,9 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
                     if (!confirm('You have unsaved changes. Discard them?')) return;
                   }
                   setSelectedFunction(func);
+                  setShowEnv(false);
+                  setShowTestRunner(false);
+                  setInvokeResponse(null);
                 }}
                 className={`w-full flex items-center justify-between px-3 py-3 rounded-md text-sm transition-colors cursor-pointer border ${
                   selectedFunction === func
@@ -157,22 +237,40 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
         </div>
       </div>
 
-      {/* Main Content: Editor */}
-      <div className='flex-1 glass-card flex flex-col'>
+      {/* Main Content: Editor + panels */}
+      <div className='flex-1 glass-card flex flex-col overflow-hidden'>
         {selectedFunction ? (
           <div className='flex flex-col h-full'>
-            <div className='p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between bg-card text-card-foreground'>
+            {/* Toolbar */}
+            <div className='p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between bg-card text-card-foreground shrink-0'>
               <div className='min-w-0'>
                 <h3 className='font-mono font-semibold flex items-center gap-2 truncate text-sm sm:text-base'>
                   {selectedFunction}
                 </h3>
                 <span className='text-xs text-muted-foreground flex items-center gap-1'>
                   {isDirty && <span className='w-2 h-2 rounded-full bg-yellow-500 block'></span>}
-                  {isDirty ? 'Unsaved' : 'Saved'}
+                  {isDirty ? 'Unsaved (Ctrl+S)' : 'Saved'}
                 </span>
               </div>
 
               <div className='flex items-center gap-1 sm:gap-2'>
+                <button
+                  onClick={() => setShowEnv((v) => !v)}
+                  className={`p-1.5 sm:px-3 sm:py-1.5 rounded-md transition-colors text-sm flex items-center gap-1 ${showEnv ? 'bg-secondary' : 'hover:bg-secondary/50'}`}
+                  title='Environment Variables'
+                >
+                  <KeyRound className='w-4 h-4' />
+                  <span className='hidden sm:inline'>Env</span>
+                </button>
+                <button
+                  onClick={() => setShowTestRunner((v) => !v)}
+                  className={`p-1.5 sm:px-3 sm:py-1.5 rounded-md transition-colors text-sm flex items-center gap-1 ${showTestRunner ? 'bg-secondary' : 'hover:bg-secondary/50'}`}
+                  title='Test Runner'
+                >
+                  <FlaskConical className='w-4 h-4' />
+                  <span className='hidden sm:inline'>Test</span>
+                </button>
+                <div className='h-6 w-px bg-border'></div>
                 <button
                   onClick={() => deleteMutation.mutate(selectedFunction)}
                   className='p-1.5 sm:px-3 sm:py-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors text-sm'
@@ -180,7 +278,6 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
                 >
                   <Trash2 className='w-4 h-4' />
                 </button>
-                <div className='h-6 w-px bg-border hidden sm:block'></div>
                 <button
                   onClick={() => deployMutation.mutate()}
                   disabled={deployMutation.isPending || isDirty}
@@ -194,7 +291,7 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending || !isDirty}
                   className='flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm disabled:opacity-50'
-                  title='Save'
+                  title='Save (Ctrl+S)'
                 >
                   {saveMutation.isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
                   <span className='hidden sm:inline'>Save</span>
@@ -202,26 +299,146 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
               </div>
             </div>
 
-            <div className='flex-1 relative min-h-[480px]'>
+            {/* Env Vars Panel */}
+            {showEnv && (
+              <div className='border-b border-border bg-secondary/10 p-4 shrink-0'>
+                <div className='flex items-center justify-between mb-3'>
+                  <h4 className='text-sm font-semibold flex items-center gap-2'>
+                    <KeyRound className='w-4 h-4 text-primary' />
+                    Environment Variables
+                  </h4>
+                  <button
+                    onClick={() => saveEnvMutation.mutate()}
+                    disabled={saveEnvMutation.isPending}
+                    className='flex items-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded-md text-xs hover:bg-primary/90 disabled:opacity-50'
+                  >
+                    {saveEnvMutation.isPending ? <Loader2 className='w-3 h-3 animate-spin' /> : <Check className='w-3 h-3' />}
+                    Save Env
+                  </button>
+                </div>
+                {isLoadingEnv ? (
+                  <div className='flex justify-center p-2'><Loader2 className='w-4 h-4 animate-spin text-muted-foreground' /></div>
+                ) : (
+                  <div className='space-y-2 max-h-48 overflow-y-auto'>
+                    {Object.entries(envEdits).map(([key, val]) => (
+                      <div key={key} className='flex items-center gap-2'>
+                        <input value={key} readOnly className='flex-1 px-2 py-1 text-xs font-mono bg-secondary border border-border rounded-md opacity-60' />
+                        <input
+                          value={val}
+                          onChange={(e) => setEnvEdits((prev) => ({ ...prev, [key]: e.target.value }))}
+                          className='flex-1 px-2 py-1 text-xs font-mono bg-card border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary'
+                        />
+                        <button
+                          onClick={() => setEnvEdits((prev) => { const c = { ...prev }; delete c[key]; return c; })}
+                          className='p-1 text-destructive hover:bg-destructive/10 rounded'
+                        >
+                          <X className='w-3 h-3' />
+                        </button>
+                      </div>
+                    ))}
+                    <div className='flex items-center gap-2 pt-1 border-t border-border'>
+                      <input
+                        value={newEnvKey}
+                        onChange={(e) => setNewEnvKey(e.target.value.toUpperCase())}
+                        placeholder='KEY'
+                        className='flex-1 px-2 py-1 text-xs font-mono bg-card border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary'
+                      />
+                      <input
+                        value={newEnvVal}
+                        onChange={(e) => setNewEnvVal(e.target.value)}
+                        placeholder='value'
+                        className='flex-1 px-2 py-1 text-xs font-mono bg-card border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary'
+                      />
+                      <button
+                        onClick={() => {
+                          if (!newEnvKey.trim()) return;
+                          setEnvEdits((prev) => ({ ...prev, [newEnvKey.trim()]: newEnvVal }));
+                          setNewEnvKey('');
+                          setNewEnvVal('');
+                        }}
+                        className='p-1 text-primary hover:bg-primary/10 rounded'
+                      >
+                        <Plus className='w-4 h-4' />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Test Runner Panel */}
+            {showTestRunner && (
+              <div className='border-b border-border bg-secondary/10 p-4 shrink-0'>
+                <h4 className='text-sm font-semibold flex items-center gap-2 mb-3'>
+                  <FlaskConical className='w-4 h-4 text-primary' />
+                  Test Runner
+                </h4>
+                <div className='flex flex-col sm:flex-row gap-2 mb-2'>
+                  <select
+                    value={invokeMethod}
+                    onChange={(e) => setInvokeMethod(e.target.value)}
+                    className='px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none'
+                  >
+                    {['POST', 'GET', 'PUT', 'PATCH', 'DELETE'].map((m) => (
+                      <option key={m}>{m}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={invokeHeaders}
+                    onChange={(e) => setInvokeHeaders(e.target.value)}
+                    placeholder='Headers JSON: {"Authorization":"Bearer ..."}'
+                    className='flex-1 px-2 py-1 text-xs font-mono bg-card border border-border rounded-md focus:outline-none'
+                  />
+                  <button
+                    onClick={handleInvoke}
+                    disabled={isInvoking}
+                    className='flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-md text-xs hover:bg-green-700 disabled:opacity-50'
+                  >
+                    {isInvoking ? <Loader2 className='w-3 h-3 animate-spin' /> : <Play className='w-3 h-3' />}
+                    Invoke
+                  </button>
+                </div>
+                {invokeMethod !== 'GET' && (
+                  <textarea
+                    value={invokeBody}
+                    onChange={(e) => setInvokeBody(e.target.value)}
+                    placeholder='Request body (JSON)'
+                    className='w-full px-2 py-1 text-xs font-mono bg-card border border-border rounded-md focus:outline-none resize-none h-20 mb-2'
+                  />
+                )}
+                {invokeResponse && (
+                  <div className='bg-black text-white rounded-md p-2 text-xs font-mono'>
+                    <span className={`font-bold mr-2 ${invokeResponse.status < 300 ? 'text-green-400' : invokeResponse.status < 500 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {invokeResponse.status}
+                    </span>
+                    <pre className='mt-1 whitespace-pre-wrap break-all overflow-auto max-h-40'>{invokeResponse.body}</pre>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Editor area */}
+            <div className='flex-1 overflow-hidden relative min-h-[300px]'>
               {isLoadingCode ? (
                 <div className='absolute inset-0 flex items-center justify-center'>
                   <Loader2 className='w-8 h-8 animate-spin text-primary' />
                 </div>
               ) : (
                 <div className='h-full flex flex-col'>
-                  <textarea
-                    value={code}
-                    onChange={(e) => {
-                      setCode(e.target.value);
-                      setIsDirty(true);
-                    }}
-                    className='w-full flex-1 p-3 sm:p-4 font-mono text-xs sm:text-sm bg-secondary/10 resize-none focus:outline-none min-h-[480px]'
-                    spellCheck={false}
-                  />
+                  <div className='flex-1 overflow-hidden' style={{ minHeight: '300px' }}>
+                    <CodeMirror
+                      value={code}
+                      height='100%'
+                      extensions={[javascript({ typescript: true })]}
+                      theme={oneDark}
+                      onChange={(val) => { setCode(val); setIsDirty(true); }}
+                      style={{ height: '100%', fontSize: '13px' }}
+                    />
+                  </div>
 
                   {/* Logs Panel */}
-                  <div className='min-h-[480px] border-t border-border bg-black text-white p-2 flex flex-col'>
-                    <div className='flex items-center justify-between mb-2 px-2'>
+                  <div className='h-48 border-t border-border bg-black text-white flex flex-col shrink-0'>
+                    <div className='flex items-center justify-between px-3 py-1.5 border-b border-white/10'>
                       <h4 className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>Logs</h4>
                       <button
                         onClick={() => refetchLogs()}
@@ -232,7 +449,7 @@ export default function FunctionsTab({ instanceName }: FunctionsTabProps) {
                         <RefreshCw className={`w-3 h-3 ${isRefetchingLogs ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
-                    <div className='flex-1 overflow-y-auto font-mono text-xs px-2 pb-2'>
+                    <div className='flex-1 overflow-y-auto font-mono text-xs px-3 py-2'>
                       {isLoadingLogs ? (
                         <div className='text-muted-foreground'>Loading logs...</div>
                       ) : logsData?.logs && logsData.logs.length > 0 ? (

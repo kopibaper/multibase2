@@ -1,0 +1,15 @@
+{
+  "id": "ai-moderation",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create moderation log table", "file": "schema.sql" },
+      { "label": "Deploy moderation handler", "file": "index.ts", "functionName": "moderate-content" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Settings, Save, Loader2, Info, AlertTriangle, Cpu, HardDrive, Plus, Trash2 } from 'lucide-react';
+import { Settings, Save, Loader2, Info, AlertTriangle, Cpu, HardDrive, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import ResourceLimitsForm from './ResourceLimitsForm';
 import { ResourceLimits, RESOURCE_PRESETS } from '../types';
@@ -13,6 +13,7 @@ interface EnvironmentTabProps {
 export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<'env' | 'resources'>('env');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Fetch current environment variables
   const { data: envVars, isLoading: isLoadingEnv } = useQuery({
@@ -153,6 +154,30 @@ export default function EnvironmentTab({ instance }: EnvironmentTabProps) {
             </div>
           ) : (
             <>
+              {/* Studio AI Key (OPENAI_API_KEY for Supabase Studio assistant) */}
+              <div className='mb-6 p-3 sm:p-4 bg-secondary/30 rounded-lg border border-border'>
+                <h4 className='text-sm font-medium mb-3 flex items-center gap-2'>
+                  Studio AI
+                  <span className='font-mono text-xs text-muted-foreground'>OPENAI_API_KEY</span>
+                </h4>
+                <div className='relative'>
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={editedEnv['OPENAI_API_KEY'] ?? ''}
+                    onChange={(e) => handleEnvChange('OPENAI_API_KEY', e.target.value)}
+                    placeholder='sk-… (optional — enables AI assistant in Studio Dashboard)'
+                    className='w-full px-3 py-2 pr-10 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-sm'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className='absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors'
+                  >
+                    {showApiKey ? <EyeOff className='w-4 h-4' /> : <Eye className='w-4 h-4' />}
+                  </button>
+                </div>
+              </div>
+
               {/* Add New Variable */}
               <div className='mb-6 p-3 sm:p-4 bg-secondary/30 rounded-lg border border-border'>
                 <h4 className='text-sm font-medium mb-3'>Add New Variable</h4>

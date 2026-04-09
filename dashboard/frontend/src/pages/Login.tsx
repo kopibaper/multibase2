@@ -33,7 +33,7 @@ export default function Login() {
         if (redirectUrl) {
           window.location.href = redirectUrl;
         } else {
-          navigate('/dashboard');
+          navigate('/Workspace'); // Default post-login page
         }
       } else {
         await login(email, password);
@@ -43,7 +43,7 @@ export default function Login() {
           if (redirectUrl) {
             window.location.href = redirectUrl;
           } else {
-            // Navigation happens in useEffect or next render if successful
+            navigate('/workspace');
           }
         }
       }

@@ -1,0 +1,33 @@
+{
+  "id": "social-login-bundle",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "config",
+    "steps": [
+      {
+        "label": "Configure Google OAuth",
+        "envVars": {
+          "GOOGLE_CLIENT_ID": "{{googleClientId}}",
+          "GOOGLE_CLIENT_SECRET": "{{googleClientSecret}}"
+        }
+      },
+      {
+        "label": "Configure GitHub OAuth",
+        "envVars": {
+          "GITHUB_CLIENT_ID": "{{githubClientId}}",
+          "GITHUB_CLIENT_SECRET": "{{githubClientSecret}}"
+        }
+      },
+      {
+        "label": "Configure Discord OAuth",
+        "envVars": {
+          "DISCORD_CLIENT_ID": "{{discordClientId}}",
+          "DISCORD_CLIENT_SECRET": "{{discordClientSecret}}"
+        }
+      }
+    ]
+  }
+}

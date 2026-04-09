@@ -1,7 +1,7 @@
 # Multibase v1.4 — Multi-Tenancy & Organisations
 
-**Status:** 📋 Planned  
-**Target Release:** Q2 2026  
+**Status:** ✅ Released  
+**Release:** March 2026  
 **Use Case:** Web agencies providing managed Supabase backends to their clients
 
 ---

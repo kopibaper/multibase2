@@ -1,0 +1,21 @@
+{
+  "id": "enterprise-sso",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "config",
+    "steps": [
+      {
+        "label": "Configure SAML SSO provider",
+        "envVars": {
+          "SAML_ENTITY_ID": "{{samlEntityId}}",
+          "SAML_SSO_URL": "{{samlSsoUrl}}",
+          "SAML_CERTIFICATE": "{{samlCertificate}}",
+          "SAML_PROVIDER": "{{samlProvider}}"
+        }
+      }
+    ]
+  }
+}

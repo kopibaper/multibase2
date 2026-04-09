@@ -16,12 +16,16 @@ set -euo pipefail
 INSTALL_DIR="/opt/multibase"
 INSTALL_USER="multibase"
 REPO_URL="https://github.com/skipper159/multibase2.git"
-REPO_BRANCH="${REPO_BRANCH:-cloud-version}"
+REPO_BRANCH="${REPO_BRANCH:-Feature_Roadmap}"
+case "${REPO_BRANCH}" in
+  "Feature_Roadmap") SCRIPT_VERSION="3.0.0" ;;
+  "cloud-version")   SCRIPT_VERSION="2.0.0" ;;
+  *)                 SCRIPT_VERSION="1.0.0" ;;
+esac
 LOG_FILE="/var/log/multibase-install.log"
 NODE_MAJOR=20
 REDIS_CONTAINER="multibase-redis"
 PM2_APP_NAME="multibase-backend"
-SCRIPT_VERSION="2.0.0"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -335,13 +339,24 @@ wizard_admin() {
     prompt ADMIN_EMAIL "Email" "${ADMIN_EMAIL:-}"
     [ -z "$ADMIN_EMAIL" ] && error_exit "Admin email is required"
 
-    if [ "$ADMIN_PASS" = "__existing__" ]; then
+    if [ -n "${ADMIN_PASS:-}" ] && [ "${ADMIN_PASS:-}" != "__existing__" ]; then
         echo -e "  ${DIM}Password: keeping existing (leave blank to auto-generate new one)${NC}"
         local _newpass=""
         echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
         tty_read -s _newpass ""
         echo ""
-        [ -n "$_newpass" ] && ADMIN_PASS="$_newpass" || ADMIN_PASS=""
+        if [ -n "$_newpass" ]; then
+            ADMIN_PASS="$_newpass"
+        fi
+    elif [ "${ADMIN_PASS:-}" = "__existing__" ]; then
+        echo -e "  ${DIM}Password: keeping existing database password (leave blank to auto-generate new one)${NC}"
+        local _newpass=""
+        echo -ne "  New password ${DIM}(Enter to keep existing)${NC}: "
+        tty_read -s _newpass ""
+        echo ""
+        if [ -n "$_newpass" ]; then
+            ADMIN_PASS="$_newpass"
+        fi
     else
         prompt_password ADMIN_PASS "Password"
     fi
@@ -514,13 +529,19 @@ load_existing_config() {
     prev_ssl_type=$(_get SSL_TYPE)
     prev_backend_url=$(_get BACKEND_URL)
     prev_frontend_url=$(_get CORS_ORIGIN)
+    prev_admin_pass=$(_get DEFAULT_ADMIN_PASSWORD)
     [ -n "$prev_frontend" ]     && FRONTEND_DOMAIN="$prev_frontend"
     [ -n "$prev_backend" ]      && BACKEND_DOMAIN="$prev_backend"
     [ -n "$prev_ssl_email" ]    && SSL_EMAIL="$prev_ssl_email"
     [ -n "$prev_ssl_type" ]     && SSL_TYPE="$prev_ssl_type"
     [ -n "$prev_backend_url" ]  && BACKEND_URL="$prev_backend_url"
     [ -n "$prev_frontend_url" ] && FRONTEND_URL="$prev_frontend_url"
-    ADMIN_PASS="__existing__"
+    
+    if [ -n "$prev_admin_pass" ]; then
+        ADMIN_PASS="$prev_admin_pass"
+    else
+        ADMIN_PASS="__existing__"
+    fi
 
     # Ask user what to do
     echo ""
@@ -623,6 +644,23 @@ install_dependencies() {
         else
             apt-get install -y -qq docker-compose-plugin >> "$LOG_FILE" 2>&1
             step_new "Docker Compose (installed)"
+        fi
+
+        # Docker log rotation (prevent unbounded log growth)
+        if [ ! -f /etc/docker/daemon.json ] || ! grep -q "max-size" /etc/docker/daemon.json 2>/dev/null; then
+            cat > /etc/docker/daemon.json << 'DAEMON_EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "20"
+  }
+}
+DAEMON_EOF
+            systemctl reload docker >> "$LOG_FILE" 2>&1 || true
+            step_new "Docker log rotation configured (50m × 20 = 1GB max per container)"
+        else
+            step_ok "Docker log rotation (already configured)"
         fi
 
         # Python 3
@@ -739,7 +777,8 @@ clone_repo() {
         rm -rf "$tmp_dir"
 
         chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR"
-        chmod 700 "$INSTALL_DIR"
+        chmod 755 "$INSTALL_DIR"
+        usermod -aG "$INSTALL_USER" www-data 2>/dev/null || true
         step_ok "Repository cloned to $INSTALL_DIR"
     fi
 }
@@ -804,9 +843,9 @@ build_backend() {
 
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
-
-    # Remove devDependencies after build to save disk space
-    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
+    # Note: npm prune --omit=dev is intentionally done in run_db_migrations()
+    # AFTER migrations run, because prisma CLI is a devDependency and is needed
+    # for 'npx prisma migrate deploy'.
 
     # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
@@ -835,6 +874,11 @@ run_db_migrations() {
         exit 1
     fi
     step_ok "Database migrations applied"
+
+    # Prune devDependencies now that prisma CLI is no longer needed
+    cd "$INSTALL_DIR/dashboard/backend"
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
+    step_ok "Backend devDependencies removed"
 }
 
 # =============================================================================
@@ -855,6 +899,9 @@ build_frontend() {
 
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
+
+    # Remove node_modules after build to save disk space
+    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
 }
 
 # =============================================================================
@@ -864,10 +911,31 @@ build_frontend() {
 generate_configs() {
     step "Generating configuration files..."
 
+    # Preserve SESSION_SECRET and REDIS_PASSWORD on re-run to avoid
+    # invalidating all user sessions and restarting Redis unnecessarily.
+    local existing_session_secret=""
+    local existing_redis_password=""
+    if [ -f "$INSTALL_DIR/dashboard/backend/.env" ]; then
+        existing_session_secret=$(grep -m1 '^SESSION_SECRET=' "$INSTALL_DIR/dashboard/backend/.env" | cut -d= -f2- | tr -d '"' || true)
+        existing_redis_password=$(grep -m1 '^REDIS_URL=' "$INSTALL_DIR/dashboard/backend/.env" | sed -n 's|.*://:\([^@]*\)@.*|\1|p' || true)
+    fi
+
     local session_secret
-    session_secret=$(generate_secret)
+    session_secret=${existing_session_secret:-$(generate_secret)}
     local redis_password
-    redis_password=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)
+    redis_password=${existing_redis_password:-$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)}
+
+    # Preserve existing admin password when re-running (ADMIN_PASS="__existing__")
+    local effective_admin_pass="${ADMIN_PASS}"
+    if [ "$ADMIN_PASS" = "__existing__" ] || [ -z "$ADMIN_PASS" ]; then
+        local prev_pass
+        prev_pass=$(grep -m1 '^DEFAULT_ADMIN_PASSWORD=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || true)
+        if [ -n "$prev_pass" ] && [ "$prev_pass" != "__existing__" ]; then
+            effective_admin_pass="$prev_pass"
+        else
+            effective_admin_pass=""
+        fi
+    fi
 
     # ROOT_DOMAIN: 2nd-level base domain for instance subdomains.
     # backend.tyto-design.de  → tyto-design.de
@@ -934,7 +1002,7 @@ SESSION_SECRET=${session_secret}
 # Initial admin credentials (used by backend on first start if no admin exists)
 DEFAULT_ADMIN_USERNAME=${ADMIN_USER}
 DEFAULT_ADMIN_EMAIL=${ADMIN_EMAIL}
-DEFAULT_ADMIN_PASSWORD=${ADMIN_PASS}
+DEFAULT_ADMIN_PASSWORD=${effective_admin_pass}
 
 # Installer metadata (used for re-run detection)
 INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
@@ -959,6 +1027,18 @@ EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/frontend/.env"
         chmod 600 "$INSTALL_DIR/dashboard/frontend/.env"
         step_ok "Frontend .env created (VITE_API_URL=${BACKEND_URL})"
+
+        # .env.production has higher Vite priority than .env — overwrite it too
+        # to prevent a stale repo value from overriding the installer-generated URL.
+        cat > "$INSTALL_DIR/dashboard/frontend/.env.production" <<EOF
+# Generated by installer v${SCRIPT_VERSION} on $(date)
+VITE_PORT=5173
+VITE_API_URL=${BACKEND_URL}
+VITE_ROOT_DOMAIN=${root_domain}
+EOF
+        chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/frontend/.env.production"
+        chmod 600 "$INSTALL_DIR/dashboard/frontend/.env.production"
+        step_ok "Frontend .env.production updated (VITE_API_URL=${BACKEND_URL})"
     fi
 
     # PM2 ecosystem (only for single + split-backend)
@@ -1177,11 +1257,11 @@ server {
     root ${INSTALL_DIR}/dashboard/frontend/dist;
 
     # Security headers
-    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;
-    add_header X-Frame-Options \"SAMEORIGIN\" always;
-    add_header X-Content-Type-Options \"nosniff\" always;
-    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
-    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     # HTTPS redirect
     if (\$scheme != "https") {
@@ -1253,7 +1333,7 @@ server {
 
     # API proxy
     location / {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -1390,8 +1470,19 @@ setup_ssl() {
         done
 
         for base in "${base_domains[@]}"; do
-            if [ -d "/etc/letsencrypt/live/${base}" ] || [ -d "/etc/letsencrypt/live/*.${base}" ]; then
-                step_ok "Wildcard SSL certificate for *.${base} already exists"
+            if [ -d "/etc/letsencrypt/live/${base}" ]; then
+                # Cert exists but nginx config was just re-written (HTTP-only) — re-apply SSL
+                for domain in "${domains[@]}"; do
+                    local d_base
+                    d_base=$(echo "$domain" | awk -F. 'NF>=2{print $(NF-1)"."$NF}')
+                    if [ "$d_base" = "$base" ]; then
+                        certbot install --nginx \
+                            -d "$domain" \
+                            --cert-name "${base}" \
+                            --non-interactive >> "$LOG_FILE" 2>&1 || true
+                    fi
+                done
+                step_ok "Wildcard SSL certificate for *.${base} re-applied to nginx"
             else
                 echo ""
                 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -1444,7 +1535,12 @@ setup_ssl() {
     else
         for domain in "${domains[@]}"; do
             if [ -d "/etc/letsencrypt/live/$domain" ]; then
-                step_ok "SSL certificate for $domain already exists"
+                # Cert exists but nginx config was just re-written (HTTP-only) — re-apply SSL
+                certbot install --nginx \
+                    -d "$domain" \
+                    --cert-name "$domain" \
+                    --non-interactive >> "$LOG_FILE" 2>&1
+                step_ok "SSL certificate for $domain re-applied to nginx"
             else
                 certbot --nginx \
                     -d "$domain" \
@@ -1521,7 +1617,7 @@ create_admin() {
     fi
 
     # No admin or only the hardcoded default exists — create/update with wizard credentials
-    if [ -z "$ADMIN_PASS" ]; then
+    if [ -z "$ADMIN_PASS" ] || [ "$ADMIN_PASS" = "__existing__" ]; then
         step_skip "Admin account (no password provided — keeping existing credentials)"
         return
     fi
@@ -1752,7 +1848,6 @@ run_update() {
     sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
     step "Running database migrations..."
@@ -1762,12 +1857,29 @@ run_update() {
         tail -20 "$LOG_FILE" >&2
         exit 1
     fi
+    # Prune devDependencies now that prisma CLI is no longer needed
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
     cd "$INSTALL_DIR/dashboard/frontend"
+    # Update VITE_API_URL in .env.production from existing backend config
+    # (git pull may have overwritten .env.production with the repo placeholder)
+    local _backend_url _root_domain
+    _backend_url=$(grep -m1 '^BACKEND_URL=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || true)
+    _root_domain=$(grep -m1 '^ROOT_DOMAIN=' "$INSTALL_DIR/dashboard/backend/.env" 2>/dev/null | cut -d= -f2- || true)
+    if [ -n "$_backend_url" ]; then
+        cat > "$INSTALL_DIR/dashboard/frontend/.env.production" <<ENVEOF
+# Generated by installer --update on $(date)
+VITE_PORT=5173
+VITE_API_URL=${_backend_url}
+VITE_ROOT_DOMAIN=${_root_domain}
+ENVEOF
+        step_ok "Frontend .env.production updated (VITE_API_URL=${_backend_url})"
+    fi
     sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
 
     step "Restarting services..."
@@ -1955,10 +2067,10 @@ main() {
     setup_sudoers
     clone_repo
     setup_python
+    generate_configs
     build_backend
     setup_shared_infra
     build_frontend
-    generate_configs
     run_db_migrations
     start_redis
     configure_nginx

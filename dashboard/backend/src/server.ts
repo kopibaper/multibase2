@@ -1,12 +1,30 @@
 import express from 'express';
 import { createServer } from 'http';
+import { execSync } from 'child_process';
+import { version as pkgVersion } from '../package.json';
+
+function getVersion(): string {
+  try {
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+    const map: Record<string, string> = {
+      Feature_Roadmap: '3.0.0',
+      'cloud-version': '2.0.0',
+      main: '1.0.0',
+    };
+    return map[branch] ?? pkgVersion;
+  } catch {
+    return pkgVersion;
+  }
+}
+
+const version = getVersion();
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import prisma from './lib/prisma';
 
 // Services
 import DockerManager from './services/DockerManager';
@@ -26,6 +44,7 @@ import { createAlertRoutes } from './routes/alerts';
 import { createAuthRoutes } from './routes/auth';
 import { createInstanceAuthRoutes } from './routes/instance-auth';
 import { createBackupRoutes } from './routes/backups';
+import { createBackupDestinationRoutes } from './routes/backupDestinations';
 import { createProxyRoutes } from './routes/proxy';
 import { createAuditRoutes } from './routes/audit';
 import { createApiKeyRoutes } from './routes/apiKeys';
@@ -47,6 +66,31 @@ import { createStudioRoutes } from './routes/studio';
 import { createAiAgentRoutes } from './routes/ai-agent';
 import { AiAgentService } from './services/AiAgentService';
 import { StudioManager } from './services/StudioManager';
+import { createOrgRoutes } from './routes/orgs';
+import { createWebhookRoutes } from './routes/webhooks';
+import { createCronRoutes } from './routes/cron';
+import { createVectorRoutes } from './routes/vectors';
+import { createQueueRoutes } from './routes/queues';
+import { WebhookService } from './services/WebhookService';
+import { CronService } from './services/CronService';
+import { CustomDomainService } from './services/CustomDomainService';
+import { createDomainRoutes } from './routes/domains';
+import { createVaultRoutes } from './routes/vault';
+import { createSecurityRoutes } from './routes/security';
+import { createRealtimeRoutes } from './routes/realtime';
+import { createReplicaRoutes } from './routes/replicas';
+import { createLogDrainRoutes } from './routes/log-drains';
+import { createMcpRoutes } from './routes/mcp';
+import McpService from './services/McpService';
+import { LogDrainService } from './services/LogDrainService';
+import { VectorService } from './services/VectorService';
+import { QueueService } from './services/QueueService';
+import { createMarketplaceRoutes } from './routes/marketplace';
+import { createExtensionRoutes } from './routes/extensions';
+import { ExtensionUpdateChecker } from './services/ExtensionUpdateChecker';
+import { createFeedbackRoutes } from './routes/feedback';
+import { createUpdateRoutes } from './routes/updates';
+import { UpdateService } from './services/UpdateService';
 
 // Utils
 import { logger } from './utils/logger';
@@ -97,6 +141,9 @@ app.use(cookieParser());
 // Static file serving for uploads (avatars)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Static file serving for extension manifests + SQL files
+app.use('/extensions', express.static(path.join(__dirname, '../extensions')));
+
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 
 // ...
@@ -111,7 +158,6 @@ app.use((req, _res, next) => {
 app.use(apiKeyAuth);
 
 // Initialize services
-const prisma = new PrismaClient();
 const dockerManager = new DockerManager(DOCKER_SOCKET_PATH);
 const redisCache = new RedisCache();
 const instanceManager = new InstanceManager(PROJECTS_PATH, dockerManager, prisma, redisCache);
@@ -132,12 +178,23 @@ const uptimeService = new UptimeService(prisma, instanceManager);
 const functionService = new FunctionService(dockerManager, PROJECTS_PATH);
 const storageService = new StorageService(instanceManager);
 const studioManager = new StudioManager(PROJECTS_PATH, dockerManager);
+const webhookService = new WebhookService(instanceManager);
+const cronService = new CronService(instanceManager);
+const customDomainService = new CustomDomainService(prisma, PROJECTS_PATH);
+const vectorService = new VectorService(instanceManager);
+const queueService = new QueueService(instanceManager);
+const logDrainService = new LogDrainService(prisma, dockerManager);
+const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma, functionService, storageService);
+const updateService = new UpdateService(dockerManager, path.resolve(__dirname, '../../..'));
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
 
 // API Routes
-app.use('/api/instances', createInstanceRoutes(instanceManager, dockerManager, prisma));
+app.use(
+  '/api/instances',
+  createInstanceRoutes(instanceManager, dockerManager, prisma, metricsCollector)
+);
 app.use('/api/metrics', createMetricsRoutes(metricsCollector, redisCache));
 app.use('/api/health', createHealthRoutes(healthMonitor, prisma, redisCache, dockerManager));
 app.use('/api/logs', createLogsRoutes(dockerManager));
@@ -145,6 +202,7 @@ app.use('/api/alerts', createAlertRoutes());
 app.use('/api/auth', createAuthRoutes());
 app.use('/api/auth', createInstanceAuthRoutes());
 app.use('/api/backups', createBackupRoutes());
+app.use('/api/backup-destinations', createBackupDestinationRoutes());
 app.use('/api/proxy', createProxyRoutes(instanceManager));
 app.use('/api/audit', createAuditRoutes());
 app.use('/api/keys', createApiKeyRoutes());
@@ -156,10 +214,31 @@ app.use('/api/migrations', createMigrationRoutes());
 app.use('/api/deployments', createDeploymentsRoutes());
 app.use('/api/instances', createEmailTemplateRoutes(instanceManager, prisma));
 app.use('/api/instances', createUptimeRoutes(uptimeService));
-app.use('/api/instances/:name/functions', createFunctionRoutes(functionService));
+app.use('/api/instances/:name/functions', createFunctionRoutes(functionService, instanceManager));
 app.use('/api/instances/:name/storage', createStorageRoutes(storageService));
-app.use('/api/shared', createSharedRoutes(dockerManager, studioManager));
+app.use('/api/orgs', createOrgRoutes());
+app.use('/api/instances/:name/webhooks', createWebhookRoutes(webhookService));
+app.use('/api/instances/:name/domains', createDomainRoutes(customDomainService));
+app.use('/api/instances/:name/vault', createVaultRoutes(instanceManager));
+app.use('/api/instances/:name/security', createSecurityRoutes(instanceManager, PROJECTS_PATH));
+app.use('/api/instances/:name/cron', createCronRoutes(cronService));
+app.use('/api/instances/:name/vectors', createVectorRoutes(vectorService));
+app.use('/api/instances/:name/queues', createQueueRoutes(queueService));
+app.use('/api/instances/:name/realtime', createRealtimeRoutes(instanceManager, dockerManager));
+app.use('/api/instances/:name/replicas', createReplicaRoutes(instanceManager, prisma));
+app.use(
+  '/api/instances/:name/log-drains',
+  createLogDrainRoutes(prisma, instanceManager, logDrainService)
+);
+app.use('/api/mcp', createMcpRoutes(mcpService));
+app.use('/api/shared', createSharedRoutes(dockerManager, studioManager, metricsCollector));
 app.use('/api/studio', createStudioRoutes(studioManager));
+app.use('/api/marketplace', createMarketplaceRoutes(prisma));
+app.use('/api/feedback', createFeedbackRoutes(prisma));
+app.use(
+  '/api/instances/:name/extensions',
+  createExtensionRoutes(prisma, instanceManager, redisCache, functionService)
+);
 
 // AI Agent
 const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager, {
@@ -170,6 +249,7 @@ const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager
   storageService,
 });
 app.use('/api/ai-agent', createAiAgentRoutes(aiAgentService, prisma));
+app.use('/api/updates', createUpdateRoutes(updateService, io));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {
@@ -198,7 +278,7 @@ app.get('/api/ping', async (_req, res) => {
 app.get('/', (_req, res) => {
   res.json({
     name: 'Multibase Dashboard API',
-    version: '1.0.0',
+    version,
     status: 'running',
   });
 });
@@ -305,6 +385,21 @@ async function startServices() {
     // Start backup scheduler
     SchedulerService.start();
 
+    // Start log drain delivery
+    logDrainService.start();
+
+    // Start extension update checker (runs once after 30s, then weekly)
+    const extensionUpdateChecker = new ExtensionUpdateChecker(prisma);
+    extensionUpdateChecker.on('update:available', (evt) => {
+      logger.info(
+        `Extension update available: ${evt.extensionId} ${evt.currentVersion} → ${evt.latestVersion}`
+      );
+      io.emit('extension:update-available', evt);
+    });
+    extensionUpdateChecker.start();
+    // Store reference for graceful shutdown
+    (app as any)._extensionUpdateChecker = extensionUpdateChecker;
+
     logger.info('Background services started successfully');
   } catch (error) {
     logger.error('Error starting services:', error);
@@ -319,6 +414,8 @@ async function shutdown() {
   healthMonitor.stop();
   metricsCollector.stop();
   SchedulerService.stop();
+  logDrainService.stop();
+  (app as any)._extensionUpdateChecker?.stop();
 
   await redisCache.close();
   await prisma.$disconnect();
@@ -358,10 +455,34 @@ process.on('uncaughtException', (error) => {
 });
 
 // Start server
+async function seedMarketplace(): Promise<void> {
+  const { MARKETPLACE_EXTENSIONS } = await import('./data/marketplace-extensions');
+  let created = 0;
+  let updated = 0;
+
+  for (const ext of MARKETPLACE_EXTENSIONS) {
+    const existing = await prisma.extension.findUnique({ where: { id: ext.id as string } });
+    if (existing) {
+      await prisma.extension.update({ where: { id: ext.id as string }, data: ext });
+      updated++;
+    } else {
+      await prisma.extension.create({ data: ext });
+      created++;
+    }
+  }
+
+  if (created > 0 || updated > 0) {
+    logger.info(`Marketplace sync: +${created} new, ${updated} updated (${MARKETPLACE_EXTENSIONS.length} total)`);
+  }
+}
+
 async function start() {
   try {
     // Create initial admin user if needed
     await AuthService.createInitialAdmin();
+
+    // Sync marketplace catalog (adds new extensions, updates existing)
+    await seedMarketplace();
 
     await startServices();
 

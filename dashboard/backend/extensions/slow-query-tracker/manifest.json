@@ -1,0 +1,14 @@
+{
+  "id": "slow-query-tracker",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": ["pg_stat_statements"]
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create slow query tracker schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

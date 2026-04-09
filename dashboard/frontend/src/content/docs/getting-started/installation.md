@@ -7,7 +7,7 @@ Get Multibase running on your server in minutes with our automated installer.
 Copy and run this command on your server:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/cloud-version/deployment/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/feature_roadmap/install.sh | sudo bash
 ```
 
 The interactive wizard will guide you through every step — no manual configuration needed.

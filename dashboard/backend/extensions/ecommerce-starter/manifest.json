@@ -1,0 +1,14 @@
+{
+  "id": "ecommerce-starter",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": ["uuid-ossp"]
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create e-commerce schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

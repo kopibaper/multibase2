@@ -180,8 +180,8 @@ export class DockerManager {
         blkioStats.io_service_bytes_recursive.length > 0
       ) {
         blkioStats.io_service_bytes_recursive.forEach((io) => {
-          if (io.op === 'Read') diskRead += io.value;
-          if (io.op === 'Write') diskWrite += io.value;
+          if (io.op === 'Read' || io.op === 'read') diskRead += io.value;
+          if (io.op === 'Write' || io.op === 'write') diskWrite += io.value;
         });
         logger.debug(`[Disk I/O] cgroups v1 detected: read=${diskRead}, write=${diskWrite}`);
       }

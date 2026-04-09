@@ -14,6 +14,9 @@ export interface SupabaseInstance {
   services: ServiceStatus[];
   health: HealthStatus;
   metrics?: ResourceMetrics;
+  orgId?: string | null;
+  orgName?: string | null;
+  environment?: 'production' | 'staging' | 'dev' | 'preview' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +68,7 @@ export interface ResourceMetrics {
   networkTx: number;
   diskRead: number;
   diskWrite: number;
+  diskUsedMB?: number; // Total used disk space of instance volumes (cached 30 min)
   timestamp: string;
 }
 
@@ -83,37 +87,48 @@ export const RESOURCE_PRESETS: Record<string, ResourceLimits> = {
 
 export interface CreateInstanceRequest {
   name: string;
-  basePort?: number;
   deploymentType: 'localhost' | 'cloud';
   domain?: string;
   protocol?: 'http' | 'https';
   corsOrigins?: string[];
   templateId?: number;
-  services?: string[];
   env?: Record<string, string>;
   resourceLimits?: ResourceLimits;
+  extensions?: string[];
+  initSql?: string;
+  environment?: 'production' | 'staging' | 'dev' | 'preview';
+  /** @deprecated Ports dynamisch via Nginx Gateway */
+  basePort?: number;
+  /** @deprecated Alle 5 Tenant-Services laufen immer */
+  services?: string[];
 }
 
 export interface SystemTemplate {
-  services: {
-    name: string;
-    image?: string;
-    environment?: any;
-    ports?: string[];
-    depends_on?: any;
-  }[];
-  envVars: string[];
-  raw: any;
+  sharedServices: string[];
+  tenantServices: string[];
+  availableExtensions: { id: string; name: string }[];
+  configurableEnvVars: string[];
+  resourcePresets: Record<string, ResourceLimits>;
 }
 
 export interface TemplateConfig {
+  // Deployment
   deploymentType: 'localhost' | 'cloud';
-  basePort?: number;
   domain?: string;
   protocol?: 'http' | 'https';
   corsOrigins?: string[];
-  services?: string[];
+
+  // Shared Infra
   env?: Record<string, string>;
+  resourceLimits?: ResourceLimits;
+  extensions?: string[];
+  initSql?: string;
+  environment?: 'production' | 'staging' | 'dev' | 'preview';
+
+  /** @deprecated Ports dynamisch via Nginx Gateway */
+  basePort?: number;
+  /** @deprecated Alle 5 Tenant-Services laufen immer */
+  services?: string[];
 }
 
 export interface SystemMetrics {
@@ -195,6 +210,18 @@ export interface CreateApiKeyResponse extends ApiKey {
   warning: string;
 }
 
+export interface ScopeGroup {
+  group: string;
+  label: string;
+  scopes: string[];
+}
+
+export interface ScopesApiResponse {
+  groups: ScopeGroup[];
+  all: string[];
+  special: Array<{ scope: string; label: string; description: string }>;
+}
+
 export interface InstanceTemplate {
   id: number;
   name: string;
@@ -220,6 +247,7 @@ export interface SharedInfraStatus {
   ports: SharedPorts;
   totalServices: number;
   runningServices: number;
+  diskUsedMB?: number | null; // Total disk used by shared/volumes/ (cached 30 min)
 }
 
 export interface SharedServiceStatus {

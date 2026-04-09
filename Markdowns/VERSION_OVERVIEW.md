@@ -72,10 +72,10 @@
 
 ---
 
-### � Version 1.3 - In Progress
+### ✅ Version 1.3 - Released
 
-**Release:** February 2026 (ongoing)  
-**Status:** 🚧 Active Development
+**Release:** February 2026  
+**Status:** ✅ Released and production-ready
 
 [📄 Go to Documentation →](./Readme1_3_Feature.md)
 
@@ -87,12 +87,26 @@
 - ✅ 🖥️ **Workspace Page** – Unified project management (Studio, Keys, SMTP, Manager)
 - ✅ 📊 **SharedInfra Dashboard** – Resource monitoring with GaugeCharts for CPU/RAM
 
-**Planned Features:**
+> Multi-Tenancy & Organisations continued in [Version 1.4](./Readme1_4_Feature.md).
 
-- 🏢 Multi-Tenancy/Teams (Organizations, Roles, Quotas)
-- 💰 Cost Tracking & Billing
-- 🔒 GDPR/Compliance Features
-- 💾 S3 Storage Integration
+---
+
+### ✅ Version 1.4 — Multi-Tenancy & Organisations
+
+**Release:** March 2026  
+**Status:** ✅ Released and production-ready
+
+[📄 Go to Documentation →](./Readme1_4_Feature.md)  
+[📖 User Guide →](../docs/MULTI_TENANCY.md)
+
+**Implemented Features:**
+
+- ✅ 🏢 **Organisation Model** — Create/manage named organisations at registration
+- ✅ 👥 **Role-Based Access** — `owner`, `admin`, `member`, `viewer` per org
+- ✅ 🔀 **Org Switcher** — GitHub-style navbar dropdown for multi-org users
+- ✅ 🔒 **Instance Isolation** — Middleware-level org-scoping for all API routes
+- ✅ ✉️ **Member Invitations** — Invite by email with selectable role
+- ✅ 🛠️ **Migration Script** — `scripts/migrate-v1.3-to-v1.4.js` auto-migrates existing data
 
 ---
 
@@ -150,10 +164,10 @@ gantt
     section Version 1.0
     Initial Release           :done, 2025-12-25, 1d
     section Version 1.1
-    Phase 1 - Core Features     :active, 2026-01-01, 3w
-    Phase 2 - Medium Priority   :2026-01-22, 3w
-    Phase 3 - Low Priority      :2026-02-12, 3w
-    Production Deployment       :2026-03-05, 1w
+    Phase 1 - Core Features     :done, 2026-01-01, 3w
+    Phase 2 - Medium Priority   :done, 2026-01-22, 3w
+    Phase 3 - Low Priority      :done, 2026-02-12, 3w
+    Production Deployment       :done, 2026-03-05, 1w
     section Version 1.2
     Released                    :done, 2026-02-01, 2w
     section Version 1.3
@@ -161,12 +175,25 @@ gantt
     Cloud Architecture          :done, 2026-02-08, 2w
     Kong to Nginx Migration     :done, 2026-02-20, 4d
     Workspace Page              :done, 2026-02-22, 2d
-    Teams & Billing             :2026-03-01, 6w
+    section Version 1.4
+    Organisation Model          :done, 2026-03-01, 1w
+    Role-Based Access           :done, 2026-03-08, 4d
+    Org Switcher & UI           :done, 2026-03-12, 5d
+    Member Invitations          :done, 2026-03-17, 3d
+    Migration Script            :done, 2026-03-20, 2d
 ```
 
 ---
 
 ## 📝 Version History
+
+### v1.4.0 (March 2026)
+
+- ✅ Multi-Tenancy: Organisation model with owner/admin/member/viewer roles
+- ✅ Org Switcher in navbar (multi-org support)
+- ✅ Member invitation system (email + role)
+- ✅ Middleware-level instance isolation per org
+- ✅ Migration script: v1.3 → v1.4 (auto-creates default org for existing data)
 
 ### v1.3.0 (2026-02-24)
 
@@ -203,6 +230,8 @@ gantt
 - [Readme1_1_feature.md](./Readme1_1_feature.md) - Version 1.1 Features
 - [Readme1_2_Feature.md](./Readme1_2_Feature.md) - Version 1.2 Features
 - [Readme1_3_Feature.md](./Readme1_3_Feature.md) - Version 1.3 Features
+- [Readme1_4_Feature.md](./Readme1_4_Feature.md) - Version 1.4 Features (Multi-Tenancy)
+- [MULTI_TENANCY.md](../docs/MULTI_TENANCY.md) - Multi-Tenancy User Guide
 - [CLOUD_ARCHITECTURE.md](./CLOUD_ARCHITECTURE.md) - Cloud Architecture Implementation Log
 - [KONG_NGINX_MIGRATION.md](./KONG_NGINX_MIGRATION.md) - Kong→Nginx Migration Reference
 
@@ -235,4 +264,4 @@ Suggestions for new features or improvements can be submitted as an Issue or Pul
 
 ---
 
-**Last Update:** December 25, 2025
+**Last Update:** March 2026

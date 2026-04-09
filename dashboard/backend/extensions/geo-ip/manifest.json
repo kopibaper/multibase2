@@ -1,0 +1,15 @@
+{
+  "id": "geo-ip",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create geo cache table", "file": "schema.sql" },
+      { "label": "Deploy geo-ip lookup", "file": "index.ts", "functionName": "geo-lookup" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

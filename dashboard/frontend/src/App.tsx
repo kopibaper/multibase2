@@ -7,6 +7,9 @@ import DashboardLayout from './layouts/DashboardLayout';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
 import WorkspacePage from './pages/WorkspacePage';
+import WorkspaceOrgsPage from './pages/WorkspaceOrgsPage';
+import WorkspaceProjectsPage from './pages/WorkspaceProjectsPage';
+import WorkspaceProjectPage from './pages/WorkspaceProjectPage';
 import InstanceDetail from './pages/InstanceDetail';
 import SupabaseManager from './pages/SupabaseManager';
 import Alerts from './pages/Alerts';
@@ -14,6 +17,7 @@ import AlertRules from './pages/AlertRules';
 import ResetPassword from './pages/ResetPassword';
 import UserManagement from './pages/UserManagement';
 import BackupManagement from './pages/BackupManagement';
+import BackupDestinations from './pages/BackupDestinations';
 import UserProfile from './pages/UserProfile';
 import NotificationSettings from './pages/NotificationSettings';
 import ActivityLog from './pages/ActivityLog';
@@ -27,6 +31,9 @@ import OrgMembers from './pages/OrgMembers';
 import OrgSettings from './pages/OrgSettings';
 import SetupLayout from './layouts/SetupLayout';
 import SetupPage from './pages/SetupPage';
+import McpSettingsPage from './pages/McpSettingsPage';
+import MarketplacePage from './pages/MarketplacePage';
+import UpdatesPage from './pages/UpdatesPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Create React Query client
@@ -41,6 +48,7 @@ const queryClient = new QueryClient({
 });
 
 import LandingPage from './pages/LandingPage';
+import FeedbackPage from './pages/FeedbackPage';
 
 function AppContent() {
   // Initialize WebSocket connection for real-time updates
@@ -53,6 +61,7 @@ function AppContent() {
         {/* Public Routes */}
         <Route path='/' element={<LandingPage />} />
         <Route path='/reset-password' element={<ResetPassword />} />
+        <Route path='/feedback' element={<FeedbackPage />} />
         {/* Redirect old auth routes to landing page */}
         <Route path='/login' element={<Navigate to='/' replace />} />
         <Route path='/register' element={<Navigate to='/' replace />} />
@@ -67,13 +76,20 @@ function AppContent() {
             </ProtectedRoute>
           }
         >
-          <Route path='/workspace' element={<WorkspacePage />} />
+          <Route path='/workspace' element={<WorkspaceOrgsPage />} />
+          <Route path='/workspace/projects' element={<WorkspaceProjectsPage />} />
+          <Route path='/workspace/projects/:project' element={<WorkspaceProjectPage />} />
+          <Route path='/workspace/projects/:project/:tab' element={<WorkspaceProjectPage />} />
+          <Route path='/marketplace' element={<MarketplacePage />} />
+          <Route path='/profile' element={<UserProfile />} />
+          {/* Legacy workspace route kept as alias */}
+          <Route path='/workspace/legacy' element={<WorkspacePage />} />
         </Route>
 
         {/* Protected Routes with Dashboard Layout */}
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin>
               <DashboardLayout />
             </ProtectedRoute>
           }
@@ -84,12 +100,13 @@ function AppContent() {
           <Route path='/alerts' element={<Alerts />} />
           <Route path='/alert-rules' element={<AlertRules />} />
           <Route path='/backups' element={<BackupManagement />} />
-          <Route path='/profile' element={<UserProfile />} />
+          <Route path='/backup-destinations' element={<BackupDestinations />} />
           <Route path='/notifications' element={<NotificationSettings />} />
           <Route path='/api-keys' element={<ApiKeys />} />
           <Route path='/api-docs' element={<ApiDocs />} />
           <Route path='/templates' element={<Templates />} />
           <Route path='/shared' element={<SharedInfra />} />
+          <Route path='/settings/mcp' element={<McpSettingsPage />} />
           <Route path='/orgs/new' element={<OrgSettings />} />
           <Route path='/orgs/:slug/members' element={<OrgMembers />} />
           <Route path='/orgs/:slug/settings' element={<OrgSettings />} />
@@ -107,6 +124,7 @@ function AppContent() {
           <Route path='/migrations' element={<Migrations />} />
           <Route path='/activity' element={<ActivityLog />} />
           <Route path='/settings/smtp' element={<GlobalSmtpSettings />} />
+          <Route path='/updates' element={<UpdatesPage />} />
         </Route>
         {/* Setup Routes */}
         <Route path='/setup' element={<SetupLayout />}>

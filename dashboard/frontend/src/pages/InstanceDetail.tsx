@@ -21,7 +21,6 @@ import {
   FileText,
   Key,
   Trash2,
-  Lock,
   Database,
   Mail,
   Settings,
@@ -35,7 +34,6 @@ import MetricsTab from '../components/MetricsTab';
 import LogsTab from '../components/LogsTab';
 import CredentialsTab from '../components/CredentialsTab';
 import SmtpTab from '../components/SmtpTab';
-import AuthTab from '../components/AuthTab';
 import DatabaseTab from '../components/DatabaseTab';
 import ApiTab from '../components/ApiTab';
 import StorageSettingsTab from '../components/StorageSettingsTab';
@@ -54,7 +52,6 @@ type TabType =
   | 'logs'
   | 'credentials'
   | 'database'
-  | 'auth'
   | 'api'
   | 'storage'
   | 'smtp'
@@ -132,7 +129,6 @@ export default function InstanceDetail() {
     { id: 'logs' as TabType, label: 'Logs', icon: FileText },
     { id: 'credentials' as TabType, label: 'Credentials', icon: Key },
     { id: 'database' as TabType, label: 'Database', icon: Database },
-    { id: 'auth' as TabType, label: 'Authentication', icon: Lock },
     { id: 'api' as TabType, label: 'API & Realtime', icon: Server },
     { id: 'storage' as TabType, label: 'Storage', icon: Database },
     { id: 'smtp' as TabType, label: 'SMTP', icon: Mail },
@@ -141,8 +137,9 @@ export default function InstanceDetail() {
 
   return (
     <div className='min-h-screen bg-background'>
+      <div className='sticky top-0 z-20'>
       <PageHeader>
-        <div className='flex flex-col lg:flex-row lg:items-center gap-4 mb-4'>
+        <div className='flex flex-col lg:flex-row lg:items-center gap-4'>
           <button
             onClick={() => navigate('/dashboard')}
             className='p-2 hover:bg-muted rounded-md transition-colors self-start'
@@ -171,7 +168,7 @@ export default function InstanceDetail() {
           </div>
           <div className='flex flex-wrap gap-2 mt-4 lg:mt-0'>
             <Link
-              to={`/instances/${instance.name}/supabase`}
+              to={`/workspace/projects/${instance.name}`}
               className='flex items-center gap-2 px-3 py-2 sm:px-4 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors text-sm'
               title='Manage Edge Functions & Database'
             >
@@ -228,35 +225,6 @@ export default function InstanceDetail() {
             )}
           </div>
         </div>
-
-        {/* Stats */}
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
-          <div className='bg-background rounded-lg p-4 border'>
-            <p className='text-xs text-muted-foreground mb-1'>Services</p>
-            <p className='text-2xl font-bold'>
-              {instance.health.healthyServices}/{instance.health.totalServices}
-            </p>
-            <p className='text-xs text-muted-foreground mt-1'>Healthy</p>
-          </div>
-          {instance.metrics && (
-            <>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>CPU Usage</p>
-                <p className='text-2xl font-bold'>{instance.metrics.cpu.toFixed(1)}%</p>
-              </div>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>Memory</p>
-                <p className='text-2xl font-bold'>{(instance.metrics.memory / 1024).toFixed(1)} GB</p>
-              </div>
-              <div className='bg-background rounded-lg p-4 border'>
-                <p className='text-xs text-muted-foreground mb-1'>Network</p>
-                <p className='text-2xl font-bold'>
-                  {((instance.metrics.networkRx + instance.metrics.networkTx) / 1024 / 1024).toFixed(1)} MB/s
-                </p>
-              </div>
-            </>
-          )}
-        </div>
       </PageHeader>
 
       {/* Tabs */}
@@ -269,11 +237,10 @@ export default function InstanceDetail() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 text-sm ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap flex-shrink-0 text-sm ${activeTab === tab.id
                       ? 'border-primary text-primary font-medium'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
-                  }`}
+                    }`}
                 >
                   <Icon className='w-4 h-4' />
                   <span className='hidden sm:inline'>{tab.label}</span>
@@ -283,6 +250,7 @@ export default function InstanceDetail() {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Tab Content */}
       <main className='container mx-auto px-4 sm:px-6 py-4 sm:py-6'>
@@ -291,7 +259,6 @@ export default function InstanceDetail() {
         {activeTab === 'logs' && <LogsTab instance={instance} />}
         {activeTab === 'credentials' && <CredentialsTab instance={instance} />}
         {activeTab === 'database' && <DatabaseTab instance={instance} />}
-        {activeTab === 'auth' && <AuthTab instance={instance} />}
         {activeTab === 'api' && <ApiTab instance={instance} />}
         {activeTab === 'storage' && <StorageSettingsTab instance={instance} />}
         {activeTab === 'smtp' && <SmtpTab instance={instance} />}
@@ -322,6 +289,7 @@ export default function InstanceDetail() {
                     try {
                       await instancesApi.assignOrg(instance.name, orgId);
                       toast.success(orgId ? 'Instance assigned to organisation' : 'Instance unassigned from organisation');
+                      window.location.reload(); // Temporary quick fix to reload, or better use queryClient
                     } catch (err: any) {
                       toast.error(err.message || 'Failed to assign org');
                     } finally {
@@ -332,7 +300,7 @@ export default function InstanceDetail() {
                   <select
                     name='orgId'
                     className='px-3 py-2 rounded-md border bg-background text-sm min-w-[200px]'
-                    defaultValue='__none__'
+                    defaultValue={instance.orgId || '__none__'}
                   >
                     <option value='__none__'>— Unassigned —</option>
                     {orgs.map((org) => (

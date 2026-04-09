@@ -23,6 +23,8 @@ import KeysQuickModal from '../components/workspace/KeysQuickModal';
 import WorkspaceSmtpPanel from '../components/workspace/WorkspaceSmtpPanel';
 import WorkspaceManagerPanel from '../components/workspace/WorkspaceManagerPanel';
 
+import { startStudioHeartbeat } from '../lib/studioHeartbeat';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function WorkspacePage() {
@@ -80,7 +82,8 @@ export default function WorkspacePage() {
         throw new Error(err.message || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      const win = window.open(data.studioUrl || `http://${window.location.hostname}:3000`, '_blank');
+      if (win) startStudioHeartbeat(win, instance.name, API_BASE_URL, token);
     } catch (err: any) {
       console.error('Studio activation failed:', err);
     } finally {
@@ -97,11 +100,11 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className='h-[calc(100vh-4rem)]'>
+    <div className='h-[calc(100vh-4rem)] max-sm:h-[calc(100svh-8rem)]'>
       <div className='flex h-full flex-col md:flex-row'>
         {/* Left: Project List – on mobile hidden when a project is selected */}
         <div
-          className={`md:w-80 md:border-r md:border-b-0 border-b border-white/5 flex flex-col md:flex-shrink-0 ${
+          className={`md:w-80 md:border-r md:border-b-0 border-b border-white/5 flex flex-col md:shrink-0 ${
             selectedProject ? 'hidden md:flex' : 'flex flex-1 md:flex-none'
           }`}
         >
@@ -144,11 +147,11 @@ export default function WorkspacePage() {
                       : 'hover:bg-white/5 border-l-2 border-l-transparent'
                   }`}
                 >
-                  <div className='flex-shrink-0'>{getHealthIcon(instance.health?.overall || instance.status)}</div>
+                  <div className='shrink-0'>{getHealthIcon(instance.health?.overall || instance.status)}</div>
                   <div className='flex-1 min-w-0'>
                     <div className='flex items-center gap-2'>
                       <span className='text-sm font-medium text-foreground truncate'>{instance.name}</span>
-                      {instance.stackType === 'cloud' && <Cloud className='w-3 h-3 text-brand-400 flex-shrink-0' />}
+                      {instance.stackType === 'cloud' && <Cloud className='w-3 h-3 text-brand-400 shrink-0' />}
                     </div>
                     <p className='text-xs text-muted-foreground truncate'>
                       {instance.status === 'running' || instance.status === 'healthy'
@@ -196,7 +199,7 @@ export default function WorkspacePage() {
               <div className='flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between'>
                 <div>
                   <div className='flex items-center gap-3'>
-                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center flex-shrink-0'>
+                    <div className='w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center shrink-0'>
                       <Database className='w-5 h-5 text-brand-400' />
                     </div>
                     <div className='min-w-0'>
@@ -245,9 +248,9 @@ export default function WorkspacePage() {
                     hover:bg-brand-500/20 hover:border-brand-500/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   {studioActivating === selected.name ? (
-                    <Loader2 className='w-5 h-5 animate-spin text-brand-400 flex-shrink-0' />
+                    <Loader2 className='w-5 h-5 animate-spin text-brand-400 shrink-0' />
                   ) : (
-                    <ExternalLink className='w-5 h-5 text-brand-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                    <ExternalLink className='w-5 h-5 text-brand-400 group-hover:scale-110 transition-transform shrink-0' />
                   )}
                   <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>Open Studio</p>
@@ -264,7 +267,7 @@ export default function WorkspacePage() {
                       : 'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/30'
                   }`}
                 >
-                  <Code className='w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <Code className='w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform shrink-0' />
                   <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>Manager</p>
                     <p className='text-xs text-muted-foreground hidden sm:block'>DB, Functions, Storage</p>
@@ -277,7 +280,7 @@ export default function WorkspacePage() {
                   className='flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 
                     hover:bg-purple-500/20 hover:border-purple-500/30 transition-all group'
                 >
-                  <Key className='w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <Key className='w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform shrink-0' />
                   <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>API Keys</p>
                     <p className='text-xs text-muted-foreground hidden sm:block'>Anon, Service Role, JWT</p>
@@ -293,7 +296,7 @@ export default function WorkspacePage() {
                       : 'bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20 hover:border-orange-500/30'
                   }`}
                 >
-                  <Mail className='w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform flex-shrink-0' />
+                  <Mail className='w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform shrink-0' />
                   <div className='text-left min-w-0'>
                     <p className='text-sm font-medium text-foreground'>SMTP Settings</p>
                     <p className='text-xs text-muted-foreground hidden sm:block'>Email configuration</p>
@@ -377,7 +380,7 @@ export default function WorkspacePage() {
                       {selected.services?.map((svc) => (
                         <div key={svc.name} className='flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 text-sm'>
                           <div
-                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            className={`w-2 h-2 rounded-full shrink-0 ${
                               svc.status === 'running' || svc.health === 'healthy'
                                 ? 'bg-green-500'
                                 : svc.status === 'stopped'
@@ -449,7 +452,7 @@ function CopyButton({ text }: { text?: string }) {
     <button
       onClick={handleCopy}
       disabled={!text}
-      className='px-2 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0'
+      className='px-2 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed shrink-0'
       title='Copy'
     >
       {copied ? '✓' : 'Copy'}

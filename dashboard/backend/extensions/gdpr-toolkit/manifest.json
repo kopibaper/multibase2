@@ -1,0 +1,14 @@
+{
+  "id": "gdpr-toolkit",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create GDPR toolkit schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

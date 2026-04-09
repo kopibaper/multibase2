@@ -5,7 +5,33 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+}
+
+model Organisation {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  members     OrgMember[]
+  instances   Instance[]
+
+  @@index([slug])
+}
+
+model OrgMember {
+  id       Int          @id @default(autoincrement())
+  orgId    String
+  userId   String
+  role     String       @default("member") // 'owner' | 'admin' | 'member' | 'viewer'
+  joinedAt DateTime     @default(now())
+  org      Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
 }
 
 model Instance {
@@ -13,15 +39,22 @@ model Instance {
   name        String      @unique
   basePort    Int
   status      String      // 'running', 'stopped', 'degraded', 'healthy'
+  orgId       String?     // Optional: assigned to an organisation
+  environment String?     // 'production' | 'staging' | 'dev' | 'preview' | null
+  org         Organisation? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   metrics     Metric[]
   alerts      Alert[]
   alertRules  AlertRule[]
   uptime      UptimeRecord[]
+  readReplicas        ReadReplica[]
+  logDrains           LogDrain[]
+  installedExtensions InstalledExtension[]
 
   @@index([name])
   @@index([status])
+  @@index([orgId])
 }
 
 model UptimeRecord {
@@ -134,10 +167,12 @@ model User {
   updatedAt        DateTime            @updatedAt
   sessions         Session[]
   backups          Backup[]
+  backupDestinations BackupDestination[]
   auditLogs        AuditLog[]
   apiKeys          ApiKey[]
   templates        InstanceTemplate[]
   aiChatSessions   AiChatSession[]
+  orgMemberships   OrgMember[]
 
   @@index([email])
   @@index([role])
@@ -194,10 +229,44 @@ model Backup {
   createdBy   String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [createdBy], references: [id])
+  uploads     BackupUpload[]
 
   @@index([type])
   @@index([instanceId])
   @@index([createdAt])
+}
+
+model BackupDestination {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // 'sftp' | 's3' | 'googledrive' | 'onedrive' | 'webdav'
+  config      String   // AES-256-GCM encrypted JSON with provider credentials
+  enabled     Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [createdBy], references: [id])
+  uploads     BackupUpload[]
+
+  @@index([enabled])
+  @@index([createdBy])
+}
+
+model BackupUpload {
+  id             String            @id @default(uuid())
+  backupId       String
+  destinationId  String
+  status         String            // 'pending' | 'uploading' | 'success' | 'failed'
+  remotePath     String?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  backup         Backup            @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  destination    BackupDestination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@index([backupId])
+  @@index([destinationId])
+  @@index([status])
 }
 
 model AuditLog {
@@ -333,5 +402,133 @@ model GlobalSettings {
   smtp_sender_name  String?
   smtp_admin_email  String?
   app_url           String?  // Public URL for email links
+  feedbackEnabled   Boolean  @default(true)
   updatedAt         DateTime @updatedAt
+}
+
+model CustomDomain {
+  id           Int      @id @default(autoincrement())
+  instanceName String
+  domain       String
+  status       String   @default("pending_dns") // 'pending_dns' | 'dns_verified' | 'ssl_active' | 'error'
+  errorMsg     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([instanceName, domain])
+  @@index([instanceName])
+}
+
+model ReadReplica {
+  id          String   @id @default(uuid())
+  instanceId  String
+  name        String
+  url         String
+  status      String   @default("provisioning") // 'provisioning' | 'active' | 'error' | 'syncing'
+  lagBytes    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
+}
+
+model LogDrain {
+  id           String    @id @default(uuid())
+  instanceId   String
+  name         String
+  url          String
+  services     String    @default("[]") // JSON array of service names ['db', 'auth', 'storage', 'realtime']
+  format       String    @default("json") // 'json' | 'ndjson' | 'logfmt'
+  enabled      Boolean   @default(true)
+  lastStatus   String?   // 'ok' | 'error'
+  lastDelivery DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  instance     Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
+}
+
+// ─── Extension Marketplace ────────────────────────────────────────────────────
+
+model Extension {
+  id               String   @id                   // e.g. "ecommerce-starter"
+  name             String
+  description      String
+  longDescription  String?
+  version          String
+  author           String
+  authorUrl        String?
+  category         String                          // 'database'|'auth'|'functions'|'monitoring'|'ai'|'storage'
+  tags             String                          // comma-separated: "ecommerce,schema,starter"
+  iconUrl          String?
+  screenshotUrls   String?                         // comma-separated URLs
+  verified         Boolean  @default(false)
+  featured         Boolean  @default(false)
+  installCount     Int      @default(0)
+  rating           Float?
+  minVersion       String   @default("1.0.0")
+  requiresExtensions String?                       // comma-separated postgres extensions
+  installType      String                          // 'sql'|'function'|'config'|'composite'
+  manifestUrl      String
+  configSchema     String?                         // JSON: configSchema field definitions for install wizard
+  latestVersion    String?                         // latest available version for auto-update checker
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  installations    InstalledExtension[]
+  reviews          ExtensionReview[]
+
+  @@index([category])
+  @@index([featured])
+}
+
+model InstalledExtension {
+  id          String   @id @default(uuid())
+  instanceId  String
+  extensionId String
+  version     String
+  status      String   @default("active")          // 'active'|'error'|'updating'|'disabled'
+  config      String?                              // JSON: user-defined config values
+  installedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  instance    Instance  @relation(fields: [instanceId],  references: [id], onDelete: Cascade)
+  extension   Extension @relation(fields: [extensionId], references: [id])
+
+  @@unique([instanceId, extensionId])
+  @@index([instanceId])
+}
+
+model ExtensionReview {
+  id          String   @id @default(uuid())
+  extensionId String
+  rating      Int                                  // 1–5
+  comment     String?
+  authorName  String?                              // display name (optional)
+  createdAt   DateTime @default(now())
+
+  extension   Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+
+  @@index([extensionId])
+}
+
+model Feedback {
+  id          Int      @id @default(autoincrement())
+  type        String   // 'feature' | 'bug'
+  title       String
+  description String
+  urgency     String   // 'low' | 'medium' | 'high' | 'critical'
+  authorName  String?
+  authorEmail String?  // never exposed in GET responses
+  status      String   @default("open") // 'open' | 'in_progress' | 'resolved' | 'closed'
+  ipAddress   String?  // stored for moderation, never exposed
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }

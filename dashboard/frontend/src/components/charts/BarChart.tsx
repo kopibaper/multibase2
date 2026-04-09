@@ -77,7 +77,7 @@ export default function BarChart({
   tooltipFormatter = defaultTooltipFormatter,
   loading = false,
 }: BarChartProps) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | string | null>(null);
 
   if (loading) {
     return (
@@ -159,11 +159,11 @@ export default function BarChart({
             label={
               yAxisLabel
                 ? {
-                    value: yAxisLabel,
-                    angle: -90,
-                    position: 'insideLeft',
-                    style: { fontSize: '12px', fill: 'currentColor', opacity: 0.5 },
-                  }
+                  value: yAxisLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  style: { fontSize: '12px', fill: 'currentColor', opacity: 0.5 },
+                }
                 : undefined
             }
           />

@@ -1,0 +1,15 @@
+{
+  "id": "file-processor",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create file metadata table", "file": "schema.sql" },
+      { "label": "Deploy file processor", "file": "index.ts", "functionName": "process-file" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

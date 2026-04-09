@@ -1,0 +1,14 @@
+{
+  "id": "multi-tenant-base",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create multi-tenant base schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

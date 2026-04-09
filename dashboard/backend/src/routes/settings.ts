@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
 import { auditLog } from '../middleware/auditLog';
 import { requireAdmin } from '../middleware/authMiddleware';
-
-const prisma = new PrismaClient();
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createSettingsRoutes() {
   const router = Router();
@@ -14,7 +14,7 @@ export function createSettingsRoutes() {
    * GET /api/settings/smtp
    * Get global SMTP settings
    */
-  router.get('/smtp', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/smtp', requireAdmin, requireScope(SCOPES.SETTINGS.READ), async (_req: Request, res: Response) => {
     try {
       const settings = await prisma.globalSettings.findUnique({
         where: { id: 1 },
@@ -41,6 +41,7 @@ export function createSettingsRoutes() {
   router.put(
     '/smtp',
     requireAdmin,
+    requireScope(SCOPES.SETTINGS.WRITE),
     auditLog('SETTINGS_UPDATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -106,6 +107,7 @@ export function createSettingsRoutes() {
   router.post(
     '/smtp/test',
     requireAdmin,
+    requireScope(SCOPES.SETTINGS.WRITE),
     auditLog('SMTP_TEST_EMAIL', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -144,10 +146,48 @@ export function createSettingsRoutes() {
   );
 
   /**
+   * GET /api/settings/public
+   * Public endpoint to get feature flags (no auth required)
+   */
+  router.get('/public', async (_req: Request, res: Response) => {
+    try {
+      const rows = await prisma.$queryRaw<Array<{ feedbackEnabled: number }>>`
+        SELECT feedbackEnabled FROM GlobalSettings WHERE id = 1
+      `;
+      const feedbackEnabled = rows.length > 0 ? Boolean(rows[0].feedbackEnabled) : true;
+      return res.json({ feedbackEnabled });
+    } catch (error) {
+      logger.error('Error fetching public settings:', error);
+      return res.json({ feedbackEnabled: true });
+    }
+  });
+
+  /**
+   * PUT /api/settings/features
+   * Update feature flags (admin only)
+   */
+  router.put('/features', requireAdmin, requireScope(SCOPES.SETTINGS.WRITE), async (req: Request, res: Response) => {
+    try {
+      const feedbackEnabled = Boolean(req.body.feedbackEnabled);
+      const val = feedbackEnabled ? 1 : 0;
+      const existing = await prisma.globalSettings.findUnique({ where: { id: 1 } });
+      if (existing) {
+        await prisma.$executeRaw`UPDATE GlobalSettings SET feedbackEnabled = ${val} WHERE id = 1`;
+      } else {
+        await prisma.$executeRaw`INSERT INTO GlobalSettings (id, feedbackEnabled, updatedAt) VALUES (1, ${val}, datetime('now'))`;
+      }
+      return res.json({ message: 'Feature settings updated', feedbackEnabled });
+    } catch (error) {
+      logger.error('Error updating feature settings:', error);
+      return res.status(500).json({ error: 'Failed to update feature settings' });
+    }
+  });
+
+  /**
    * GET /api/settings/system
    * Get system environment variables for defaults
    */
-  router.get('/system', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/system', requireAdmin, requireScope(SCOPES.SETTINGS.READ), async (_req: Request, res: Response) => {
     try {
       const cors = process.env.CORS_ORIGIN || '';
       // Also return API URL if available (optional)

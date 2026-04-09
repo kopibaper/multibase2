@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { calculateNextRun } from '../utils/cron';
 import { auditLog } from '../middleware/auditLog';
-
-const prisma = new PrismaClient();
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 /**
  * Middleware to check authentication
@@ -36,7 +36,7 @@ export function createScheduleRoutes() {
    * GET /api/schedules
    * List all backup schedules
    */
-  router.get('/', requireAuth, async (_req: Request, res: Response) => {
+  router.get('/', requireAuth, requireScope(SCOPES.SCHEDULES.READ), async (_req: Request, res: Response) => {
     try {
       const schedules = await prisma.backupSchedule.findMany({
         orderBy: { createdAt: 'desc' },
@@ -56,6 +56,7 @@ export function createScheduleRoutes() {
   router.post(
     '/',
     requireAuth,
+    requireScope(SCOPES.SCHEDULES.CREATE),
     auditLog('SCHEDULE_CREATE', {
       getResource: (req) => req.body.instanceId,
       includeBody: true,
@@ -106,7 +107,7 @@ export function createScheduleRoutes() {
    * GET /api/schedules/:id
    * Get schedule details
    */
-  router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAuth, requireScope(SCOPES.SCHEDULES.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
@@ -135,6 +136,7 @@ export function createScheduleRoutes() {
   router.put(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.SCHEDULES.UPDATE),
     auditLog('SCHEDULE_UPDATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -179,6 +181,7 @@ export function createScheduleRoutes() {
   router.delete(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.SCHEDULES.DELETE),
     auditLog('SCHEDULE_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -211,6 +214,7 @@ export function createScheduleRoutes() {
   router.post(
     '/:id/run',
     requireAuth,
+    requireScope(SCOPES.SCHEDULES.CREATE),
     auditLog('SCHEDULE_RUN_MANUAL'),
     async (req: Request, res: Response): Promise<any> => {
       try {

@@ -4,6 +4,9 @@ import { encrypt, decrypt } from '../utils/AiEncryption';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { PrismaClient } from '@prisma/client';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
+import { auditLog } from '../middleware/auditLog';
 
 export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: PrismaClient) {
   const router = Router();
@@ -46,7 +49,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * GET /api/ai-agent/api-key/status
    * Check if user has an AI API key configured
    */
-  router.get('/api-key/status', async (req: Request, res: Response): Promise<any> => {
+  router.get('/api-key/status', requireScope(SCOPES.AI_AGENT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -71,10 +74,11 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * PUT /api/ai-agent/api-key
    * Save AI provider and API key
    */
-  router.put('/api-key', async (req: Request, res: Response): Promise<any> => {
+  router.put('/api-key', requireScope(SCOPES.AI_AGENT.USE), auditLog('AI_KEY_SAVE', { includeBody: false }), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      (req as any).user = user;
 
       const { provider, apiKey, model } = req.body;
 
@@ -110,10 +114,11 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * DELETE /api/ai-agent/api-key
    * Remove AI API key
    */
-  router.delete('/api-key', async (req: Request, res: Response): Promise<any> => {
+  router.delete('/api-key', requireScope(SCOPES.AI_AGENT.USE), auditLog('AI_KEY_DELETE'), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      (req as any).user = user;
 
       await prisma.user.update({
         where: { id: user.id },
@@ -139,7 +144,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * GET /api/ai-agent/sessions
    * List chat sessions
    */
-  router.get('/sessions', async (req: Request, res: Response): Promise<any> => {
+  router.get('/sessions', requireScope(SCOPES.AI_AGENT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -156,7 +161,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * POST /api/ai-agent/sessions
    * Create new chat session
    */
-  router.post('/sessions', async (req: Request, res: Response): Promise<any> => {
+  router.post('/sessions', requireScope(SCOPES.AI_AGENT.USE), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -173,7 +178,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * GET /api/ai-agent/sessions/:id
    * Get session with messages
    */
-  router.get('/sessions/:id', async (req: Request, res: Response): Promise<any> => {
+  router.get('/sessions/:id', requireScope(SCOPES.AI_AGENT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -190,7 +195,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * DELETE /api/ai-agent/sessions/:id
    * Delete a chat session
    */
-  router.delete('/sessions/:id', async (req: Request, res: Response): Promise<any> => {
+  router.delete('/sessions/:id', requireScope(SCOPES.AI_AGENT.USE), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -211,7 +216,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * GET /api/ai-agent/models
    * Get available models for the configured provider
    */
-  router.get('/models', async (req: Request, res: Response): Promise<any> => {
+  router.get('/models', requireScope(SCOPES.AI_AGENT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -276,7 +281,7 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * POST /api/ai-agent/chat
    * Send a message and receive SSE streaming response
    */
-  router.post('/chat', async (req: Request, res: Response): Promise<any> => {
+  router.post('/chat', requireScope(SCOPES.AI_AGENT.USE), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -329,10 +334,11 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * POST /api/ai-agent/confirm-tool
    * Confirm and execute a destructive tool call, then continue chat
    */
-  router.post('/confirm-tool', async (req: Request, res: Response): Promise<any> => {
+  router.post('/confirm-tool', requireScope(SCOPES.AI_AGENT.USE), auditLog('AI_TOOL_CONFIRM', { includeBody: true, getResource: (req) => req.body?.toolCall?.name || 'unknown' }), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      (req as any).user = user;
 
       const { sessionId, toolCall } = req.body;
 
@@ -395,10 +401,11 @@ export function createAiAgentRoutes(aiAgentService: AiAgentService, prisma: Pris
    * POST /api/ai-agent/confirm-tools
    * Confirm and execute MULTIPLE destructive tool calls, then continue chat ONCE
    */
-  router.post('/confirm-tools', async (req: Request, res: Response): Promise<any> => {
+  router.post('/confirm-tools', requireScope(SCOPES.AI_AGENT.USE), auditLog('AI_TOOLS_CONFIRM', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = await getAuthUser(req);
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      (req as any).user = user;
 
       const { sessionId, toolCalls } = req.body;
 

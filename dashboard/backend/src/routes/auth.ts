@@ -21,14 +21,13 @@ export function createAuthRoutes() {
     auditLog('USER_REGISTER'),
     async (req: Request, res: Response): Promise<any> => {
       try {
-        const { email, username, password, role } = req.body;
+        const { email, username, password } = req.body;
 
         // Validation is now handled by Zod middleware
         const user = await AuthService.register({
           email,
           username,
           password,
-          role,
         });
 
         // Set user in request for audit logger
@@ -219,7 +218,7 @@ export function createAuthRoutes() {
    * PATCH /api/auth/users/:id
    * Update user (admin only)
    */
-  router.patch('/users/:id', async (req: Request, res: Response): Promise<any> => {
+  router.patch('/users/:id', auditLog('USER_UPDATE', { includeBody: true, getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -230,6 +229,7 @@ export function createAuthRoutes() {
       if (!session || session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      (req as any).user = session.user;
 
       const user = await AuthService.updateUser(req.params.id, req.body);
       res.json(user);
@@ -245,7 +245,7 @@ export function createAuthRoutes() {
    * PUT /api/auth/users/:id
    * Update user (admin only) - for full updates
    */
-  router.put('/users/:id', async (req: Request, res: Response): Promise<any> => {
+  router.put('/users/:id', auditLog('USER_UPDATE', { includeBody: true, getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -256,6 +256,7 @@ export function createAuthRoutes() {
       if (!session || session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      (req as any).user = session.user;
 
       const user = await AuthService.updateUser(req.params.id, req.body);
       res.json(user);
@@ -271,7 +272,7 @@ export function createAuthRoutes() {
    * PUT /api/auth/users/:id/password
    * Reset user password (admin only)
    */
-  router.put('/users/:id/password', async (req: Request, res: Response): Promise<any> => {
+  router.put('/users/:id/password', auditLog('USER_PASSWORD_RESET', { getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -282,6 +283,7 @@ export function createAuthRoutes() {
       if (!session || session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      (req as any).user = session.user;
 
       const { password } = req.body;
       if (!password) {
@@ -302,7 +304,7 @@ export function createAuthRoutes() {
    * DELETE /api/auth/users/:id
    * Delete user (admin only)
    */
-  router.delete('/users/:id', async (req: Request, res: Response): Promise<any> => {
+  router.delete('/users/:id', auditLog('USER_DELETE', { getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -313,6 +315,7 @@ export function createAuthRoutes() {
       if (!session || session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      (req as any).user = session.user;
 
       await AuthService.deleteUser(req.params.id);
       res.json({ message: 'User deleted successfully' });
@@ -362,6 +365,7 @@ export function createAuthRoutes() {
    */
   router.delete(
     '/users/:id/sessions/:sessionId',
+    auditLog('USER_SESSION_REVOKE', { getResource: (req) => `${req.params.id}/${req.params.sessionId}` }),
     async (req: Request, res: Response): Promise<any> => {
       try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -373,6 +377,7 @@ export function createAuthRoutes() {
         if (!currentSession) {
           return res.status(401).json({ error: 'Unauthorized' });
         }
+        (req as any).user = currentSession.user;
 
         // User can only delete their own sessions, admins can delete any
         const targetUserId = req.params.id;
@@ -399,7 +404,7 @@ export function createAuthRoutes() {
    * PUT /api/auth/profile
    * Update own profile (username, email)
    */
-  router.put('/profile', async (req: Request, res: Response): Promise<any> => {
+  router.put('/profile', auditLog('PROFILE_UPDATE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -410,6 +415,7 @@ export function createAuthRoutes() {
       if (!session) {
         return res.status(401).json({ error: 'Invalid or expired session' });
       }
+      (req as any).user = session.user;
 
       const { username, email } = req.body;
       const user = await AuthService.updateProfile(session.user.id, { username, email });
@@ -509,7 +515,7 @@ export function createAuthRoutes() {
    * POST /api/auth/2fa/enable
    * Generate 2FA secret and QR code
    */
-  router.post('/2fa/enable', async (req: Request, res: Response): Promise<any> => {
+  router.post('/2fa/enable', auditLog('TWO_FA_ENABLE_INIT'), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -520,6 +526,7 @@ export function createAuthRoutes() {
       if (!session) {
         return res.status(401).json({ error: 'Invalid or expired session' });
       }
+      (req as any).user = session.user;
 
       const result = await AuthService.enable2FA(session.user.id);
       res.json(result);
@@ -535,7 +542,7 @@ export function createAuthRoutes() {
    * POST /api/auth/2fa/verify
    * Verify and activate 2FA
    */
-  router.post('/2fa/verify', async (req: Request, res: Response): Promise<any> => {
+  router.post('/2fa/verify', auditLog('TWO_FA_ENABLE_CONFIRM'), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -546,6 +553,7 @@ export function createAuthRoutes() {
       if (!session) {
         return res.status(401).json({ error: 'Invalid or expired session' });
       }
+      (req as any).user = session.user;
 
       const { code } = req.body;
       if (!code) {
@@ -566,7 +574,7 @@ export function createAuthRoutes() {
    * POST /api/auth/2fa/disable
    * Disable 2FA (requires valid token)
    */
-  router.post('/2fa/disable', async (req: Request, res: Response): Promise<any> => {
+  router.post('/2fa/disable', auditLog('TWO_FA_DISABLE'), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -577,6 +585,7 @@ export function createAuthRoutes() {
       if (!session) {
         return res.status(401).json({ error: 'Invalid or expired session' });
       }
+      (req as any).user = session.user;
 
       const { code } = req.body;
       if (!code) {
@@ -670,7 +679,7 @@ export function createAuthRoutes() {
    * DELETE /api/auth/users/:id/2fa
    * Admin reset/disable 2FA for a user (no token required from user)
    */
-  router.delete('/users/:id/2fa', async (req: Request, res: Response): Promise<any> => {
+  router.delete('/users/:id/2fa', auditLog('USER_2FA_ADMIN_RESET', { getResource: (req) => req.params.id }), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -681,6 +690,7 @@ export function createAuthRoutes() {
       if (!session || session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden - Admin only' });
       }
+      (req as any).user = session.user;
 
       const { id } = req.params;
       await AuthService.adminReset2FA(id);
@@ -780,7 +790,7 @@ export function createAuthRoutes() {
   /**
    * POST /api/auth/delete-account
    */
-  router.post('/delete-account', async (req: Request, res: Response): Promise<any> => {
+  router.post('/delete-account', auditLog('ACCOUNT_DELETE'), async (req: Request, res: Response): Promise<any> => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -791,6 +801,7 @@ export function createAuthRoutes() {
       if (!session) {
         return res.status(401).json({ error: 'Invalid or expired session' });
       }
+      (req as any).user = session.user;
 
       const { password } = req.body;
       if (!password) {

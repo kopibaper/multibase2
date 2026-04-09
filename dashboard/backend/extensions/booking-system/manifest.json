@@ -1,0 +1,14 @@
+{
+  "id": "booking-system",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": ["btree_gist"]
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create booking system schema", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

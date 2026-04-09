@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
@@ -7,8 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { Client } from 'pg';
 import { parseEnvFile } from '../utils/envParser';
-
-const prisma = new PrismaClient();
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 // In-memory migration history (in production, this would be stored in DB)
 const migrationHistory: Array<{
@@ -78,7 +78,7 @@ export function createMigrationRoutes() {
    * GET /api/migrations/history
    * Get migration execution history
    */
-  router.get('/history', requireAdmin, async (req: Request, res: Response) => {
+  router.get('/history', requireAdmin, requireScope(SCOPES.MIGRATIONS.READ), async (req: Request, res: Response) => {
     try {
       const { instanceId, limit = '50' } = req.query;
 
@@ -107,7 +107,7 @@ export function createMigrationRoutes() {
    * POST /api/migrations/execute
    * Execute a SQL query (with safety checks)
    */
-  router.post('/execute', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.post('/execute', requireAdmin, requireScope(SCOPES.MIGRATIONS.RUN), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = (req as any).user;
       const { sql, instanceId, dryRun = false } = req.body;
@@ -252,7 +252,7 @@ export function createMigrationRoutes() {
    * POST /api/migrations/validate
    * Validate a SQL query without executing
    */
-  router.post('/validate', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.post('/validate', requireAdmin, requireScope(SCOPES.MIGRATIONS.RUN), async (req: Request, res: Response): Promise<any> => {
     try {
       const { sql } = req.body;
 
@@ -277,7 +277,7 @@ export function createMigrationRoutes() {
    * GET /api/migrations/templates
    * Get common SQL templates (System + Custom)
    */
-  router.get('/templates', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/templates', requireAdmin, requireScope(SCOPES.MIGRATIONS.READ), async (_req: Request, res: Response) => {
     try {
       const systemTemplates = [
         {
@@ -345,6 +345,7 @@ export function createMigrationRoutes() {
   router.post(
     '/templates',
     requireAdmin,
+    requireScope(SCOPES.MIGRATIONS.RUN),
     auditLog('MIGRATION_TEMPLATE_CREATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -378,6 +379,7 @@ export function createMigrationRoutes() {
   router.delete(
     '/templates/:id',
     requireAdmin,
+    requireScope(SCOPES.MIGRATIONS.RUN),
     auditLog('MIGRATION_TEMPLATE_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {

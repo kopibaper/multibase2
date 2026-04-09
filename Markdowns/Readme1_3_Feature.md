@@ -1,7 +1,7 @@
 # Multibase Dashboard v1.3 - Features
 
 Features and roadmap for version 1.3.  
-**Status:** 🚧 Active Development — Core cloud features completed, additional modules planned.
+**Status:** ✅ Released — All core features shipped.
 
 ---
 

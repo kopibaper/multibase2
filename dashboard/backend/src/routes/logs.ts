@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import DockerManager from '../services/DockerManager';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createLogsRoutes(dockerManager: DockerManager): Router {
   const router = Router();
@@ -11,6 +13,7 @@ export function createLogsRoutes(dockerManager: DockerManager): Router {
    */
   router.get(
     '/instances/:name/services/:service',
+    requireScope(SCOPES.LOGS.READ),
     async (req: Request, res: Response): Promise<any> => {
       try {
         const { name, service } = req.params;
@@ -45,7 +48,7 @@ export function createLogsRoutes(dockerManager: DockerManager): Router {
    * GET /api/logs/instances/:name
    * Get logs for all services in an instance
    */
-  router.get('/instances/:name', async (req: Request, res: Response) => {
+  router.get('/instances/:name', requireScope(SCOPES.LOGS.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { tail } = req.query;

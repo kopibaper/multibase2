@@ -217,7 +217,7 @@ export default function SharedInfra() {
               <Activity className='w-5 h-5' />
               Shared Stack Resources
             </h2>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
               {/* CPU */}
               <div className='flex flex-col items-center'>
                 <GaugeChart
@@ -256,6 +256,36 @@ export default function SharedInfra() {
                   )}
                 </div>
               </div>
+
+              {/* Disk */}
+              <div className='flex flex-col items-center'>
+                <GaugeChart
+                  label='Stack Disk'
+                  value={
+                    status?.diskUsedMB && systemMetrics?.hostDiskTotal
+                      ? Math.min((status.diskUsedMB / systemMetrics.hostDiskTotal) * 100, 100)
+                      : status?.diskUsedMB
+                        ? Math.min((status.diskUsedMB / (200 * 1024)) * 100, 100)
+                        : 0
+                  }
+                  displayValue={
+                    status?.diskUsedMB != null
+                      ? status.diskUsedMB >= 1024
+                        ? `${(status.diskUsedMB / 1024).toFixed(1)} GB`
+                        : `${status.diskUsedMB} MB`
+                      : '—'
+                  }
+                  icon={HardDrive}
+                  color='yellow'
+                  size='lg'
+                />
+                <div className='mt-4 text-center'>
+                  <p className='text-sm text-muted-foreground'>Shared volumes disk usage</p>
+                  {status?.diskUsedMB == null && (
+                    <p className='text-xs text-muted-foreground/70 mt-1'>Computing… (cached 30 min)</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -273,24 +303,22 @@ export default function SharedInfra() {
               return (
                 <div
                   key={service.name}
-                  className={`p-4 rounded-lg border ${
-                    isRunning
-                      ? isHealthy
-                        ? 'border-brand-500/30 bg-brand-500/5'
-                        : 'border-yellow-500/30 bg-yellow-500/5'
-                      : 'border-red-500/30 bg-red-500/5'
-                  }`}
+                  className={`p-4 rounded-lg border ${isRunning
+                    ? isHealthy
+                      ? 'border-brand-500/30 bg-brand-500/5'
+                      : 'border-yellow-500/30 bg-yellow-500/5'
+                    : 'border-red-500/30 bg-red-500/5'
+                    }`}
                 >
                   <div className='flex items-center justify-between mb-2'>
                     <span className='font-medium text-foreground'>{service.name.replace('multibase-', '')}</span>
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        isRunning
-                          ? isHealthy
-                            ? 'bg-brand-500/20 text-brand-400'
-                            : 'bg-yellow-500/20 text-yellow-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${isRunning
+                        ? isHealthy
+                          ? 'bg-brand-500/20 text-brand-400'
+                          : 'bg-yellow-500/20 text-yellow-400'
+                        : 'bg-red-500/20 text-red-400'
+                        }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${isRunning ? (isHealthy ? 'bg-brand-400' : 'bg-yellow-400') : 'bg-red-400'}`}

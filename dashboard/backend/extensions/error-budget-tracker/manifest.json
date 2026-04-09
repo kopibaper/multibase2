@@ -1,0 +1,15 @@
+{
+  "id": "error-budget-tracker",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create SLO tables", "file": "schema.sql" },
+      { "label": "Deploy SLO tracker", "file": "index.ts", "functionName": "slo-tracker" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

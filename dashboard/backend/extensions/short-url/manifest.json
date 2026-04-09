@@ -1,0 +1,15 @@
+{
+  "id": "short-url",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create URL tables", "file": "schema.sql" },
+      { "label": "Deploy URL handler", "file": "index.ts", "functionName": "short-url" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

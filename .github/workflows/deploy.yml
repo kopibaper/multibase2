@@ -2,8 +2,11 @@ name: Deploy Multibase Dashboard
 
 on:
   push:
-    branches: [main, master]
+    branches: [Feature_Roadmap]
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ------------------------------------------------------------------
@@ -47,7 +50,7 @@ jobs:
   # JOB 2: Deploy Backend to VPS 2 (DISABLED on main — managed via cloud-version branch)
   # ------------------------------------------------------------------
   deploy-backend:
-    if: false  # Never run from main — backend is deployed via cloud-version workflow
+    if: false # Never run from main — backend is deployed via cloud-version workflow
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { instancesApi } from '../../lib/api';
-import { Save, Loader2, Info, Mail } from 'lucide-react';
+import { Save, Loader2, Info, Mail, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SupabaseInstance } from '../../types';
 import EmailTemplateEditor from '../EmailTemplateEditor';
@@ -11,6 +11,7 @@ interface WorkspaceSmtpPanelProps {
 }
 
 export default function WorkspaceSmtpPanel({ instance }: WorkspaceSmtpPanelProps) {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     smtp_host: '',
     smtp_port: 0,
@@ -19,6 +20,32 @@ export default function WorkspaceSmtpPanel({ instance }: WorkspaceSmtpPanelProps
     smtp_sender_name: '',
     smtp_admin_email: '',
   });
+
+  const [subjects, setSubjects] = useState({
+    site_url: '',
+    confirmation: '',
+    recovery: '',
+    invite: '',
+    magic_link: '',
+  });
+  const [subjectsDirty, setSubjectsDirty] = useState(false);
+
+  const { data: envData } = useQuery({
+    queryKey: ['instance', instance.name, 'env'],
+    queryFn: () => instancesApi.getEnv(instance.name),
+  });
+
+  useEffect(() => {
+    if (envData) {
+      setSubjects({
+        site_url: envData['GOTRUE_SITE_URL'] || envData['API_EXTERNAL_URL'] || '',
+        confirmation: envData['GOTRUE_MAILER_SUBJECTS_CONFIRMATION'] || '',
+        recovery: envData['GOTRUE_MAILER_SUBJECTS_RECOVERY'] || '',
+        invite: envData['GOTRUE_MAILER_SUBJECTS_INVITE'] || '',
+        magic_link: envData['GOTRUE_MAILER_SUBJECTS_MAGIC_LINK'] || '',
+      });
+    }
+  }, [envData]);
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => instancesApi.updateSmtp(instance.name, data),
@@ -29,6 +56,33 @@ export default function WorkspaceSmtpPanel({ instance }: WorkspaceSmtpPanelProps
       toast.error(error.message || 'Failed to update SMTP configuration');
     },
   });
+
+  const subjectsMutation = useMutation({
+    mutationFn: (data: Record<string, string>) => instancesApi.updateEnv(instance.name, data),
+    onSuccess: () => {
+      toast.success('Email settings updated.');
+      setSubjectsDirty(false);
+      queryClient.invalidateQueries({ queryKey: ['instance', instance.name, 'env'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update email settings');
+    },
+  });
+
+  const handleSubjectChange = (key: keyof typeof subjects, value: string) => {
+    setSubjects((prev) => ({ ...prev, [key]: value }));
+    setSubjectsDirty(true);
+  };
+
+  const handleSubjectsSave = () => {
+    subjectsMutation.mutate({
+      GOTRUE_SITE_URL: subjects.site_url,
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: subjects.confirmation,
+      GOTRUE_MAILER_SUBJECTS_RECOVERY: subjects.recovery,
+      GOTRUE_MAILER_SUBJECTS_INVITE: subjects.invite,
+      GOTRUE_MAILER_SUBJECTS_MAGIC_LINK: subjects.magic_link,
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -166,6 +220,79 @@ export default function WorkspaceSmtpPanel({ instance }: WorkspaceSmtpPanelProps
       </div>
 
       {/* Email Templates */}
+      <div className='glass-card p-5 mt-4'>
+        <h3 className='text-sm font-semibold text-foreground mb-4 flex items-center gap-2'>
+          <FileText className='w-4 h-4 text-brand-400' />
+          Email Subject Lines & URLs
+        </h3>
+        <div className='space-y-4'>
+          <div>
+            <label className='block text-xs font-medium text-muted-foreground mb-1.5'>Site URL</label>
+            <input
+              type='text'
+              value={subjects.site_url}
+              onChange={(e) => handleSubjectChange('site_url', e.target.value)}
+              placeholder='https://your-app.com'
+              className={inputClass}
+            />
+            <p className='text-xs text-muted-foreground mt-1'>Base URL used for magic links and redirects.</p>
+          </div>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-xs font-medium text-muted-foreground mb-1.5'>Confirmation Mail Subject</label>
+              <input
+                type='text'
+                value={subjects.confirmation}
+                onChange={(e) => handleSubjectChange('confirmation', e.target.value)}
+                placeholder='Confirm your Email'
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className='block text-xs font-medium text-muted-foreground mb-1.5'>Recovery Mail Subject</label>
+              <input
+                type='text'
+                value={subjects.recovery}
+                onChange={(e) => handleSubjectChange('recovery', e.target.value)}
+                placeholder='Reset your Password'
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className='block text-xs font-medium text-muted-foreground mb-1.5'>Invite Mail Subject</label>
+              <input
+                type='text'
+                value={subjects.invite}
+                onChange={(e) => handleSubjectChange('invite', e.target.value)}
+                placeholder='You have been invited'
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className='block text-xs font-medium text-muted-foreground mb-1.5'>Magic Link Subject</label>
+              <input
+                type='text'
+                value={subjects.magic_link}
+                onChange={(e) => handleSubjectChange('magic_link', e.target.value)}
+                placeholder='Your Magic Link'
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className='flex justify-end'>
+            <button
+              onClick={handleSubjectsSave}
+              disabled={!subjectsDirty || subjectsMutation.isPending}
+              className='flex items-center gap-2 bg-brand-500 text-white hover:bg-brand-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 shadow-[0_0_10px_rgba(62,207,142,0.3)] hover:shadow-[0_0_20px_rgba(62,207,142,0.4)]'
+            >
+              {subjectsMutation.isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <Save className='w-4 h-4' />}
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* HTML Email Templates */}
       <div className='glass-card p-5 mt-4'>
         <EmailTemplateEditor instance={instance} />
       </div>

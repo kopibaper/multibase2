@@ -1,13 +1,51 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 import InstanceManager from '../services/InstanceManager';
 import { logger } from '../utils/logger';
-import { CreateInstanceRequest } from '../types';
+import { CreateInstanceRequest, SHARED_SERVICES, TENANT_SERVICES, RESOURCE_PRESETS } from '../types';
 
-const prisma = new PrismaClient();
+// Curated list of env vars that templates can configure
+const CONFIGURABLE_TEMPLATE_ENV_VARS = [
+  // Auth
+  'GOTRUE_EXTERNAL_EMAIL_ENABLED', 'GOTRUE_MAILER_AUTOCONFIRM',
+  'GOTRUE_SMTP_HOST', 'GOTRUE_SMTP_PORT', 'GOTRUE_SMTP_USER', 'GOTRUE_SMTP_PASS',
+  'GOTRUE_SMTP_ADMIN_EMAIL', 'GOTRUE_SMTP_SENDER_NAME',
+  'GOTRUE_EXTERNAL_GOOGLE_ENABLED', 'GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID', 'GOTRUE_EXTERNAL_GOOGLE_SECRET',
+  'GOTRUE_EXTERNAL_GITHUB_ENABLED', 'GOTRUE_EXTERNAL_GITHUB_CLIENT_ID', 'GOTRUE_EXTERNAL_GITHUB_SECRET',
+  'GOTRUE_EXTERNAL_DISCORD_ENABLED', 'GOTRUE_EXTERNAL_DISCORD_CLIENT_ID', 'GOTRUE_EXTERNAL_DISCORD_SECRET',
+  'GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED', 'GOTRUE_EXTERNAL_PHONE_ENABLED',
+  // API
+  'PGRST_DB_SCHEMAS', 'PGRST_MAX_ROWS',
+  // Realtime
+  'REALTIME_MAX_HEADER_LENGTH',
+  // Storage
+  'STORAGE_BACKEND', 'REGION', 'GLOBAL_S3_BUCKET', 'STORAGE_S3_ENDPOINT',
+  'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'STORAGE_S3_FORCE_PATH_STYLE',
+  // Pooler
+  'POOLER_POOL_MODE', 'POOLER_MAX_CLIENT_CONN', 'POOLER_DEFAULT_POOL_SIZE',
+  // AI
+  'OPENAI_API_KEY',
+] as const;
+
+/** Normalize legacy template configs to current format */
+function normalizeTemplateConfig(raw: any) {
+  return {
+    deploymentType: raw.deploymentType || 'cloud',
+    domain: raw.domain,
+    protocol: raw.protocol,
+    corsOrigins: raw.corsOrigins,
+    env: raw.env || {},
+    resourceLimits: raw.resourceLimits,
+    extensions: raw.extensions || [],
+    initSql: raw.initSql || '',
+    environment: raw.environment,
+  };
+}
 
 // Validation Schemas
 const createTemplateSchema = z.object({
@@ -29,7 +67,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates
    * List templates (public + user created)
    */
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
 
@@ -48,10 +86,10 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
         orderBy: { createdAt: 'desc' },
       });
 
-      // Parse config JSON strings back to objects
+      // Parse config JSON strings and normalize to current format
       const parsedTemplates = templates.map((t) => ({
         ...t,
-        config: JSON.parse(t.config),
+        config: normalizeTemplateConfig(JSON.parse(t.config)),
       }));
 
       return res.json({ templates: parsedTemplates });
@@ -63,12 +101,22 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
 
   /**
    * GET /api/templates/system
-   * Get system template (docker-compose.yml structure)
+   * Get shared infrastructure template metadata
    */
-  router.get('/system', requireAuth, async (_req: Request, res: Response) => {
+  router.get('/system', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (_req: Request, res: Response) => {
     try {
-      const template = await instanceManager.getSystemTemplate();
-      return res.json(template);
+      const extensions = await prisma.extension.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      });
+
+      return res.json({
+        sharedServices: [...SHARED_SERVICES],
+        tenantServices: [...TENANT_SERVICES],
+        availableExtensions: extensions,
+        configurableEnvVars: CONFIGURABLE_TEMPLATE_ENV_VARS,
+        resourcePresets: RESOURCE_PRESETS,
+      });
     } catch (error) {
       logger.error('Error fetching system template:', error);
       return res.status(500).json({ error: 'Failed to fetch system template' });
@@ -82,6 +130,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.post(
     '/',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.CREATE),
     auditLog('TEMPLATE_CREATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -127,7 +176,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates/:id
    * Get details of a specific template
    */
-  router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  router.get('/:id', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const user = (req as any).user;
@@ -155,7 +204,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
 
       return res.json({
         ...template,
-        config: JSON.parse(template.config),
+        config: normalizeTemplateConfig(JSON.parse(template.config)),
       });
     } catch (error) {
       logger.error(`Error fetching template ${req.params.id}:`, error);
@@ -170,6 +219,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.put(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.UPDATE),
     auditLog('TEMPLATE_UPDATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -217,6 +267,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.delete(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.DELETE),
     auditLog('TEMPLATE_DELETE'),
     async (req: Request, res: Response) => {
       try {
@@ -255,7 +306,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * POST /api/templates/:id/use
    * Direct instantiation from template
    */
-  router.post('/:id/use', requireAuth, async (req: Request, res: Response) => {
+  router.post('/:id/use', requireAuth, requireScope(SCOPES.TEMPLATES.CREATE), async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
       const id = parseInt(req.params.id);
@@ -273,15 +324,20 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      const config = { ...JSON.parse(template.config), ...(overrides || {}) };
+      const rawConfig = { ...JSON.parse(template.config), ...(overrides || {}) };
+      const config = normalizeTemplateConfig(rawConfig);
 
       const createRequest: CreateInstanceRequest = {
         name: instanceName,
-        deploymentType: config.deploymentType || 'localhost',
-        basePort: config.basePort,
+        deploymentType: config.deploymentType || 'cloud',
         corsOrigins: config.corsOrigins,
         domain: config.domain,
         protocol: config.protocol,
+        env: config.env,
+        resourceLimits: config.resourceLimits,
+        extensions: config.extensions,
+        initSql: config.initSql,
+        environment: config.environment,
       };
 
       const instance = await instanceManager.createInstance(createRequest);

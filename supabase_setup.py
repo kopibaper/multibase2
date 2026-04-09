@@ -226,6 +226,8 @@ class SupabaseProjectGenerator:
         config = config.replace('{{SERVICE_ROLE_KEY}}', service_key)
         config = config.replace('{{GATEWAY_PORT}}', gateway_port)
         config = config.replace('{{TIMESTAMP}}', str(Path(__file__).stat().st_mtime))
+        config = config.replace('{{SECURITY_HTTP_DIRECTIVES}}', '')
+        config = config.replace('{{SECURITY_SERVER_DIRECTIVES}}', '')
         
         # Write to shared volumes
         nginx_tenants_dir = self.base_dir / "shared" / "volumes" / "nginx" / "tenants"

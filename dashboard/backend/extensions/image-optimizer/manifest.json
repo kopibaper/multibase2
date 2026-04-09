@@ -1,0 +1,15 @@
+{
+  "id": "image-optimizer",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create image metadata table", "file": "schema.sql" },
+      { "label": "Deploy image optimizer", "file": "index.ts", "functionName": "optimize-image" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

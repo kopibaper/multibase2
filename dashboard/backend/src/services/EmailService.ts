@@ -1,8 +1,6 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../utils/logger';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Load email configuration from environment variables
 const SMTP_HOST = process.env.SMTP_HOST;

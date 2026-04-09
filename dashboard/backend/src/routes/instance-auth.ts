@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export function createInstanceAuthRoutes() {
   const router = Router();

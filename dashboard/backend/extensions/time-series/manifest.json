@@ -1,0 +1,14 @@
+{
+  "id": "time-series",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "sql",
+    "steps": [
+      { "label": "Create time-series tables and partitions", "file": "schema.sql" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

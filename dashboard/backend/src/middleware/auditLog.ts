@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 interface AuditOptions {
   /** Include request body in audit log details (be careful with sensitive data) */

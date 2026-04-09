@@ -1,12 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import BackupService from './BackupService';
 import { logger } from '../utils/logger';
 import { calculateNextRun } from '../utils/cron';
 import { createAuditLogEntry } from '../middleware/auditLog';
 
 import { UptimeService } from './UptimeService';
-
-const prisma = new PrismaClient();
 
 export class SchedulerService {
   private intervalId: NodeJS.Timeout | null = null;
@@ -146,6 +144,16 @@ export class SchedulerService {
           type,
         },
       });
+
+      // 4. Enforce retention (delete oldest backups beyond the configured count)
+      try {
+        const schedule = await prisma.backupSchedule.findUnique({ where: { id } });
+        if (schedule && schedule.retention > 0) {
+          await BackupService.enforceRetention(instanceId, type, schedule.retention);
+        }
+      } catch (retErr) {
+        logger.warn(`Retention enforcement failed for schedule ${id}:`, retErr);
+      }
 
       logger.info(`Scheduled backup completed: ${backup.name}`);
     } catch (error) {

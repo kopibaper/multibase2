@@ -24,11 +24,14 @@ interface OrgContextType {
 
 const OrgContext = createContext<OrgContextType | undefined>(undefined);
 
+import { useQueryClient } from '@tanstack/react-query';
+
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated } = useAuth();
   const [orgs, setOrgs] = useState<Organisation[]>([]);
   const [activeOrg, setActiveOrgState] = useState<Organisation | null>(null);
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const fetchOrgs = useCallback(async () => {
     if (!token) return;
@@ -46,7 +49,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
       const savedSlug = localStorage.getItem('activeOrgSlug');
       const saved = data.find((o: Organisation) => o.slug === savedSlug);
-      setActiveOrgState(saved || data[0] || null);
+      const orgToSet = saved || data[0] || null;
+      if (orgToSet) {
+        setActiveOrg(orgToSet);
+      } else {
+        setActiveOrgState(null);
+      }
     } catch (e) {
       console.error('Failed to fetch orgs', e);
     } finally {
@@ -61,6 +69,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const setActiveOrg = (org: Organisation) => {
     setActiveOrgState(org);
     localStorage.setItem('activeOrgSlug', org.slug);
+    queryClient.invalidateQueries(); // Refresh all data for new org
   };
 
   return (
@@ -70,6 +79,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOrg() {
   const ctx = useContext(OrgContext);
   if (!ctx) throw new Error('useOrg must be used within OrgProvider');

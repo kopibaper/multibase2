@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useInstances, useSystemMetrics } from '../hooks/useInstances';
+import { useInstancesAll, useSystemMetrics } from '../hooks/useInstances';
 import { useSharedStatus } from '../hooks/useShared';
 import { useAlertStats } from '../hooks/useAlerts';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,10 +21,11 @@ import {
   XCircle,
   AlertTriangle,
   HardDrive,
+  Building2,
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { data: instances, isLoading, error, refetch } = useInstances();
+  const { data: instances, isLoading, error, refetch } = useInstancesAll();
   const { data: alertStats } = useAlertStats();
   const { data: systemMetrics } = useSystemMetrics();
   const { data: sharedStatus } = useSharedStatus();
@@ -280,7 +281,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Instance Grid */}
+        {/* Instance Grid – grouped by organisation */}
         {!instances || instances.length === 0 ? (
           <div className='text-center py-12 bg-card border rounded-lg'>
             <svg
@@ -306,18 +307,53 @@ export default function Dashboard() {
               Create Instance
             </button>
           </div>
-        ) : (
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-            {instances.map((instance) => (
-              <InstanceCard
-                key={instance.id}
-                instance={instance}
-                isSelected={bulkSelection.isSelected(instance.name)}
-                onToggleSelect={bulkSelection.toggle}
-              />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          // Group instances by org
+          const groups = new Map<string, { label: string; instances: typeof instances }>();
+          instances.forEach((inst) => {
+            const key = inst.orgId ?? '__unassigned__';
+            const label = inst.orgName ?? (inst.orgId ? inst.orgId : 'Unassigned');
+            if (!groups.has(key)) groups.set(key, { label, instances: [] });
+            groups.get(key)!.instances.push(inst);
+          });
+          // Sort: named orgs first, unassigned last
+          const sorted = [...groups.entries()].sort(([a], [b]) => {
+            if (a === '__unassigned__') return 1;
+            if (b === '__unassigned__') return -1;
+            return (groups.get(a)!.label).localeCompare(groups.get(b)!.label);
+          });
+          const multiOrg = sorted.length > 1;
+          return (
+            <div className='space-y-10'>
+              {sorted.map(([key, group]) => (
+                <div key={key}>
+                  {multiOrg && (
+                    <div className='flex items-center gap-2 mb-4'>
+                      <Building2 className='w-4 h-4 text-muted-foreground' />
+                      <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
+                        {group.label}
+                      </h2>
+                      <span className='text-xs text-muted-foreground/60'>
+                        ({group.instances.length})
+                      </span>
+                      <div className='flex-1 h-px bg-white/5 ml-2' />
+                    </div>
+                  )}
+                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                    {group.instances.map((instance) => (
+                      <InstanceCard
+                        key={instance.id}
+                        instance={instance}
+                        isSelected={bulkSelection.isSelected(instance.name)}
+                        onToggleSelect={bulkSelection.toggle}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Bulk Action Bar */}
         <BulkActionBar

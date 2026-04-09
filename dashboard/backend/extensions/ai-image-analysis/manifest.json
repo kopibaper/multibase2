@@ -1,0 +1,12 @@
+{
+  "id": "ai-image-analysis",
+  "version": "1.0.0",
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create image analysis table", "file": "schema.sql" },
+      { "label": "Deploy image analyzer", "file": "index.ts", "functionName": "analyze-image" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

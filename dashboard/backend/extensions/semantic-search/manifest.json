@@ -1,0 +1,13 @@
+{
+  "id": "semantic-search",
+  "version": "1.0.0",
+  "requirements": { "postgresExtensions": ["pgvector"] },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Add embedding column to target table", "file": "schema.sql" },
+      { "label": "Deploy search & embed endpoint", "file": "index.ts", "functionName": "semantic-search" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

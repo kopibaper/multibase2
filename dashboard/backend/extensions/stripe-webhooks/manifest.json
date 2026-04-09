@@ -1,0 +1,15 @@
+{
+  "id": "stripe-webhooks",
+  "version": "1.0.0",
+  "requirements": {
+    "postgresExtensions": []
+  },
+  "install": {
+    "type": "composite",
+    "steps": [
+      { "label": "Create payments table", "file": "schema.sql" },
+      { "label": "Deploy webhook handler", "file": "index.ts", "functionName": "stripe-webhook" }
+    ],
+    "rollback": "rollback.sql"
+  }
+}

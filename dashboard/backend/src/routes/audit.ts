@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createAuditRoutes() {
   const router = Router();
@@ -32,15 +32,34 @@ export function createAuditRoutes() {
 
   /**
    * GET /api/audit
-   * List audit logs with filtering and pagination (Admin only)
+   * List audit logs with filtering, sorting and pagination (Admin only)
    */
-  router.get('/', requireAdmin, async (req: Request, res: Response) => {
+  router.get('/', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (req: Request, res: Response) => {
     try {
-      const { action, userId, success, limit = '50', offset = '0', startDate, endDate } = req.query;
+      const {
+        action,
+        userId,
+        success,
+        resource,
+        limit = '50',
+        offset = '0',
+        startDate,
+        endDate,
+        sortBy = 'createdAt',
+        sortOrder = 'desc',
+      } = req.query;
+
+      const ALLOWED_SORT_FIELDS = ['createdAt', 'action', 'resource', 'success'] as const;
+      type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+      const safeSortBy: SortField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField)
+        ? (sortBy as SortField)
+        : 'createdAt';
+      const safeSortOrder: 'asc' | 'desc' = sortOrder === 'asc' ? 'asc' : 'desc';
 
       const where: any = {};
-      if (action) where.action = action;
+      if (action) where.action = { contains: (action as string).toUpperCase() };
       if (userId) where.userId = userId;
+      if (resource) where.resource = { contains: resource as string };
       if (success !== undefined) where.success = success === 'true';
 
       if (startDate || endDate) {
@@ -52,7 +71,7 @@ export function createAuditRoutes() {
       const [logs, total] = await Promise.all([
         prisma.auditLog.findMany({
           where,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [safeSortBy]: safeSortOrder },
           take: Math.min(parseInt(limit as string, 10), 200),
           skip: parseInt(offset as string, 10),
           include: {
@@ -86,30 +105,43 @@ export function createAuditRoutes() {
    * GET /api/audit/stats
    * Get audit log statistics (Admin only)
    */
-  router.get('/stats', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/stats', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (_req: Request, res: Response) => {
     try {
       const now = new Date();
       const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const [total, last24hCount, last7dCount, failedLast24h, topActions] = await Promise.all([
-        prisma.auditLog.count(),
-        prisma.auditLog.count({ where: { createdAt: { gte: last24h } } }),
-        prisma.auditLog.count({ where: { createdAt: { gte: last7d } } }),
-        prisma.auditLog.count({ where: { createdAt: { gte: last24h }, success: false } }),
-        prisma.auditLog.groupBy({
-          by: ['action'],
-          _count: { action: true },
-          orderBy: { _count: { action: 'desc' } },
-          take: 10,
-        }),
-      ]);
+      const [total, last24hCount, last7dCount, failedLast24h, failedLast7d, topActions, uniqueUsers24h] =
+        await Promise.all([
+          prisma.auditLog.count(),
+          prisma.auditLog.count({ where: { createdAt: { gte: last24h } } }),
+          prisma.auditLog.count({ where: { createdAt: { gte: last7d } } }),
+          prisma.auditLog.count({ where: { createdAt: { gte: last24h }, success: false } }),
+          prisma.auditLog.count({ where: { createdAt: { gte: last7d }, success: false } }),
+          prisma.auditLog.groupBy({
+            by: ['action'],
+            _count: { action: true },
+            orderBy: { _count: { action: 'desc' } },
+            take: 10,
+          }),
+          prisma.auditLog.groupBy({
+            by: ['userId'],
+            where: { createdAt: { gte: last24h }, userId: { not: null } },
+            _count: { userId: true },
+          }),
+        ]);
+
+      const successRate7d =
+        last7dCount > 0 ? Math.round(((last7dCount - failedLast7d) / last7dCount) * 100) : 100;
 
       res.json({
         total,
         last24h: last24hCount,
         last7d: last7dCount,
         failedLast24h,
+        failedLast7d,
+        uniqueUsers24h: uniqueUsers24h.length,
+        successRate7d,
         topActions: topActions.map((a) => ({
           action: a.action,
           count: a._count.action,
@@ -122,10 +154,34 @@ export function createAuditRoutes() {
   });
 
   /**
+   * GET /api/audit/actions
+   * Get distinct action values with counts for filter dropdown (Admin only)
+   */
+  router.get('/actions', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (_req: Request, res: Response) => {
+    try {
+      const actions = await prisma.auditLog.groupBy({
+        by: ['action'],
+        _count: { action: true },
+        orderBy: { _count: { action: 'desc' } },
+      });
+
+      res.json({
+        actions: actions.map((a) => ({
+          action: a.action,
+          count: a._count.action,
+        })),
+      });
+    } catch (error) {
+      logger.error('Error getting audit actions:', error);
+      res.status(500).json({ error: 'Failed to get audit actions' });
+    }
+  });
+
+  /**
    * GET /api/audit/:id
    * Get single audit log entry (Admin only)
    */
-  router.get('/:id', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {

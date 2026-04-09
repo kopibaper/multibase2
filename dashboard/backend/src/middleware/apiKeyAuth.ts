@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 /**
  * Hash an API key for lookup

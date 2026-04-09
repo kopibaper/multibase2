@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { CreateInstanceRequest } from '../types';
 import InstanceManager from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
+import MetricsCollector from '../services/MetricsCollector';
 import { logger } from '../utils/logger';
 import { validate } from '../middleware/validate';
 import {
@@ -11,22 +12,134 @@ import {
   CloneInstanceSchema,
 } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
-import { requireViewer, requireUser } from '../middleware/authMiddleware';
+import { requireViewer, requireUser, requireAdmin, requireOrgRole } from '../middleware/authMiddleware';
+import { requireAuth } from '../middleware/auth';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
   dockerManager: DockerManager,
-  prisma: PrismaClient
+  prisma: PrismaClient,
+  metricsCollector?: MetricsCollector
 ): Router {
   const router = Router();
 
   /**
-   * GET /api/instances
-   * List all instances
+   * Helper: Verify that the instance identified by req.params.name belongs
+   * to the org specified in X-Org-Id. Returns 404 if not found.
+   * Global admins can always access any instance regardless of org.
    */
-  router.get('/', requireViewer, async (_req: Request, res: Response) => {
+  const verifyInstanceOrg = async (req: Request, res: Response): Promise<boolean> => {
+    const orgId = (req as any).orgId as string | undefined;
+    const name = req.params.name;
+    const isAdmin = (req as any).user?.role === 'admin';
+
+    // Admin → always allowed
+    if (isAdmin) return true;
+    if (!name) return true;
+
+    const record = await prisma.instance.findFirst({ where: { name, orgId } });
+    if (!record) {
+      res.status(404).json({ error: 'Instance not found in this organisation' });
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * GET /api/instances
+   * List instances scoped to the active organisation.
+   * Global admins without X-Org-Id see ALL instances (including unassigned).
+   * Global admins with X-Org-Id see that org's instances + unassigned ones.
+   * Org members see only their org's instances.
+   */
+  router.get('/', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
-      const instances = await instanceManager.listInstances();
+      const orgId = (req as any).orgId as string | undefined;
+      const isAdmin = req.user?.role === 'admin';
+
+      // Get all instances from filesystem
+      const allInstances = await instanceManager.listInstances();
+
+      // Enrich all instances with environment label from DB
+      const allEnvRecords = await prisma.instance.findMany({ select: { name: true, environment: true } });
+      const envLabelMap = new Map(allEnvRecords.map((r) => [r.name, r.environment ?? null]));
+      allInstances.forEach((inst) => { (inst as any).environment = envLabelMap.get(inst.name) ?? null; });
+
+      // Admin with no org header → return everything
+      if (isAdmin && !orgId) {
+        // Enrich with orgId + orgName from DB
+        const allDbRecords = await prisma.instance.findMany({
+          select: { name: true, orgId: true },
+        });
+        const orgIds = [...new Set(allDbRecords.map((r) => r.orgId).filter(Boolean) as string[])];
+        const orgNameMap = new Map<string, string>();
+        if (orgIds.length > 0) {
+          const orgs = await prisma.organisation.findMany({
+            where: { id: { in: orgIds } },
+            select: { id: true, name: true },
+          });
+          orgs.forEach((o) => orgNameMap.set(o.id, o.name));
+        }
+        const orgInfoMap = new Map(
+          allDbRecords.map((r) => [
+            r.name,
+            { orgId: r.orgId ?? null, orgName: r.orgId ? (orgNameMap.get(r.orgId) ?? null) : null },
+          ])
+        );
+        allInstances.forEach((inst) => {
+          const info = orgInfoMap.get(inst.name);
+          (inst as any).orgId = info?.orgId ?? null;
+          (inst as any).orgName = info?.orgName ?? null;
+        });
+
+        // Enrich with diskUsedMB in parallel
+        if (metricsCollector) {
+          await Promise.all(
+            allInstances.map(async (inst) => {
+              if (inst.metrics) {
+                inst.metrics.diskUsedMB =
+                  (await metricsCollector.getDiskUsageForInstance(inst.name)) ?? undefined;
+              }
+            })
+          );
+        }
+        return res.json(allInstances);
+      }
+
+      // Get instance names that belong to this org from DB
+      const whereClause: any = { orgId };
+      const orgInstanceRecords = await prisma.instance.findMany({
+        where: whereClause,
+        select: { name: true },
+      });
+      const orgInstanceNames = new Set(orgInstanceRecords.map((r) => r.name));
+
+      // Admin also sees instances with no org assigned yet (legacy / unassigned)
+      if (isAdmin) {
+        const unassigned = await prisma.instance.findMany({
+          where: { orgId: null },
+          select: { name: true },
+        });
+        unassigned.forEach((r) => orgInstanceNames.add(r.name));
+      }
+
+      // Filter to org (+ unassigned for admin) instances
+      const instances = allInstances.filter((i) => orgInstanceNames.has(i.name));
+
+      // Enrich with diskUsedMB in parallel
+      if (metricsCollector) {
+        await Promise.all(
+          instances.map(async (inst) => {
+            if (inst.metrics) {
+              inst.metrics.diskUsedMB =
+                (await metricsCollector.getDiskUsageForInstance(inst.name)) ?? undefined;
+            }
+          })
+        );
+      }
+
       return res.json(instances);
     } catch (error: any) {
       logger.error('Error listing instances:', error);
@@ -41,6 +154,8 @@ export function createInstanceRoutes(
   router.post(
     '/bulk',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('member'),
     auditLog('INSTANCE_BULK_ACTION', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -101,17 +216,42 @@ export function createInstanceRoutes(
 
   /**
    * GET /api/instances/:name
-   * Get a specific instance by name
+   * Get a specific instance by name.
+   * Admins can open any instance regardless of org assignment.
+   * Non-admins: instance must belong to their active org.
    */
-  router.get('/:name', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
+      const orgId = (req as any).orgId as string | undefined;
+      const isAdmin = req.user?.role === 'admin';
+
+      if (!isAdmin) {
+        // Non-admin: instance must belong to their org
+        const dbInstance = await prisma.instance.findFirst({ where: { name, orgId } });
+        if (!dbInstance) {
+          return res.status(404).json({ error: 'Instance not found in this organisation' });
+        }
+      }
+      // Admin: no org-filter — can open any instance
+
       const instances = await instanceManager.listInstances();
       const instance = instances.find((i) => i.name === name);
 
       if (!instance) {
         return res.status(404).json({ error: 'Instance not found' });
       }
+
+      // Enrich with diskUsedMB from MetricsCollector (cached, fast)
+      if (metricsCollector && instance.metrics) {
+        instance.metrics.diskUsedMB =
+          (await metricsCollector.getDiskUsageForInstance(name)) ?? undefined;
+      }
+
+      // Enrich with environment label and orgId from DB
+      const dbRecord = await prisma.instance.findFirst({ where: { name }, select: { environment: true, orgId: true } });
+      (instance as any).environment = dbRecord?.environment ?? null;
+      (instance as any).orgId = dbRecord?.orgId ?? null;
 
       return res.json(instance);
     } catch (error: any) {
@@ -122,11 +262,13 @@ export function createInstanceRoutes(
 
   /**
    * POST /api/instances
-   * Create a new instance
+   * Create a new instance (assigned to the active organisation)
    */
   router.post(
     '/',
     requireUser,
+    requireScope(SCOPES.INSTANCES.CREATE),
+    requireOrgRole('member'),
     validate(CreateInstanceSchema),
     auditLog('INSTANCE_CREATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
@@ -151,26 +293,74 @@ export function createInstanceRoutes(
 
           const templateConfig = JSON.parse(template.config);
 
-          // Merge: Template Config < Request Overrides
+          // Merge: Template provides defaults, request-level fields take priority
+          const mergedEnv = { ...(templateConfig.env || {}), ...(createRequest.env || {}) };
           createRequest = {
             ...templateConfig,
             ...createRequest,
+            env: mergedEnv,
+            resourceLimits: createRequest.resourceLimits || templateConfig.resourceLimits,
+            extensions: createRequest.extensions || templateConfig.extensions,
+            initSql: createRequest.initSql || templateConfig.initSql,
+            environment: createRequest.environment || templateConfig.environment,
           };
-
-          // Ensure basePort is unique/handled by manager if not provided?
-          // The manager handles it if not provided? instanceManager.createInstance checks it.
         }
 
         // Validation is now handled by Zod middleware
         const instance = await instanceManager.createInstance(createRequest);
 
-        // Apply Template Overrides (Post-Processing)
-        // Only apply if there are actual services or env overrides
-        const hasServiceOverrides = (createRequest as any).services?.length > 0;
+        // Assign instance to active organisation
+        const orgId = (req as any).orgId as string | undefined;
+        if (orgId) {
+          try {
+            await prisma.instance.updateMany({
+              where: { name: instance.name },
+              data: { orgId },
+            });
+          } catch (orgErr) {
+            logger.warn(`Failed to set orgId for instance ${instance.name}:`, orgErr);
+          }
+        }
+
+        // Apply Template Overrides (Post-Processing): env overrides
         const hasEnvOverrides =
-          (createRequest as any).env && Object.keys((createRequest as any).env).length > 0;
-        if (hasServiceOverrides || hasEnvOverrides) {
+          createRequest.env && Object.keys(createRequest.env).length > 0;
+        if (hasEnvOverrides) {
           await instanceManager.applyTemplateConfig(instance.name, createRequest);
+        }
+
+        // Set environment label on DB record
+        if (createRequest.environment) {
+          try {
+            await prisma.instance.updateMany({
+              where: { name: instance.name },
+              data: { environment: createRequest.environment },
+            });
+          } catch (envErr) {
+            logger.warn(`Failed to set environment for instance ${instance.name}:`, envErr);
+          }
+        }
+
+        // Auto-install extensions if specified
+        if (createRequest.extensions && createRequest.extensions.length > 0) {
+          for (const extensionId of createRequest.extensions) {
+            try {
+              const extension = await prisma.extension.findUnique({ where: { id: extensionId } });
+              if (extension) {
+                await prisma.installedExtension.create({
+                  data: {
+                    instanceId: instance.id,
+                    extensionId: extension.id,
+                    version: extension.version,
+                    status: 'active',
+                  },
+                });
+                logger.info(`Auto-installed extension ${extensionId} on ${instance.name}`);
+              }
+            } catch (extErr) {
+              logger.warn(`Failed to auto-install extension ${extensionId}:`, extErr);
+            }
+          }
         }
 
         res.status(201).json(instance);
@@ -188,10 +378,13 @@ export function createInstanceRoutes(
   router.delete(
     '/:name',
     requireUser,
+    requireScope(SCOPES.INSTANCES.DELETE),
+    requireOrgRole('admin'),
     auditLog('INSTANCE_DELETE'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         const { removeVolumes } = req.query;
 
         await instanceManager.deleteInstance(name, removeVolumes === 'true');
@@ -210,10 +403,13 @@ export function createInstanceRoutes(
   router.post(
     '/:name/start',
     requireUser,
+    requireScope(SCOPES.INSTANCES.START),
+    requireOrgRole('member'),
     auditLog('INSTANCE_START'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.startInstance(name);
         res.json({ message: `Instance ${name} started successfully` });
       } catch (error: any) {
@@ -230,10 +426,13 @@ export function createInstanceRoutes(
   router.post(
     '/:name/stop',
     requireUser,
+    requireScope(SCOPES.INSTANCES.STOP),
+    requireOrgRole('member'),
     auditLog('INSTANCE_STOP'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         const { keepVolumes } = req.query;
 
         await instanceManager.stopInstance(name, keepVolumes !== 'false');
@@ -252,10 +451,13 @@ export function createInstanceRoutes(
   router.post(
     '/:name/restart',
     requireUser,
+    requireScope(SCOPES.INSTANCES.RESTART),
+    requireOrgRole('member'),
     auditLog('INSTANCE_RESTART'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.restartInstance(name);
         res.json({ message: `Instance ${name} restarted successfully` });
       } catch (error: any) {
@@ -272,6 +474,8 @@ export function createInstanceRoutes(
   router.post(
     '/:name/services/:service/restart',
     requireUser,
+    requireScope(SCOPES.INSTANCES.RESTART),
+    requireOrgRole('member'),
     auditLog('INSTANCE_SERVICE_RESTART', {
       getResource: (req) => `${req.params.name}:${req.params.service}`,
     }),
@@ -297,10 +501,13 @@ export function createInstanceRoutes(
   router.post(
     '/:name/recreate',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('member'),
     auditLog('INSTANCE_RECREATE'),
     async (req: Request, res: Response) => {
       try {
         const { name } = req.params;
+        if (!(await verifyInstanceOrg(req, res))) return;
         await instanceManager.recreateInstance(name);
         res.json({ message: `Instance ${name} recreated successfully` });
       } catch (error: any) {
@@ -317,6 +524,8 @@ export function createInstanceRoutes(
   router.put(
     '/:name/credentials',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_CREDENTIALS', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -336,7 +545,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/services
    * Get services status for an instance
    */
-  router.get('/:name/services', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/services', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const services = await dockerManager.getServiceStatus(name);
@@ -354,6 +563,8 @@ export function createInstanceRoutes(
   router.put(
     '/:name/smtp',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_SMTP', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -364,12 +575,12 @@ export function createInstanceRoutes(
         // Construct env updates
         const configUpdates: Record<string, string> = {};
 
-        if (smtp_host) configUpdates.SMTP_HOST = smtp_host;
-        if (smtp_port) configUpdates.SMTP_PORT = String(smtp_port);
-        if (smtp_user) configUpdates.SMTP_USER = smtp_user;
-        if (smtp_pass && smtp_pass !== '********') configUpdates.SMTP_PASS = smtp_pass;
-        if (smtp_sender_name) configUpdates.SMTP_SENDER_NAME = smtp_sender_name;
-        if (smtp_admin_email) configUpdates.SMTP_ADMIN_EMAIL = smtp_admin_email;
+        if (smtp_host !== undefined) configUpdates.SMTP_HOST = smtp_host;
+        if (smtp_port !== undefined) configUpdates.SMTP_PORT = String(smtp_port);
+        if (smtp_user !== undefined) configUpdates.SMTP_USER = smtp_user;
+        if (smtp_pass !== undefined && smtp_pass !== '********') configUpdates.SMTP_PASS = smtp_pass;
+        if (smtp_sender_name !== undefined) configUpdates.SMTP_SENDER_NAME = smtp_sender_name;
+        if (smtp_admin_email !== undefined) configUpdates.SMTP_ADMIN_EMAIL = smtp_admin_email;
 
         await instanceManager.updateInstanceConfig(name, configUpdates);
 
@@ -385,7 +596,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/env
    * Get instance environment variables
    */
-  router.get('/:name/env', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/env', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { keys } = req.query; // Optional: comma-separated list of keys to fetch
@@ -427,6 +638,8 @@ export function createInstanceRoutes(
   router.put(
     '/:name/env',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_ENV', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -450,6 +663,8 @@ export function createInstanceRoutes(
   router.put(
     '/:name/resources',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('admin'),
     validate(UpdateResourceLimitsSchema),
     auditLog('INSTANCE_UPDATE_RESOURCES', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -477,6 +692,8 @@ export function createInstanceRoutes(
   router.post(
     '/:name/clone',
     requireUser,
+    requireScope(SCOPES.INSTANCES.CREATE),
+    requireOrgRole('member'),
     validate(CloneInstanceSchema),
     auditLog('INSTANCE_CLONE', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -502,7 +719,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/schema
    * Get database schema for an instance
    */
-  router.get('/:name/schema', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/schema', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       logger.info(`Getting schema for instance ${name}`);
@@ -520,7 +737,9 @@ export function createInstanceRoutes(
    */
   router.post(
     '/:name/sql',
-    requireUser,
+    requireAuth,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    requireOrgRole('admin'),
     auditLog('SQL_EXECUTE', { includeBody: false }),
     async (req: Request, res: Response) => {
       try {
@@ -544,6 +763,83 @@ export function createInstanceRoutes(
       } catch (error: any) {
         logger.error(`Error executing SQL for ${req.params.name}:`, error);
         res.status(500).json({ error: error.message || 'Failed to execute SQL' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/instances/:name/environment
+   * Set or clear the environment label of an instance.
+   * Body: { environment: 'production' | 'staging' | 'dev' | 'preview' | null }
+   */
+  router.patch(
+    '/:name/environment',
+    requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    auditLog('INSTANCE_SET_ENVIRONMENT', { includeBody: true }),
+    async (req: Request, res: Response): Promise<any> => {
+      try {
+        const { name } = req.params;
+        const { environment } = req.body as { environment: string | null };
+
+        const VALID_ENVS = ['production', 'staging', 'dev', 'preview', null];
+        if (!VALID_ENVS.includes(environment)) {
+          return res.status(400).json({
+            error: `Invalid environment. Must be one of: ${VALID_ENVS.filter(Boolean).join(', ')}, or null`,
+          });
+        }
+
+        const updated = await prisma.instance.updateMany({
+          where: { name },
+          data: { environment: environment ?? null },
+        });
+
+        if (updated.count === 0) {
+          return res.status(404).json({ error: 'Instance not found in database' });
+        }
+
+        return res.json({ success: true, name, environment: environment ?? null });
+      } catch (error: any) {
+        logger.error(`Error setting environment for instance ${req.params.name}:`, error);
+        return res.status(500).json({ error: error.message || 'Failed to set environment label' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/instances/:name/assign-org
+   * Admin-only: assign (or unassign) an existing instance to/from an organisation.
+   * Body: { orgId: string | null }
+   */
+  router.patch(
+    '/:name/assign-org',
+    requireAdmin,
+    requireScope(SCOPES.INSTANCES.UPDATE),
+    auditLog('INSTANCE_ASSIGN_ORG', { includeBody: true }),
+    async (req: Request, res: Response): Promise<any> => {
+      try {
+        const { name } = req.params;
+        const { orgId } = req.body as { orgId: string | null };
+
+        // Validate org exists (if setting one)
+        if (orgId) {
+          const org = await prisma.organisation.findUnique({ where: { id: orgId } });
+          if (!org) return res.status(404).json({ error: 'Organisation not found' });
+        }
+
+        const updated = await prisma.instance.updateMany({
+          where: { name },
+          data: { orgId: orgId ?? null },
+        });
+
+        if (updated.count === 0) {
+          return res.status(404).json({ error: 'Instance not found in database' });
+        }
+
+        return res.json({ success: true, name, orgId: orgId ?? null });
+      } catch (error: any) {
+        logger.error(`Error assigning org for instance ${req.params.name}:`, error);
+        return res.status(500).json({ error: error.message || 'Failed to assign org' });
       }
     }
   );

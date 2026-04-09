@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
-
-const prisma = new PrismaClient();
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createAlertRoutes(): Router {
   const router = Router();
@@ -12,7 +12,7 @@ export function createAlertRoutes(): Router {
    * GET /api/alerts
    * List all alerts with optional filtering
    */
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', requireScope(SCOPES.ALERTS.READ), async (req: Request, res: Response) => {
     try {
       const { status, instanceId, rule, limit = '100' } = req.query;
 
@@ -46,7 +46,7 @@ export function createAlertRoutes(): Router {
    * GET /api/alerts/rules
    * List all alert rules
    */
-  router.get('/rules', async (req: Request, res: Response) => {
+  router.get('/rules', requireScope(SCOPES.ALERTS.READ), async (req: Request, res: Response) => {
     try {
       const { instanceId, enabled } = req.query;
 
@@ -79,6 +79,7 @@ export function createAlertRoutes(): Router {
    */
   router.post(
     '/rules',
+    requireScope(SCOPES.ALERTS.CREATE),
     auditLog('CREATE_ALERT_RULE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -146,6 +147,7 @@ export function createAlertRoutes(): Router {
    */
   router.put(
     '/rules/:id',
+    requireScope(SCOPES.ALERTS.UPDATE),
     auditLog('UPDATE_ALERT_RULE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -199,6 +201,7 @@ export function createAlertRoutes(): Router {
    */
   router.delete(
     '/rules/:id',
+    requireScope(SCOPES.ALERTS.DELETE),
     auditLog('DELETE_ALERT_RULE'),
     async (req: Request, res: Response) => {
       try {
@@ -231,6 +234,7 @@ export function createAlertRoutes(): Router {
    */
   router.post(
     '/:id/acknowledge',
+    requireScope(SCOPES.ALERTS.UPDATE),
     auditLog('ACKNOWLEDGE_ALERT'),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -274,6 +278,7 @@ export function createAlertRoutes(): Router {
    */
   router.post(
     '/:id/resolve',
+    requireScope(SCOPES.ALERTS.UPDATE),
     auditLog('RESOLVE_ALERT'),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -315,7 +320,7 @@ export function createAlertRoutes(): Router {
    * GET /api/alerts/stats
    * Get alert statistics
    */
-  router.get('/stats', async (req: Request, res: Response): Promise<any> => {
+  router.get('/stats', requireScope(SCOPES.ALERTS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const { instanceId } = req.query;
 
@@ -345,7 +350,7 @@ export function createAlertRoutes(): Router {
    * GET /api/alerts/active
    * Get all active (triggered) alerts
    */
-  router.get('/active', async (req: Request, res: Response): Promise<any> => {
+  router.get('/active', requireScope(SCOPES.ALERTS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const { instanceId } = req.query;
 
@@ -381,6 +386,7 @@ export function createAlertRoutes(): Router {
    */
   router.post(
     '/check/:instanceId',
+    requireScope(SCOPES.ALERTS.READ),
     auditLog('MANUAL_ALERT_CHECK', {
       getResource: (req) => req.params.instanceId,
     }),
@@ -483,7 +489,7 @@ export function createAlertRoutes(): Router {
    * POST /api/alerts/:id/trigger
    * Manually trigger an alert
    */
-  router.post('/:id/trigger', async (req: Request, res: Response): Promise<any> => {
+  router.post('/:id/trigger', requireScope(SCOPES.ALERTS.CREATE), async (req: Request, res: Response): Promise<any> => {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
