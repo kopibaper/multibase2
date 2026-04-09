@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import McpService from '../services/McpService';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createMcpRoutes(mcpService: McpService) {
   const router = Router();
 
   // GET /api/mcp/info — server info + tool listing (used by settings page and MCP clients)
-  router.get('/info', requireAuth, (_req, res) => {
+  router.get('/info', requireAuth, requireScope(SCOPES.MCP.READ), (_req, res) => {
     return res.json({
       server: mcpService.getServerInfo(),
       tools: mcpService.getTools(),
@@ -15,7 +17,7 @@ export function createMcpRoutes(mcpService: McpService) {
   });
 
   // POST /api/mcp — JSON-RPC 2.0 endpoint for MCP clients
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.MCP.WRITE), async (req, res) => {
     const { jsonrpc, method, params, id } = req.body;
 
     if (jsonrpc !== '2.0') {

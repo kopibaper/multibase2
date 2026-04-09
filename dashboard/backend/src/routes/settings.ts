@@ -4,6 +4,8 @@ import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
 import { auditLog } from '../middleware/auditLog';
 import { requireAdmin } from '../middleware/authMiddleware';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createSettingsRoutes() {
   const router = Router();
@@ -12,7 +14,7 @@ export function createSettingsRoutes() {
    * GET /api/settings/smtp
    * Get global SMTP settings
    */
-  router.get('/smtp', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/smtp', requireAdmin, requireScope(SCOPES.SETTINGS.READ), async (_req: Request, res: Response) => {
     try {
       const settings = await prisma.globalSettings.findUnique({
         where: { id: 1 },
@@ -39,6 +41,7 @@ export function createSettingsRoutes() {
   router.put(
     '/smtp',
     requireAdmin,
+    requireScope(SCOPES.SETTINGS.WRITE),
     auditLog('SETTINGS_UPDATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -104,6 +107,7 @@ export function createSettingsRoutes() {
   router.post(
     '/smtp/test',
     requireAdmin,
+    requireScope(SCOPES.SETTINGS.WRITE),
     auditLog('SMTP_TEST_EMAIL', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -162,7 +166,7 @@ export function createSettingsRoutes() {
    * PUT /api/settings/features
    * Update feature flags (admin only)
    */
-  router.put('/features', requireAdmin, async (req: Request, res: Response) => {
+  router.put('/features', requireAdmin, requireScope(SCOPES.SETTINGS.WRITE), async (req: Request, res: Response) => {
     try {
       const feedbackEnabled = Boolean(req.body.feedbackEnabled);
       const val = feedbackEnabled ? 1 : 0;
@@ -183,7 +187,7 @@ export function createSettingsRoutes() {
    * GET /api/settings/system
    * Get system environment variables for defaults
    */
-  router.get('/system', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/system', requireAdmin, requireScope(SCOPES.SETTINGS.READ), async (_req: Request, res: Response) => {
     try {
       const cors = process.env.CORS_ORIGIN || '';
       // Also return API URL if available (optional)

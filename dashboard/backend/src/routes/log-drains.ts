@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 import InstanceManager from '../services/InstanceManager';
 import LogDrainService from '../services/LogDrainService';
 
@@ -12,7 +14,7 @@ export function createLogDrainRoutes(
   const router = Router({ mergeParams: true });
 
   // GET /api/instances/:name/log-drains
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.LOG_DRAINS.READ), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const instance = await instanceManager.getInstance(name);
@@ -26,7 +28,7 @@ export function createLogDrainRoutes(
   });
 
   // POST /api/instances/:name/log-drains
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.LOG_DRAINS.CREATE), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const { name: drainName, url, services = [], format = 'json', enabled = true } = req.body;
@@ -56,7 +58,7 @@ export function createLogDrainRoutes(
   });
 
   // PATCH /api/instances/:name/log-drains/:id
-  router.patch('/:id', requireAuth, async (req, res) => {
+  router.patch('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.UPDATE), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const { name: drainName, url, services, format, enabled } = req.body;
@@ -85,7 +87,7 @@ export function createLogDrainRoutes(
   });
 
   // POST /api/instances/:name/log-drains/:id/test
-  router.post('/:id/test', requireAuth, async (req, res) => {
+  router.post('/:id/test', requireAuth, requireScope(SCOPES.LOG_DRAINS.READ), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);
@@ -102,7 +104,7 @@ export function createLogDrainRoutes(
   });
 
   // DELETE /api/instances/:name/log-drains/:id
-  router.delete('/:id', requireAuth, async (req, res) => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.LOG_DRAINS.DELETE), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);

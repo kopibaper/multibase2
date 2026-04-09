@@ -14,6 +14,8 @@ import {
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser, requireAdmin, requireOrgRole } from '../middleware/authMiddleware';
 import { requireAuth } from '../middleware/auth';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createInstanceRoutes(
   instanceManager: InstanceManager,
@@ -52,7 +54,7 @@ export function createInstanceRoutes(
    * Global admins with X-Org-Id see that org's instances + unassigned ones.
    * Org members see only their org's instances.
    */
-  router.get('/', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
+  router.get('/', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const orgId = (req as any).orgId as string | undefined;
       const isAdmin = req.user?.role === 'admin';
@@ -152,6 +154,7 @@ export function createInstanceRoutes(
   router.post(
     '/bulk',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('member'),
     auditLog('INSTANCE_BULK_ACTION', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -217,7 +220,7 @@ export function createInstanceRoutes(
    * Admins can open any instance regardless of org assignment.
    * Non-admins: instance must belong to their active org.
    */
-  router.get('/:name', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
+  router.get('/:name', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const orgId = (req as any).orgId as string | undefined;
@@ -264,6 +267,7 @@ export function createInstanceRoutes(
   router.post(
     '/',
     requireUser,
+    requireScope(SCOPES.INSTANCES.CREATE),
     requireOrgRole('member'),
     validate(CreateInstanceSchema),
     auditLog('INSTANCE_CREATE', { includeBody: true }),
@@ -374,6 +378,7 @@ export function createInstanceRoutes(
   router.delete(
     '/:name',
     requireUser,
+    requireScope(SCOPES.INSTANCES.DELETE),
     requireOrgRole('admin'),
     auditLog('INSTANCE_DELETE'),
     async (req: Request, res: Response) => {
@@ -398,6 +403,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/start',
     requireUser,
+    requireScope(SCOPES.INSTANCES.START),
     requireOrgRole('member'),
     auditLog('INSTANCE_START'),
     async (req: Request, res: Response) => {
@@ -420,6 +426,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/stop',
     requireUser,
+    requireScope(SCOPES.INSTANCES.STOP),
     requireOrgRole('member'),
     auditLog('INSTANCE_STOP'),
     async (req: Request, res: Response) => {
@@ -444,6 +451,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/restart',
     requireUser,
+    requireScope(SCOPES.INSTANCES.RESTART),
     requireOrgRole('member'),
     auditLog('INSTANCE_RESTART'),
     async (req: Request, res: Response) => {
@@ -466,6 +474,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/services/:service/restart',
     requireUser,
+    requireScope(SCOPES.INSTANCES.RESTART),
     requireOrgRole('member'),
     auditLog('INSTANCE_SERVICE_RESTART', {
       getResource: (req) => `${req.params.name}:${req.params.service}`,
@@ -492,6 +501,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/recreate',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('member'),
     auditLog('INSTANCE_RECREATE'),
     async (req: Request, res: Response) => {
@@ -514,6 +524,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/credentials',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_CREDENTIALS', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -534,7 +545,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/services
    * Get services status for an instance
    */
-  router.get('/:name/services', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
+  router.get('/:name/services', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const services = await dockerManager.getServiceStatus(name);
@@ -552,6 +563,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/smtp',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_SMTP', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -584,7 +596,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/env
    * Get instance environment variables
    */
-  router.get('/:name/env', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
+  router.get('/:name/env', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const { keys } = req.query; // Optional: comma-separated list of keys to fetch
@@ -626,6 +638,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/env',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('admin'),
     auditLog('INSTANCE_UPDATE_ENV', { includeBody: true }),
     async (req: Request, res: Response) => {
@@ -650,6 +663,7 @@ export function createInstanceRoutes(
   router.put(
     '/:name/resources',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('admin'),
     validate(UpdateResourceLimitsSchema),
     auditLog('INSTANCE_UPDATE_RESOURCES', { includeBody: true }),
@@ -678,6 +692,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/clone',
     requireUser,
+    requireScope(SCOPES.INSTANCES.CREATE),
     requireOrgRole('member'),
     validate(CloneInstanceSchema),
     auditLog('INSTANCE_CLONE', { includeBody: true }),
@@ -704,7 +719,7 @@ export function createInstanceRoutes(
    * GET /api/instances/:name/schema
    * Get database schema for an instance
    */
-  router.get('/:name/schema', requireViewer, requireOrgRole('viewer'), async (req: Request, res: Response) => {
+  router.get('/:name/schema', requireViewer, requireOrgRole('viewer'), requireScope(SCOPES.INSTANCES.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       logger.info(`Getting schema for instance ${name}`);
@@ -723,6 +738,7 @@ export function createInstanceRoutes(
   router.post(
     '/:name/sql',
     requireAuth,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     requireOrgRole('admin'),
     auditLog('SQL_EXECUTE', { includeBody: false }),
     async (req: Request, res: Response) => {
@@ -759,6 +775,7 @@ export function createInstanceRoutes(
   router.patch(
     '/:name/environment',
     requireUser,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     auditLog('INSTANCE_SET_ENVIRONMENT', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -797,6 +814,7 @@ export function createInstanceRoutes(
   router.patch(
     '/:name/assign-org',
     requireAdmin,
+    requireScope(SCOPES.INSTANCES.UPDATE),
     auditLog('INSTANCE_ASSIGN_ORG', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {

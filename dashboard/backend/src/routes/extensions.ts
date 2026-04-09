@@ -7,6 +7,8 @@ import { RedisCache } from '../services/RedisCache';
 import { FunctionService } from '../services/FunctionService';
 import { logger } from '../utils/logger';
 import { createAuditLogEntry } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 // Simple in-memory rate limiter: max 3 installs per instance per hour
 const installLimiter = new Map<string, { count: number; resetAt: number }>();
@@ -35,7 +37,7 @@ export function createExtensionRoutes(
 
   // GET /api/instances/:name/extensions
   // Lists all installed extensions for an instance
-  router.get('/', requireAuth, async (req, res): Promise<any> => {
+  router.get('/', requireAuth, requireScope(SCOPES.EXTENSIONS.READ), async (req, res): Promise<any> => {
     try {
       const { name } = req.params;
 
@@ -71,7 +73,7 @@ export function createExtensionRoutes(
 
   // POST /api/instances/:name/extensions
   // Install an extension on an instance
-  router.post('/', requireAuth, async (req, res): Promise<any> => {
+  router.post('/', requireAuth, requireScope(SCOPES.EXTENSIONS.CREATE), async (req, res): Promise<any> => {
     try {
       const { name } = req.params;
       const { extensionId, config = {} } = req.body;
@@ -116,7 +118,7 @@ export function createExtensionRoutes(
 
   // DELETE /api/instances/:name/extensions/:extensionId
   // Uninstall an extension
-  router.delete('/:extensionId', requireAuth, async (req, res): Promise<any> => {
+  router.delete('/:extensionId', requireAuth, requireScope(SCOPES.EXTENSIONS.DELETE), async (req, res): Promise<any> => {
     try {
       const { name, extensionId } = req.params;
       await extensionService.uninstall(name, extensionId);
@@ -146,7 +148,7 @@ export function createExtensionRoutes(
 
   // GET /api/instances/:name/extensions/:extensionId/status
   // Returns status of a single installed extension
-  router.get('/:extensionId/status', requireAuth, async (req, res): Promise<any> => {
+  router.get('/:extensionId/status', requireAuth, requireScope(SCOPES.EXTENSIONS.READ), async (req, res): Promise<any> => {
     try {
       const { name, extensionId } = req.params;
 

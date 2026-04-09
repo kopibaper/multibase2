@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiKey, CreateApiKeyRequest, CreateApiKeyResponse } from '../types';
+import { ApiKey, CreateApiKeyRequest, CreateApiKeyResponse, ScopesApiResponse } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -119,5 +119,29 @@ export function useApiKeyStats() {
       return response.json();
     },
     enabled: !!token,
+  });
+}
+
+export function useApiKeyScopes() {
+  const { token } = useAuth();
+
+  return useQuery({
+    queryKey: ['apiKeyScopes'],
+    queryFn: async (): Promise<ScopesApiResponse> => {
+      const response = await fetch(`${API_URL}/api/keys/scopes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch API key scopes');
+      }
+
+      return response.json();
+    },
+    enabled: !!token,
+    staleTime: Infinity, // scope definitions don't change
   });
 }

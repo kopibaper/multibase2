@@ -7,6 +7,8 @@ import { validate } from '../middleware/validate';
 import { CreateBackupSchema } from '../middleware/schemas';
 import { auditLog } from '../middleware/auditLog';
 import { requireViewer, requireUser, requireAdmin } from '../middleware/authMiddleware';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createBackupRoutes() {
   const router = Router();
@@ -18,6 +20,7 @@ export function createBackupRoutes() {
   router.post(
     '/',
     requireUser,
+    requireScope(SCOPES.BACKUPS.CREATE),
     validate(CreateBackupSchema),
     auditLog('BACKUP_CREATE', {
       includeBody: true,
@@ -57,7 +60,7 @@ export function createBackupRoutes() {
    * GET /api/backups
    * List all backups
    */
-  router.get('/', requireViewer, async (req: Request, res: Response) => {
+  router.get('/', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response) => {
     try {
       const { type } = req.query;
 
@@ -75,7 +78,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id
    * Get backup by ID
    */
-  router.get('/:id', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -96,7 +99,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id/uploads
    * Get upload status for a specific backup
    */
-  router.get('/:id/uploads', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id/uploads', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
       if (!backup) return res.status(404).json({ error: 'Backup not found' });
@@ -124,6 +127,7 @@ export function createBackupRoutes() {
   router.post(
     '/:id/upload',
     requireAdmin,
+    requireScope(SCOPES.BACKUPS.UPLOAD),
     async (req: Request, res: Response): Promise<any> => {
       try {
         const backup = await BackupService.getBackup(req.params.id);
@@ -153,7 +157,7 @@ export function createBackupRoutes() {
    * GET /api/backups/:id/preview
    * Preview what's in a backup (before restoring)
    */
-  router.get('/:id/preview', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id/preview', requireViewer, requireScope(SCOPES.BACKUPS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const backup = await BackupService.getBackup(req.params.id);
 
@@ -199,6 +203,7 @@ export function createBackupRoutes() {
   router.post(
     '/:id/restore',
     requireAdmin,
+    requireScope(SCOPES.BACKUPS.RESTORE),
     auditLog('BACKUP_RESTORE', {
       getResource: (req) => req.params.id,
       includeBody: true,
@@ -236,6 +241,7 @@ export function createBackupRoutes() {
   router.delete(
     '/:id',
     requireAdmin,
+    requireScope(SCOPES.BACKUPS.DELETE),
     auditLog('BACKUP_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {

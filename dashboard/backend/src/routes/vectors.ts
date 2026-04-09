@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { VectorService } from '../services/VectorService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createVectorRoutes(vectorService: VectorService) {
   const router = Router({ mergeParams: true });
 
   // Extension status
-  router.get('/status', requireAuth, async (req, res) => {
+  router.get('/status', requireAuth, requireScope(SCOPES.VECTORS.READ), async (req, res) => {
     try {
       const status = await vectorService.getStatus(req.params.name);
       return res.json(status);
@@ -18,7 +20,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Enable pgvector extension
-  router.post('/enable', requireAuth, async (req, res) => {
+  router.post('/enable', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
     try {
       const result = await vectorService.enableExtension(req.params.name);
       return res.json(result);
@@ -29,7 +31,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // List vector columns
-  router.get('/columns', requireAuth, async (req, res) => {
+  router.get('/columns', requireAuth, requireScope(SCOPES.VECTORS.READ), async (req, res) => {
     try {
       const columns = await vectorService.listVectorColumns(req.params.name);
       return res.json({ columns });
@@ -40,7 +42,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Add a vector column
-  router.post('/columns', requireAuth, async (req, res) => {
+  router.post('/columns', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
     try {
       const { tableSchema, tableName, columnName, dimension } = req.body;
       if (!tableName || !columnName || !dimension) {
@@ -60,7 +62,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // List vector indexes
-  router.get('/indexes', requireAuth, async (req, res) => {
+  router.get('/indexes', requireAuth, requireScope(SCOPES.VECTORS.READ), async (req, res) => {
     try {
       const indexes = await vectorService.listIndexes(req.params.name);
       return res.json({ indexes });
@@ -71,7 +73,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Create a vector index
-  router.post('/indexes', requireAuth, async (req, res) => {
+  router.post('/indexes', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
     try {
       const { tableSchema, tableName, columnName, indexType, metric, lists } = req.body;
       if (!tableName || !columnName || !indexType || !metric) {
@@ -93,7 +95,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Drop a vector index
-  router.delete('/indexes/:indexName', requireAuth, async (req, res) => {
+  router.delete('/indexes/:indexName', requireAuth, requireScope(SCOPES.VECTORS.WRITE), async (req, res) => {
     try {
       const result = await vectorService.dropIndex(req.params.name, req.params.indexName);
       return res.json(result);
@@ -104,7 +106,7 @@ export function createVectorRoutes(vectorService: VectorService) {
   });
 
   // Similarity search
-  router.post('/search', requireAuth, async (req, res) => {
+  router.post('/search', requireAuth, requireScope(SCOPES.VECTORS.READ), async (req, res) => {
     try {
       const { tableSchema, tableName, columnName, vector, k, metric } = req.body;
       if (!tableName || !columnName || !vector || !k) {

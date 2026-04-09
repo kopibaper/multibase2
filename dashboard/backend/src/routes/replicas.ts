@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
 import InstanceManager from '../services/InstanceManager';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createReplicaRoutes(instanceManager: InstanceManager, prisma: PrismaClient) {
   const router = Router({ mergeParams: true });
 
   // GET /api/instances/:name/replicas
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.REPLICAS.READ), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const instance = await instanceManager.getInstance(name);
@@ -21,7 +23,7 @@ export function createReplicaRoutes(instanceManager: InstanceManager, prisma: Pr
   });
 
   // POST /api/instances/:name/replicas
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.REPLICAS.CREATE), async (req, res) => {
     try {
       const { name } = req.params as { name: string };
       const { name: replicaName, url } = req.body;
@@ -49,7 +51,7 @@ export function createReplicaRoutes(instanceManager: InstanceManager, prisma: Pr
   });
 
   // GET /api/instances/:name/replicas/:id/status
-  router.get('/:id/status', requireAuth, async (req, res) => {
+  router.get('/:id/status', requireAuth, requireScope(SCOPES.REPLICAS.READ), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);
@@ -66,7 +68,7 @@ export function createReplicaRoutes(instanceManager: InstanceManager, prisma: Pr
   });
 
   // DELETE /api/instances/:name/replicas/:id
-  router.delete('/:id', requireAuth, async (req, res) => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.REPLICAS.DELETE), async (req, res) => {
     try {
       const { name, id } = req.params as { name: string; id: string };
       const instance = await instanceManager.getInstance(name);

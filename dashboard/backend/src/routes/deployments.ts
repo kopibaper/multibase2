@@ -4,6 +4,8 @@ import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 /**
  * Middleware to check admin authentication
@@ -52,7 +54,7 @@ export function createDeploymentsRoutes() {
    * GET /api/deployments/webhooks
    * List all webhooks
    */
-  router.get('/webhooks', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/webhooks', requireAdmin, requireScope(SCOPES.DEPLOYMENTS.READ), async (_req: Request, res: Response) => {
     try {
       const webhooks = await prisma.webhook.findMany({
         orderBy: { createdAt: 'desc' },
@@ -89,6 +91,7 @@ export function createDeploymentsRoutes() {
   router.post(
     '/webhooks',
     requireAdmin,
+    requireScope(SCOPES.DEPLOYMENTS.CREATE),
     auditLog('WEBHOOK_CREATE', { includeBody: true }),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -135,6 +138,7 @@ export function createDeploymentsRoutes() {
   router.delete(
     '/webhooks/:id',
     requireAdmin,
+    requireScope(SCOPES.DEPLOYMENTS.CREATE),
     auditLog('WEBHOOK_DELETE'),
     async (req: Request, res: Response): Promise<any> => {
       try {
@@ -221,7 +225,7 @@ export function createDeploymentsRoutes() {
    * GET /api/deployments
    * List deployments
    */
-  router.get('/', requireAdmin, async (req: Request, res: Response) => {
+  router.get('/', requireAdmin, requireScope(SCOPES.DEPLOYMENTS.READ), async (req: Request, res: Response) => {
     try {
       const { instanceId, status, limit = '50' } = req.query;
 
@@ -249,6 +253,7 @@ export function createDeploymentsRoutes() {
   router.post(
     '/',
     requireAdmin,
+    requireScope(SCOPES.DEPLOYMENTS.CREATE),
     auditLog('DEPLOYMENT_MANUAL_TRIGGER', {
       includeBody: true,
       getResource: (req) => req.body.instanceId,
@@ -286,7 +291,7 @@ export function createDeploymentsRoutes() {
    * GET /api/deployments/:id
    * Get deployment details
    */
-  router.get('/:id', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAdmin, requireScope(SCOPES.DEPLOYMENTS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
@@ -313,6 +318,7 @@ export function createDeploymentsRoutes() {
   router.post(
     '/:id/rollback',
     requireAdmin,
+    requireScope(SCOPES.DEPLOYMENTS.CREATE),
     auditLog('DEPLOYMENT_ROLLBACK', {
       getResource: (req) => req.params.id,
     }),
@@ -359,7 +365,7 @@ export function createDeploymentsRoutes() {
    * GET /api/deployments/stats
    * Get deployment statistics
    */
-  router.get('/stats/overview', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/stats/overview', requireAdmin, requireScope(SCOPES.DEPLOYMENTS.READ), async (_req: Request, res: Response) => {
     try {
       const [total, pending, running, success, failed] = await Promise.all([
         prisma.deployment.count(),

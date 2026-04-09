@@ -4,6 +4,8 @@ import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import multer from 'multer';
 import { reloadNginxGateway } from '../services/NginxGatewayGenerator';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 const upload = multer();
 
@@ -11,7 +13,7 @@ export function createStorageRoutes(storageService: StorageService) {
   const router = Router({ mergeParams: true });
 
   // List buckets
-  router.get('/buckets', requireAuth, async (req, res) => {
+  router.get('/buckets', requireAuth, requireScope(SCOPES.STORAGE.READ), async (req, res) => {
     try {
       const { name } = req.params;
       const buckets = await storageService.listBuckets(name);
@@ -23,7 +25,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Create bucket
-  router.post('/buckets', requireAuth, async (req, res) => {
+  router.post('/buckets', requireAuth, requireScope(SCOPES.STORAGE.WRITE), async (req, res) => {
     try {
       const { name } = req.params;
       const { bucketName, isPublic } = req.body;
@@ -36,7 +38,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Delete bucket
-  router.delete('/buckets/:bucketId', requireAuth, async (req, res) => {
+  router.delete('/buckets/:bucketId', requireAuth, requireScope(SCOPES.STORAGE.WRITE), async (req, res) => {
     try {
       const { name, bucketId } = req.params;
       await storageService.deleteBucket(name, bucketId);
@@ -48,7 +50,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // List files
-  router.get('/files/:bucketId/:path(*)?', requireAuth, async (req, res) => {
+  router.get('/files/:bucketId/:path(*)?', requireAuth, requireScope(SCOPES.STORAGE.READ), async (req, res) => {
     try {
       const { name, bucketId, path: filePath } = req.params;
       const files = await storageService.listFiles(name, bucketId, filePath || '');
@@ -60,7 +62,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Upload file
-  router.post('/files/:bucketId', requireAuth, upload.single('file'), async (req, res) => {
+  router.post('/files/:bucketId', requireAuth, requireScope(SCOPES.STORAGE.WRITE), upload.single('file'), async (req, res) => {
     try {
       const { name, bucketId } = req.params;
       const file = req.file;
@@ -92,7 +94,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Delete file
-  router.delete('/files/:bucketId/:path(*)', requireAuth, async (req, res) => {
+  router.delete('/files/:bucketId/:path(*)', requireAuth, requireScope(SCOPES.STORAGE.WRITE), async (req, res) => {
     try {
       const { name, bucketId, path: filePath } = req.params;
       await storageService.deleteFile(name, bucketId, filePath);
@@ -104,7 +106,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Get Public URL
-  router.get('/url/:bucketId/:path(*)', requireAuth, async (req, res) => {
+  router.get('/url/:bucketId/:path(*)', requireAuth, requireScope(SCOPES.STORAGE.READ), async (req, res) => {
     try {
       const { name, bucketId, path: filePath } = req.params;
       const data = await storageService.getPublicUrl(name, bucketId, filePath);
@@ -116,7 +118,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Create Signed URL
-  router.post('/signed-url/:bucketId', requireAuth, async (req, res) => {
+  router.post('/signed-url/:bucketId', requireAuth, requireScope(SCOPES.STORAGE.WRITE), async (req, res) => {
     try {
       const { name, bucketId } = req.params;
       const { path: filePath, expiresIn } = req.body;
@@ -129,7 +131,7 @@ export function createStorageRoutes(storageService: StorageService) {
   });
 
   // Invalidate CDN cache for this instance (reloads nginx gateway)
-  router.post('/cache/invalidate', requireAuth, async (req, res) => {
+  router.post('/cache/invalidate', requireAuth, requireScope(SCOPES.STORAGE.WRITE), async (req, res) => {
     try {
       await reloadNginxGateway();
       return res.json({ success: true, message: 'CDN cache invalidated — nginx reloaded.' });

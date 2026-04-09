@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { WebhookService } from '../services/WebhookService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createWebhookRoutes(webhookService: WebhookService) {
   const router = Router({ mergeParams: true });
 
   // List all webhooks for an instance
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.WEBHOOKS.READ), async (req, res) => {
     try {
       const { name } = req.params;
       const webhooks = await webhookService.listWebhooks(name);
@@ -19,7 +21,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Create a new webhook
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.WEBHOOKS.CREATE), async (req, res) => {
     try {
       const { name } = req.params;
       const { name: whName, tableSchema, tableName, events, url, method, headers, timeoutMs } = req.body;
@@ -46,7 +48,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Delete a webhook
-  router.delete('/:webhookId', requireAuth, async (req, res) => {
+  router.delete('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.DELETE), async (req, res) => {
     try {
       const { name, webhookId } = req.params;
       const id = parseInt(webhookId, 10);
@@ -61,7 +63,7 @@ export function createWebhookRoutes(webhookService: WebhookService) {
   });
 
   // Toggle enabled / disabled
-  router.patch('/:webhookId', requireAuth, async (req, res) => {
+  router.patch('/:webhookId', requireAuth, requireScope(SCOPES.WEBHOOKS.UPDATE), async (req, res) => {
     try {
       const { name, webhookId } = req.params;
       const { enabled } = req.body;

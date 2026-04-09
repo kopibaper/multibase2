@@ -4,12 +4,14 @@ import { InstanceManager } from '../services/InstanceManager';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import axios from 'axios';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createFunctionRoutes(functionService: FunctionService, instanceManager?: InstanceManager) {
   const router = Router({ mergeParams: true });
 
   // List functions
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.FUNCTIONS.READ), async (req, res) => {
     try {
       const { name } = req.params;
       const functions = await functionService.listFunctions(name);
@@ -21,7 +23,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Get function code
-  router.get('/:functionName', requireAuth, async (req, res) => {
+  router.get('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.READ), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const code = await functionService.getFunction(name, functionName);
@@ -33,7 +35,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Save function
-  router.put('/:functionName', requireAuth, async (req, res) => {
+  router.put('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const { code } = req.body;
@@ -46,7 +48,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Delete function
-  router.delete('/:functionName', requireAuth, async (req, res) => {
+  router.delete('/:functionName', requireAuth, requireScope(SCOPES.FUNCTIONS.DELETE), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       await functionService.deleteFunction(name, functionName);
@@ -58,7 +60,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Deploy function (simulated)
-  router.post('/:functionName/deploy', requireAuth, async (req, res) => {
+  router.post('/:functionName/deploy', requireAuth, requireScope(SCOPES.FUNCTIONS.CREATE), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       await functionService.deployFunction(name, functionName);
@@ -70,7 +72,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Get function logs
-  router.get('/:functionName/logs', requireAuth, async (req, res) => {
+  router.get('/:functionName/logs', requireAuth, requireScope(SCOPES.FUNCTIONS.READ), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const logs = await functionService.getFunctionLogs(name, functionName);
@@ -82,7 +84,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Get function env vars
-  router.get('/:functionName/env', requireAuth, async (req, res) => {
+  router.get('/:functionName/env', requireAuth, requireScope(SCOPES.FUNCTIONS.READ), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const envVars = await functionService.getFunctionEnv(name, functionName);
@@ -94,7 +96,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Save function env vars
-  router.put('/:functionName/env', requireAuth, async (req, res) => {
+  router.put('/:functionName/env', requireAuth, requireScope(SCOPES.FUNCTIONS.UPDATE), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const { envVars } = req.body;
@@ -110,7 +112,7 @@ export function createFunctionRoutes(functionService: FunctionService, instanceM
   });
 
   // Invoke function (test-runner)
-  router.post('/:functionName/invoke', requireAuth, async (req, res) => {
+  router.post('/:functionName/invoke', requireAuth, requireScope(SCOPES.FUNCTIONS.CREATE), async (req, res) => {
     try {
       const { name, functionName } = req.params;
       const { method = 'POST', headers: extraHeaders = {}, body: reqBody } = req.body;

@@ -3,6 +3,8 @@ import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { auditLog } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 import InstanceManager from '../services/InstanceManager';
 import { logger } from '../utils/logger';
 import { CreateInstanceRequest, SHARED_SERVICES, TENANT_SERVICES, RESOURCE_PRESETS } from '../types';
@@ -65,7 +67,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates
    * List templates (public + user created)
    */
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
 
@@ -101,7 +103,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates/system
    * Get shared infrastructure template metadata
    */
-  router.get('/system', requireAuth, async (_req: Request, res: Response) => {
+  router.get('/system', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (_req: Request, res: Response) => {
     try {
       const extensions = await prisma.extension.findMany({
         select: { id: true, name: true },
@@ -128,6 +130,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.post(
     '/',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.CREATE),
     auditLog('TEMPLATE_CREATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -173,7 +176,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * GET /api/templates/:id
    * Get details of a specific template
    */
-  router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  router.get('/:id', requireAuth, requireScope(SCOPES.TEMPLATES.READ), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const user = (req as any).user;
@@ -216,6 +219,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.put(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.UPDATE),
     auditLog('TEMPLATE_UPDATE', { includeBody: true }),
     async (req: Request, res: Response) => {
       try {
@@ -263,6 +267,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
   router.delete(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.TEMPLATES.DELETE),
     auditLog('TEMPLATE_DELETE'),
     async (req: Request, res: Response) => {
       try {
@@ -301,7 +306,7 @@ export function createTemplateRoutes(instanceManager: InstanceManager) {
    * POST /api/templates/:id/use
    * Direct instantiation from template
    */
-  router.post('/:id/use', requireAuth, async (req: Request, res: Response) => {
+  router.post('/:id/use', requireAuth, requireScope(SCOPES.TEMPLATES.CREATE), async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
       const id = parseInt(req.params.id);

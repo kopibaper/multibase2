@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { UptimeService } from '../services/UptimeService';
 import { requireViewer } from '../middleware/authMiddleware';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createUptimeRoutes(uptimeService: UptimeService): Router {
   const router = Router();
@@ -11,7 +13,7 @@ export function createUptimeRoutes(uptimeService: UptimeService): Router {
    * Get uptime statistics for an instance
    * Query params: days (default 30)
    */
-  router.get('/:name/uptime', requireViewer, async (req: Request, res: Response) => {
+  router.get('/:name/uptime', requireViewer, requireScope(SCOPES.UPTIME.READ), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       const days = parseInt(req.query.days as string) || 30;

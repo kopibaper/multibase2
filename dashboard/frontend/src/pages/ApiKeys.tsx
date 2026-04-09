@@ -13,16 +13,19 @@ import {
   Activity,
   Clock,
   AlertCircle,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useApiKeys, useCreateApiKey, useDeleteApiKey, useApiKeyStats } from '../hooks/useApiKeys';
+import { useApiKeys, useCreateApiKey, useDeleteApiKey, useApiKeyStats, useApiKeyScopes } from '../hooks/useApiKeys';
 import { toast } from 'sonner';
 import PageHeader from '../components/PageHeader';
-import { ApiKey } from '../types';
+import { ApiKey, ScopeGroup } from '../types';
 
 export default function ApiKeys() {
   const { data: keys, isLoading } = useApiKeys();
   const { data: stats } = useApiKeyStats();
+  const { data: scopesData } = useApiKeyScopes();
   const createKey = useCreateApiKey();
   const deleteKey = useDeleteApiKey();
 
@@ -32,8 +35,47 @@ export default function ApiKeys() {
   // Form State
   const [name, setName] = useState('');
   const [expiresIn, setExpiresIn] = useState<number | undefined>(undefined);
-  // Simple scope selection for now (read-only or full access could be options, but backend supports arbitrary strings)
-  const [scopeType, setScopeType] = useState<'full' | 'read'>('full');
+  const [selectedScopes, setSelectedScopes] = useState<string[]>(['*']);
+  const [scopePreset, setScopePreset] = useState<'full' | 'readonly' | 'custom'>('full');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const readOnlyScopes = (scopesData?.all ?? []).filter((s) => s.endsWith(':read'));
+
+  const applyPreset = (preset: 'full' | 'readonly' | 'custom') => {
+    setScopePreset(preset);
+    if (preset === 'full') setSelectedScopes(['*']);
+    else if (preset === 'readonly') setSelectedScopes(readOnlyScopes);
+    else setSelectedScopes([]);
+  };
+
+  const toggleScope = (scope: string) => {
+    setScopePreset('custom');
+    setSelectedScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    );
+  };
+
+  const toggleGroup = (group: ScopeGroup) => {
+    setScopePreset('custom');
+    const allSelected = group.scopes.every((s) => selectedScopes.includes(s));
+    if (allSelected) {
+      setSelectedScopes((prev) => prev.filter((s) => !group.scopes.includes(s)));
+    } else {
+      setSelectedScopes((prev) => [...new Set([...prev, ...group.scopes])]);
+    }
+  };
+
+  const toggleGroupExpand = (groupName: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
+  };
+
+  const resetForm = () => {
+    setName('');
+    setExpiresIn(undefined);
+    setSelectedScopes(['*']);
+    setScopePreset('full');
+    setExpandedGroups({});
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,12 +85,11 @@ export default function ApiKeys() {
       const result = await createKey.mutateAsync({
         name,
         expiresIn,
-        scopes: scopeType === 'full' ? ['*'] : ['read'],
+        scopes: selectedScopes,
       });
       setCreatedKey(result.key); // Show the full key
       setIsCreating(false);
-      setName('');
-      setExpiresIn(undefined);
+      resetForm();
     } catch (error) {
       // Handled by hook
     }
@@ -222,7 +263,7 @@ export default function ApiKeys() {
         {/* Create Key Modal */}
         {isCreating && (
           <div className='fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50'>
-            <div className='bg-card border border-border rounded-lg p-6 max-w-md w-full shadow-xl'>
+            <div className='bg-card border border-border rounded-lg p-6 max-w-2xl w-full shadow-xl'>
               <h3 className='text-xl font-bold text-foreground mb-4'>Create New API Key</h3>
               <form onSubmit={handleCreate} className='space-y-4'>
                 <div>
@@ -250,43 +291,109 @@ export default function ApiKeys() {
                   </select>
                 </div>
                 <div>
-                  <label className='block text-sm font-medium mb-1 text-foreground'>Permissions</label>
-                  <div className='flex gap-4'>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='scope'
-                        checked={scopeType === 'full'}
-                        onChange={() => setScopeType('full')}
-                        className='text-primary focus:ring-primary'
-                      />
-                      <span className='text-foreground'>Full Access (*)</span>
-                    </label>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='scope'
-                        checked={scopeType === 'read'}
-                        onChange={() => setScopeType('read')}
-                        className='text-primary focus:ring-primary'
-                      />
-                      <span className='text-foreground'>Read Only</span>
-                    </label>
+                  <label className='block text-sm font-medium mb-2 text-foreground'>Permissions</label>
+                  {/* Preset buttons */}
+                  <div className='flex gap-2 mb-3'>
+                    <button
+                      type='button'
+                      onClick={() => applyPreset('full')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                        scopePreset === 'full'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      Full Access (*)
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => applyPreset('readonly')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                        scopePreset === 'readonly'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      Read Only
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => applyPreset('custom')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                        scopePreset === 'custom'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      Custom
+                    </button>
                   </div>
+                  {/* Custom scope picker */}
+                  {scopePreset !== 'full' && scopesData && (
+                    <div className='border border-border rounded-md overflow-y-auto max-h-64'>
+                      {scopesData.groups.map((group) => {
+                        const allChecked = group.scopes.every((s) => selectedScopes.includes(s));
+                        const someChecked = group.scopes.some((s) => selectedScopes.includes(s));
+                        const isExpanded = expandedGroups[group.group] ?? false;
+                        return (
+                          <div key={group.group} className='border-b border-border last:border-b-0'>
+                            <div className='flex items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50'>
+                              <input
+                                type='checkbox'
+                                checked={allChecked}
+                                ref={(el) => { if (el) el.indeterminate = !allChecked && someChecked; }}
+                                onChange={() => toggleGroup(group)}
+                                className='h-4 w-4 rounded border-border text-primary'
+                              />
+                              <button
+                                type='button'
+                                className='flex items-center gap-1 flex-1 text-sm font-medium text-foreground text-left'
+                                onClick={() => toggleGroupExpand(group.group)}
+                              >
+                                {isExpanded ? <ChevronDown className='w-3 h-3' /> : <ChevronRight className='w-3 h-3' />}
+                                {group.label}
+                              </button>
+                            </div>
+                            {isExpanded && (
+                              <div className='px-6 py-1 space-y-1'>
+                                {group.scopes.map((scope) => (
+                                  <label key={scope} className='flex items-center gap-2 py-0.5 cursor-pointer'>
+                                    <input
+                                      type='checkbox'
+                                      checked={selectedScopes.includes(scope)}
+                                      onChange={() => toggleScope(scope)}
+                                      className='h-4 w-4 rounded border-border text-primary'
+                                    />
+                                    <span className='text-sm font-mono text-muted-foreground'>{scope}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {scopePreset === 'full' && (
+                    <p className='text-xs text-muted-foreground mt-1'>This key will have unrestricted access to all endpoints.</p>
+                  )}
+                  {scopePreset === 'custom' && (
+                    <p className='text-xs text-muted-foreground mt-1'>{selectedScopes.length} scope{selectedScopes.length !== 1 ? 's' : ''} selected.</p>
+                  )}
                 </div>
 
                 <div className='flex justify-end gap-3 mt-6'>
                   <button
                     type='button'
-                    onClick={() => setIsCreating(false)}
+                    onClick={() => { setIsCreating(false); resetForm(); }}
                     className='px-4 py-2 border border-border rounded-md text-foreground hover:bg-muted transition-colors'
                   >
                     Cancel
                   </button>
                   <button
                     type='submit'
-                    disabled={createKey.isPending}
-                    className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors'
+                    disabled={createKey.isPending || (scopePreset === 'custom' && selectedScopes.length === 0)}
+                    className='px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50'
                   >
                     {createKey.isPending ? 'Creating...' : 'Create Key'}
                   </button>

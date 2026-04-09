@@ -4,6 +4,8 @@ import prisma from '../lib/prisma';
 import { requireViewer, requireAdmin } from '../middleware/authMiddleware';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 const DestinationConfigSchema = z.object({
   name: z.string().min(1).max(100),
@@ -19,7 +21,7 @@ export function createBackupDestinationRoutes() {
    * GET /api/backup-destinations
    * List all configured destinations (config/credentials never exposed)
    */
-  router.get('/', requireViewer, async (_req: Request, res: Response) => {
+  router.get('/', requireViewer, requireScope(SCOPES.BACKUP_DESTINATIONS.READ), async (_req: Request, res: Response) => {
     try {
       const destinations = await ExternalStorageService.listDestinations();
       res.json(destinations);
@@ -33,7 +35,7 @@ export function createBackupDestinationRoutes() {
    * POST /api/backup-destinations
    * Create a new destination
    */
-  router.post('/', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.post('/', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.CREATE), async (req: Request, res: Response): Promise<any> => {
     try {
       const parsed = DestinationConfigSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -63,7 +65,7 @@ export function createBackupDestinationRoutes() {
    * GET /api/backup-destinations/:id
    * Get destination metadata (config masked — only provider-specific non-secret fields returned)
    */
-  router.get('/:id', requireViewer, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireViewer, requireScope(SCOPES.BACKUP_DESTINATIONS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const destinations = await ExternalStorageService.listDestinations();
       const dest = destinations.find((d) => d.id === req.params.id);
@@ -79,7 +81,7 @@ export function createBackupDestinationRoutes() {
    * PUT /api/backup-destinations/:id
    * Update destination (partial update — only provided fields are changed)
    */
-  router.put('/:id', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.put('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.UPDATE), async (req: Request, res: Response): Promise<any> => {
     try {
       const UpdateSchema = DestinationConfigSchema.partial();
       const parsed = UpdateSchema.safeParse(req.body);
@@ -102,7 +104,7 @@ export function createBackupDestinationRoutes() {
   /**
    * DELETE /api/backup-destinations/:id
    */
-  router.delete('/:id', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.delete('/:id', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.DELETE), async (req: Request, res: Response): Promise<any> => {
     try {
       const existing = await prisma.backupDestination.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: 'Destination not found' });
@@ -119,7 +121,7 @@ export function createBackupDestinationRoutes() {
    * POST /api/backup-destinations/:id/test
    * Test connectivity to the destination
    */
-  router.post('/:id/test', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.post('/:id/test', requireAdmin, requireScope(SCOPES.BACKUP_DESTINATIONS.TEST), async (req: Request, res: Response): Promise<any> => {
     try {
       const existing = await prisma.backupDestination.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: 'Destination not found' });

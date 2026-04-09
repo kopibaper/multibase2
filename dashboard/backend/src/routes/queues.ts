@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { QueueService } from '../services/QueueService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createQueueRoutes(queueService: QueueService) {
   const router = Router({ mergeParams: true });
 
   // Extension status
-  router.get('/status', requireAuth, async (req, res) => {
+  router.get('/status', requireAuth, requireScope(SCOPES.QUEUES.READ), async (req, res) => {
     try {
       const status = await queueService.getStatus(req.params.name);
       return res.json(status);
@@ -18,7 +20,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Enable pgmq
-  router.post('/enable', requireAuth, async (req, res) => {
+  router.post('/enable', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
     try {
       const result = await queueService.enableExtension(req.params.name);
       return res.json(result);
@@ -29,7 +31,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // List queues
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.QUEUES.READ), async (req, res) => {
     try {
       const result = await queueService.listQueues(req.params.name);
       return res.json(result);
@@ -40,7 +42,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Create a queue
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
     try {
       const { queueName } = req.body;
       if (!queueName) return res.status(400).json({ error: 'queueName is required' });
@@ -54,7 +56,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Drop a queue
-  router.delete('/:queueName', requireAuth, async (req, res) => {
+  router.delete('/:queueName', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
     try {
       const result = await queueService.dropQueue(req.params.name, req.params.queueName);
       return res.json(result);
@@ -65,7 +67,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Read messages from a queue
-  router.get('/:queueName/messages', requireAuth, async (req, res) => {
+  router.get('/:queueName/messages', requireAuth, requireScope(SCOPES.QUEUES.READ), async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
       const vt = req.query.vt ? parseInt(req.query.vt as string, 10) : 30;
@@ -78,7 +80,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Send a message
-  router.post('/:queueName/send', requireAuth, async (req, res) => {
+  router.post('/:queueName/send', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
     try {
       const { message } = req.body;
       if (!message) return res.status(400).json({ error: 'message is required' });
@@ -92,7 +94,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Purge a queue
-  router.post('/:queueName/purge', requireAuth, async (req, res) => {
+  router.post('/:queueName/purge', requireAuth, requireScope(SCOPES.QUEUES.WRITE), async (req, res) => {
     try {
       const result = await queueService.purgeQueue(req.params.name, req.params.queueName);
       return res.json(result);
@@ -103,7 +105,7 @@ export function createQueueRoutes(queueService: QueueService) {
   });
 
   // Queue metrics
-  router.get('/:queueName/metrics', requireAuth, async (req, res) => {
+  router.get('/:queueName/metrics', requireAuth, requireScope(SCOPES.QUEUES.READ), async (req, res) => {
     try {
       const metrics = await queueService.getQueueMetrics(req.params.name, req.params.queueName);
       return res.json({ metrics });

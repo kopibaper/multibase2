@@ -2,13 +2,15 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createMarketplaceRoutes(prisma: PrismaClient) {
   const router = Router();
 
   // GET /api/marketplace/extensions
   // Returns all available extensions (with optional filter: category, search, featured)
-  router.get('/extensions', requireAuth, async (req, res): Promise<any> => {
+  router.get('/extensions', requireAuth, requireScope(SCOPES.MARKETPLACE.READ), async (req, res): Promise<any> => {
     try {
       const { category, search, featured } = req.query;
 
@@ -46,7 +48,7 @@ export function createMarketplaceRoutes(prisma: PrismaClient) {
 
   // GET /api/marketplace/extensions/:id
   // Returns a single extension with full details
-  router.get('/extensions/:id', requireAuth, async (req, res): Promise<any> => {
+  router.get('/extensions/:id', requireAuth, requireScope(SCOPES.MARKETPLACE.READ), async (req, res): Promise<any> => {
     try {
       const extension = await prisma.extension.findUnique({
         where: { id: req.params.id },
@@ -66,7 +68,7 @@ export function createMarketplaceRoutes(prisma: PrismaClient) {
 
   // GET /api/marketplace/extensions/:id/reviews
   // Returns all reviews for an extension
-  router.get('/extensions/:id/reviews', requireAuth, async (req, res): Promise<any> => {
+  router.get('/extensions/:id/reviews', requireAuth, requireScope(SCOPES.MARKETPLACE.READ), async (req, res): Promise<any> => {
     try {
       const reviews = await prisma.extensionReview.findMany({
         where: { extensionId: req.params.id },
@@ -81,7 +83,7 @@ export function createMarketplaceRoutes(prisma: PrismaClient) {
 
   // POST /api/marketplace/extensions/:id/reviews
   // Submit a rating + optional comment
-  router.post('/extensions/:id/reviews', requireAuth, async (req, res): Promise<any> => {
+  router.post('/extensions/:id/reviews', requireAuth, requireScope(SCOPES.MARKETPLACE.WRITE), async (req, res): Promise<any> => {
     try {
       const { rating, comment, authorName } = req.body;
 
@@ -121,7 +123,7 @@ export function createMarketplaceRoutes(prisma: PrismaClient) {
 
   // GET /api/marketplace/extensions/:id/stats
   // Returns install count + average rating
-  router.get('/extensions/:id/stats', requireAuth, async (req, res): Promise<any> => {
+  router.get('/extensions/:id/stats', requireAuth, requireScope(SCOPES.MARKETPLACE.READ), async (req, res): Promise<any> => {
     try {
       const extension = await prisma.extension.findUnique({
         where: { id: req.params.id },
@@ -137,7 +139,7 @@ export function createMarketplaceRoutes(prisma: PrismaClient) {
 
   // POST /api/marketplace/sync  (admin only)
   // Re-seeds the extension catalog from the embedded official list
-  router.post('/sync', requireAuth, async (req, res): Promise<any> => {
+  router.post('/sync', requireAuth, requireScope(SCOPES.MARKETPLACE.WRITE), async (req, res): Promise<any> => {
     try {
       const user = (req as any).user;
       if (user?.role !== 'admin') {

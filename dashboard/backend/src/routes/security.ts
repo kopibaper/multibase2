@@ -7,6 +7,8 @@ import {
   generateAndWriteTenantConfig,
   reloadNginxGateway,
 } from '../services/NginxGatewayGenerator';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 /** IPv4 or CIDR notation, e.g. 1.2.3.4 or 10.0.0.0/24 */
 const CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
@@ -15,7 +17,7 @@ export function createSecurityRoutes(instanceManager: InstanceManager, projectsP
   const router = Router({ mergeParams: true });
 
   /** GET / — read current security settings from the instance .env */
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.SECURITY.READ), async (req, res) => {
     try {
       const { name } = req.params;
       const env = await instanceManager.getInstanceEnv(name);
@@ -36,7 +38,7 @@ export function createSecurityRoutes(instanceManager: InstanceManager, projectsP
   });
 
   /** PATCH / — write SECURITY_* env vars and regenerate nginx config */
-  router.patch('/', requireAuth, async (req, res) => {
+  router.patch('/', requireAuth, requireScope(SCOPES.SECURITY.WRITE), async (req, res) => {
     try {
       const { name } = req.params;
       const { sslOnly, ipWhitelistEnabled, ipWhitelist, rateLimitEnabled, rateLimitRpm } = req.body;

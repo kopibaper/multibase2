@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createAuditRoutes() {
   const router = Router();
@@ -32,7 +34,7 @@ export function createAuditRoutes() {
    * GET /api/audit
    * List audit logs with filtering and pagination (Admin only)
    */
-  router.get('/', requireAdmin, async (req: Request, res: Response) => {
+  router.get('/', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (req: Request, res: Response) => {
     try {
       const { action, userId, success, limit = '50', offset = '0', startDate, endDate } = req.query;
 
@@ -84,7 +86,7 @@ export function createAuditRoutes() {
    * GET /api/audit/stats
    * Get audit log statistics (Admin only)
    */
-  router.get('/stats', requireAdmin, async (_req: Request, res: Response) => {
+  router.get('/stats', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (_req: Request, res: Response) => {
     try {
       const now = new Date();
       const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -123,7 +125,7 @@ export function createAuditRoutes() {
    * GET /api/audit/:id
    * Get single audit log entry (Admin only)
    */
-  router.get('/:id', requireAdmin, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAdmin, requireScope(SCOPES.AUDIT.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {

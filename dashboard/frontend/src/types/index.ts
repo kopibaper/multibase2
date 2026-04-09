@@ -210,6 +210,18 @@ export interface CreateApiKeyResponse extends ApiKey {
   warning: string;
 }
 
+export interface ScopeGroup {
+  group: string;
+  label: string;
+  scopes: string[];
+}
+
+export interface ScopesApiResponse {
+  groups: ScopeGroup[];
+  all: string[];
+  special: Array<{ scope: string; label: string; description: string }>;
+}
+
 export interface InstanceTemplate {
   id: number;
   name: string;

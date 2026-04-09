@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { CronService } from '../services/CronService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createCronRoutes(cronService: CronService) {
   const router = Router({ mergeParams: true });
 
   // Extension status
-  router.get('/status', requireAuth, async (req, res) => {
+  router.get('/status', requireAuth, requireScope(SCOPES.CRON.READ), async (req, res) => {
     try {
       const status = await cronService.getStatus(req.params.name);
       return res.json(status);
@@ -18,7 +20,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // List all cron jobs
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, requireScope(SCOPES.CRON.READ), async (req, res) => {
     try {
       const result = await cronService.listJobs(req.params.name);
       return res.json(result);
@@ -29,7 +31,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // Create a cron job
-  router.post('/', requireAuth, async (req, res) => {
+  router.post('/', requireAuth, requireScope(SCOPES.CRON.CREATE), async (req, res) => {
     try {
       const { name, schedule, command } = req.body;
       if (!name || !schedule || !command) {
@@ -44,7 +46,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // Delete a cron job
-  router.delete('/:jobId', requireAuth, async (req, res) => {
+  router.delete('/:jobId', requireAuth, requireScope(SCOPES.CRON.DELETE), async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       if (isNaN(jobId)) return res.status(400).json({ error: 'Invalid job ID' });
@@ -58,7 +60,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // Toggle job active/inactive
-  router.patch('/:jobId', requireAuth, async (req, res) => {
+  router.patch('/:jobId', requireAuth, requireScope(SCOPES.CRON.UPDATE), async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       if (isNaN(jobId)) return res.status(400).json({ error: 'Invalid job ID' });
@@ -74,7 +76,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // Run a job immediately
-  router.post('/:jobId/run', requireAuth, async (req, res) => {
+  router.post('/:jobId/run', requireAuth, requireScope(SCOPES.CRON.CREATE), async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       if (isNaN(jobId)) return res.status(400).json({ error: 'Invalid job ID' });
@@ -88,7 +90,7 @@ export function createCronRoutes(cronService: CronService) {
   });
 
   // Get run history for a job
-  router.get('/:jobId/runs', requireAuth, async (req, res) => {
+  router.get('/:jobId/runs', requireAuth, requireScope(SCOPES.CRON.READ), async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       if (isNaN(jobId)) return res.status(400).json({ error: 'Invalid job ID' });

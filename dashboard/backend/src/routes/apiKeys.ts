@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
+import { ALL_SCOPES, SCOPE_GROUPS, SCOPES } from '../constants/scopes';
+import { requireScope } from '../middleware/requireScope';
 
 /**
  * Hash an API key for storage
@@ -40,6 +42,19 @@ export function createApiKeyRoutes() {
 
       if (!name) {
         return res.status(400).json({ error: 'Name is required' });
+      }
+
+      // Validate scopes
+      if (!Array.isArray(scopes) || scopes.length === 0) {
+        return res.status(400).json({ error: 'scopes must be a non-empty array' });
+      }
+      const invalidScopes = scopes.filter((s: string) => s !== '*' && !ALL_SCOPES.includes(s));
+      if (invalidScopes.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid scope(s)',
+          invalid: invalidScopes,
+          valid: ['*', ...ALL_SCOPES],
+        });
       }
 
       const { key, keyPrefix } = generateApiKey();
@@ -89,7 +104,7 @@ export function createApiKeyRoutes() {
    * GET /api/keys
    * List all API keys for current user
    */
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireAuth, requireScope(SCOPES.KEYS.READ), async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
 
@@ -125,6 +140,18 @@ export function createApiKeyRoutes() {
    * Get aggregate statistics for API keys
    * NOTE: Must be before /:id route to avoid conflict
    */
+  /**
+   * GET /api/keys/scopes
+   * List all available scopes grouped by feature
+   */
+  router.get('/scopes', requireAuth, (_req: Request, res: Response) => {
+    res.json({
+      groups: SCOPE_GROUPS,
+      all: ALL_SCOPES,
+      special: [{ scope: '*', description: 'Full access to all resources' }],
+    });
+  });
+
   router.get('/stats', requireAuth, async (req: Request, res: Response) => {
     try {
       const user = (req as any).user;
@@ -162,7 +189,7 @@ export function createApiKeyRoutes() {
    * GET /api/keys/:id
    * Get details of a specific API key
    */
-  router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAuth, requireScope(SCOPES.KEYS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const user = (req as any).user;
       const id = parseInt(req.params.id, 10);
@@ -206,6 +233,7 @@ export function createApiKeyRoutes() {
   router.delete(
     '/:id',
     requireAuth,
+    requireScope(SCOPES.KEYS.DELETE),
     auditLog('API_KEY_REVOKE'),
     async (req: Request, res: Response): Promise<any> => {
       try {

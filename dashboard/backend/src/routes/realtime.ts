@@ -3,6 +3,8 @@ import { InstanceManager } from '../services/InstanceManager';
 import DockerManager from '../services/DockerManager';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 export function createRealtimeRoutes(
   instanceManager: InstanceManager,
@@ -11,7 +13,7 @@ export function createRealtimeRoutes(
   const router = Router({ mergeParams: true });
 
   /** GET /config — Realtime service config + container status */
-  router.get('/config', requireAuth, async (req, res) => {
+  router.get('/config', requireAuth, requireScope(SCOPES.REALTIME.READ), async (req, res) => {
     try {
       const { name } = req.params;
       const env = await instanceManager.getInstanceEnv(name);
@@ -40,7 +42,7 @@ export function createRealtimeRoutes(
   });
 
   /** PATCH /config — Update maxConcurrentUsers and restart realtime container */
-  router.patch('/config', requireAuth, async (req, res) => {
+  router.patch('/config', requireAuth, requireScope(SCOPES.REALTIME.WRITE), async (req, res) => {
     try {
       const { name } = req.params;
       const { maxConcurrentUsers } = req.body;
@@ -76,7 +78,7 @@ export function createRealtimeRoutes(
   });
 
   /** GET /stats — Live stats: channel count + container CPU/memory */
-  router.get('/stats', requireAuth, async (req, res) => {
+  router.get('/stats', requireAuth, requireScope(SCOPES.REALTIME.READ), async (req, res) => {
     try {
       const { name } = req.params;
 

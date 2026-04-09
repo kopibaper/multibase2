@@ -3,6 +3,8 @@ import prisma from '../lib/prisma';
 import AuthService from '../services/AuthService';
 import { logger } from '../utils/logger';
 import { auditLog } from '../middleware/auditLog';
+import { requireScope } from '../middleware/requireScope';
+import { SCOPES } from '../constants/scopes';
 
 function generateSlug(name: string): string {
   return name
@@ -42,7 +44,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // GET /api/orgs — list organisations for the current user
   // ──────────────────────────────────────────────────────────────────────────
-  router.get('/', requireAuth, async (req: Request, res: Response) => {
+  router.get('/', requireAuth, requireScope(SCOPES.ORGS.READ), async (req: Request, res: Response) => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
 
@@ -99,7 +101,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // POST /api/orgs — create a new organisation
   // ──────────────────────────────────────────────────────────────────────────
-  router.post('/', requireAuth, auditLog('ORG_CREATE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
+  router.post('/', requireAuth, requireScope(SCOPES.ORGS.CREATE), auditLog('ORG_CREATE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const userId = (req as any).user.id;
       const { name, description } = req.body;
@@ -138,7 +140,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // GET /api/orgs/:id — get org details
   // ──────────────────────────────────────────────────────────────────────────
-  router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id', requireAuth, requireScope(SCOPES.ORGS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id } = req.params;
@@ -170,7 +172,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // PATCH /api/orgs/:id — update org name / description
   // ──────────────────────────────────────────────────────────────────────────
-  router.patch('/:id', requireAuth, auditLog('ORG_UPDATE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
+  router.patch('/:id', requireAuth, requireScope(SCOPES.ORGS.UPDATE), auditLog('ORG_UPDATE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id } = req.params;
@@ -204,7 +206,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // DELETE /api/orgs/:id — delete org (owner only)
   // ──────────────────────────────────────────────────────────────────────────
-  router.delete('/:id', requireAuth, auditLog('ORG_DELETE'), async (req: Request, res: Response): Promise<any> => {
+  router.delete('/:id', requireAuth, requireScope(SCOPES.ORGS.DELETE), auditLog('ORG_DELETE'), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id } = req.params;
@@ -226,7 +228,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // GET /api/orgs/:id/members
   // ──────────────────────────────────────────────────────────────────────────
-  router.get('/:id/members', requireAuth, async (req: Request, res: Response): Promise<any> => {
+  router.get('/:id/members', requireAuth, requireScope(SCOPES.ORGS.READ), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id } = req.params;
@@ -250,7 +252,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // POST /api/orgs/:id/members — add member by email
   // ──────────────────────────────────────────────────────────────────────────
-  router.post('/:id/members', requireAuth, auditLog('ORG_MEMBER_ADD', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
+  router.post('/:id/members', requireAuth, requireScope(SCOPES.ORGS.UPDATE), auditLog('ORG_MEMBER_ADD', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id } = req.params;
@@ -290,7 +292,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // PATCH /api/orgs/:id/members/:memberId — change role
   // ──────────────────────────────────────────────────────────────────────────
-  router.patch('/:id/members/:memberId', requireAuth, auditLog('ORG_MEMBER_ROLE_CHANGE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
+  router.patch('/:id/members/:memberId', requireAuth, requireScope(SCOPES.ORGS.UPDATE), auditLog('ORG_MEMBER_ROLE_CHANGE', { includeBody: true }), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id, memberId } = req.params;
@@ -322,7 +324,7 @@ export function createOrgRoutes() {
   // ──────────────────────────────────────────────────────────────────────────
   // DELETE /api/orgs/:id/members/:memberId — remove member
   // ──────────────────────────────────────────────────────────────────────────
-  router.delete('/:id/members/:memberId', requireAuth, auditLog('ORG_MEMBER_REMOVE'), async (req: Request, res: Response): Promise<any> => {
+  router.delete('/:id/members/:memberId', requireAuth, requireScope(SCOPES.ORGS.UPDATE), auditLog('ORG_MEMBER_REMOVE'), async (req: Request, res: Response): Promise<any> => {
     try {
       const { id: userId, role: userRole } = (req as any).user;
       const { id, memberId } = req.params;
