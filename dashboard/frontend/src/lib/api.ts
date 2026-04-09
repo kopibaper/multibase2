@@ -1257,3 +1257,45 @@ export const instanceExtensionsApi = {
     config: Record<string, unknown>;
   }> => fetchApi(`/api/instances/${instanceName}/extensions/${extensionId}/status`),
 };
+
+// =====================================================
+// Updates API
+// =====================================================
+
+export interface UpdateVersionInfo {
+  current: string;
+  latest: string | null;
+  hasUpdate: boolean;
+  changelog: string | null;
+  checkedAt: string | null;
+}
+
+export interface DockerServiceInfo {
+  service: string;
+  image: string;
+  tag: string;
+  status: 'running' | 'stopped' | 'missing';
+}
+
+export interface UpdateStatus {
+  multibase: UpdateVersionInfo;
+  docker: DockerServiceInfo[];
+  isUpdateInProgress: boolean;
+  lastCheckedAt: string | null;
+}
+
+export const updatesApi = {
+  getStatus: (): Promise<UpdateStatus> => fetchApi('/api/updates/status'),
+
+  check: (): Promise<UpdateStatus> =>
+    fetchApi('/api/updates/check', { method: 'POST' }),
+
+  updateMultibase: (): Promise<{ success: boolean; message: string }> =>
+    fetchApi('/api/updates/multibase', { method: 'POST' }),
+
+  updateDocker: (services?: string[]): Promise<{ success: boolean; message: string; services: string[] }> =>
+    fetchApi('/api/updates/docker', {
+      method: 'POST',
+      body: JSON.stringify({ services }),
+    }),
+};

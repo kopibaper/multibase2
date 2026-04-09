@@ -33,6 +33,7 @@ import SetupLayout from './layouts/SetupLayout';
 import SetupPage from './pages/SetupPage';
 import McpSettingsPage from './pages/McpSettingsPage';
 import MarketplacePage from './pages/MarketplacePage';
+import UpdatesPage from './pages/UpdatesPage';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Create React Query client
@@ -123,6 +124,7 @@ function AppContent() {
           <Route path='/migrations' element={<Migrations />} />
           <Route path='/activity' element={<ActivityLog />} />
           <Route path='/settings/smtp' element={<GlobalSmtpSettings />} />
+          <Route path='/updates' element={<UpdatesPage />} />
         </Route>
         {/* Setup Routes */}
         <Route path='/setup' element={<SetupLayout />}>

@@ -17,6 +17,7 @@ import {
   Cloud,
   Server,
   Bot,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
 
@@ -143,6 +144,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
               </SidebarLink>
               <SidebarLink to='/settings/smtp' icon={Mail}>
                 SMTP Settings
+              </SidebarLink>
+              <SidebarLink to='/updates' icon={ArrowUpCircle}>
+                Updates
               </SidebarLink>
             </SidebarGroup>
           )}

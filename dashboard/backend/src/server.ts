@@ -89,6 +89,8 @@ import { createMarketplaceRoutes } from './routes/marketplace';
 import { createExtensionRoutes } from './routes/extensions';
 import { ExtensionUpdateChecker } from './services/ExtensionUpdateChecker';
 import { createFeedbackRoutes } from './routes/feedback';
+import { createUpdateRoutes } from './routes/updates';
+import { UpdateService } from './services/UpdateService';
 
 // Utils
 import { logger } from './utils/logger';
@@ -183,6 +185,7 @@ const vectorService = new VectorService(instanceManager);
 const queueService = new QueueService(instanceManager);
 const logDrainService = new LogDrainService(prisma, dockerManager);
 const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma, functionService, storageService);
+const updateService = new UpdateService(dockerManager, path.resolve(__dirname, '../../..'));
 
 // Register services with Scheduler
 SchedulerService.registerUptimeService(uptimeService);
@@ -246,6 +249,7 @@ const aiAgentService = new AiAgentService(prisma, instanceManager, dockerManager
   storageService,
 });
 app.use('/api/ai-agent', createAiAgentRoutes(aiAgentService, prisma));
+app.use('/api/updates', createUpdateRoutes(updateService, io));
 
 // Health check endpoint for the dashboard itself
 app.get('/api/ping', async (_req, res) => {
