@@ -1,0 +1,128 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      notes:
+        description: 'Release notes (optional, shown in GitHub Release)'
+        required: false
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Read current version
+        id: current
+        run: |
+          CURRENT=$(node -p "require('./dashboard/backend/package.json').version")
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT"
+
+      - name: Calculate new version
+        id: new
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          BUMP="${{ github.event.inputs.bump }}"
+
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW" >> $GITHUB_OUTPUT
+          echo "New version: $NEW"
+
+      - name: Bump version in package.json
+        run: |
+          NEW="${{ steps.new.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('dashboard/backend/package.json', 'utf8'));
+            pkg.version = '$NEW';
+            fs.writeFileSync('dashboard/backend/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          echo "Updated dashboard/backend/package.json to $NEW"
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            LOG=$(git log --oneline --no-merges -20 --pretty=format:"- %s")
+          else
+            LOG=$(git log ${PREV_TAG}..HEAD --oneline --no-merges --pretty=format:"- %s")
+          fi
+
+          if [ -z "$LOG" ]; then
+            LOG="- Version bump (${{ github.event.inputs.bump }})"
+          fi
+
+          # Append manual notes if provided
+          MANUAL="${{ github.event.inputs.notes }}"
+          if [ -n "$MANUAL" ]; then
+            LOG="$LOG
+
+**Notes:** $MANUAL"
+          fi
+
+          # Write to file to preserve newlines
+          echo "$LOG" > /tmp/changelog.md
+          echo "Changelog generated."
+
+      - name: Commit version bump
+        run: |
+          NEW="${{ steps.new.outputs.version }}"
+          git add dashboard/backend/package.json
+          git commit -m "chore: bump version to $NEW"
+
+      - name: Create and push tag
+        run: |
+          TAG="${{ steps.new.outputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin main
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.new.outputs.tag }}
+          name: "Multibase ${{ steps.new.outputs.tag }}"
+          body_path: /tmp/changelog.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
