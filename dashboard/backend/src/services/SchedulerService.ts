@@ -145,6 +145,16 @@ export class SchedulerService {
         },
       });
 
+      // 4. Enforce retention (delete oldest backups beyond the configured count)
+      try {
+        const schedule = await prisma.backupSchedule.findUnique({ where: { id } });
+        if (schedule && schedule.retention > 0) {
+          await BackupService.enforceRetention(instanceId, type, schedule.retention);
+        }
+      } catch (retErr) {
+        logger.warn(`Retention enforcement failed for schedule ${id}:`, retErr);
+      }
+
       logger.info(`Scheduled backup completed: ${backup.name}`);
     } catch (error) {
       logger.error(`Failed to execute schedule ${id}:`, error);

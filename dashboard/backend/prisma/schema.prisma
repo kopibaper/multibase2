@@ -167,6 +167,7 @@ model User {
   updatedAt        DateTime            @updatedAt
   sessions         Session[]
   backups          Backup[]
+  backupDestinations BackupDestination[]
   auditLogs        AuditLog[]
   apiKeys          ApiKey[]
   templates        InstanceTemplate[]
@@ -228,10 +229,44 @@ model Backup {
   createdBy   String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [createdBy], references: [id])
+  uploads     BackupUpload[]
 
   @@index([type])
   @@index([instanceId])
   @@index([createdAt])
+}
+
+model BackupDestination {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // 'sftp' | 's3' | 'googledrive' | 'onedrive' | 'webdav'
+  config      String   // AES-256-GCM encrypted JSON with provider credentials
+  enabled     Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [createdBy], references: [id])
+  uploads     BackupUpload[]
+
+  @@index([enabled])
+  @@index([createdBy])
+}
+
+model BackupUpload {
+  id             String            @id @default(uuid())
+  backupId       String
+  destinationId  String
+  status         String            // 'pending' | 'uploading' | 'success' | 'failed'
+  remotePath     String?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  backup         Backup            @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  destination    BackupDestination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@index([backupId])
+  @@index([destinationId])
+  @@index([status])
 }
 
 model AuditLog {

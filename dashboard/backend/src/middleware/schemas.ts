@@ -128,6 +128,7 @@ export const CreateBackupSchema = z.object({
   }),
   instanceId: z.string().optional(),
   name: z.string().max(100, 'Backup-Name darf maximal 100 Zeichen haben').optional(),
+  destinationIds: z.array(z.string()).optional(),
 });
 
 export const RestoreBackupSchema = z.object({

@@ -113,6 +113,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
             <SidebarLink to='/backups' icon={HardDrive}>
               Backups
             </SidebarLink>
+            <SidebarLink to='/backup-destinations' icon={Cloud}>
+              Destinations
+            </SidebarLink>
           </SidebarGroup>
 
           <SidebarGroup title='Developer'>

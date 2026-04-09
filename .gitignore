@@ -55,6 +55,7 @@ wheels/
 # Project-specific folders
 */volumes/db/data/
 */volumes/storage/
+backups/
 /projects/*
 #Nginx
 /nginx/sites-enabled/*

@@ -12,12 +12,32 @@ import {
   Eye,
   Clock,
   Power,
+  Cloud,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Upload,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useInstances } from '../hooks/useInstances';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import PageHeader from '../components/PageHeader';
+
+interface BackupDestination {
+  id: string;
+  name: string;
+  type: string;
+  enabled: boolean;
+}
+
+interface BackupUploadStatus {
+  id: string;
+  destinationId: string;
+  status: 'pending' | 'uploading' | 'success' | 'failed';
+  error?: string;
+  destination: { id: string; name: string; type: string };
+}
 
 interface Backup {
   id: string;
@@ -68,10 +88,13 @@ export default function BackupManagement() {
   const [activeTab, setActiveTab] = useState<Tab>('backups');
   const [backups, setBackups] = useState<Backup[]>([]);
   const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
+  const [destinations, setDestinations] = useState<BackupDestination[]>([]);
+  const [uploadStatuses, setUploadStatuses] = useState<Record<string, BackupUploadStatus[]>>({});
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingSchedule, setIsCreatingSchedule] = useState(false);
   const [previewData, setPreviewData] = useState<RestorePreview | null>(null);
+  const [selectedDestinations, setSelectedDestinations] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     type: 'full' as 'full' | 'instance' | 'database',
     instanceId: '',
@@ -95,6 +118,20 @@ export default function BackupManagement() {
       if (response.ok) {
         const data = await response.json();
         setBackups(data);
+        // Fetch upload statuses for all backups
+        const statuses: Record<string, BackupUploadStatus[]> = {};
+        await Promise.all(
+          data.map(async (b: Backup) => {
+            try {
+              const r = await fetch(`${API_URL}/api/backups/${b.id}/uploads`, {
+                headers: { Authorization: `Bearer ${token}` },
+                credentials: 'include',
+              });
+              if (r.ok) statuses[b.id] = await r.json();
+            } catch {}
+          })
+        );
+        setUploadStatuses(statuses);
       }
     } catch (error) {
       console.error('Error fetching backups:', error);
@@ -117,10 +154,23 @@ export default function BackupManagement() {
     }
   };
 
+  const fetchDestinations = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/backup-destinations`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDestinations(data.filter((d: BackupDestination) => d.enabled));
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchBackups(), fetchSchedules()]);
+      await Promise.all([fetchBackups(), fetchSchedules(), fetchDestinations()]);
       setLoading(false);
     };
     loadData();
@@ -138,7 +188,10 @@ export default function BackupManagement() {
           Authorization: `Bearer ${token}`,
         },
         credentials: 'include',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          ...(selectedDestinations.length > 0 && { destinationIds: selectedDestinations }),
+        }),
       });
 
       if (!response.ok) {
@@ -149,6 +202,7 @@ export default function BackupManagement() {
       toast.success('Backup created successfully');
       setIsCreating(false);
       setFormData({ type: 'full', instanceId: '', name: '' });
+      setSelectedDestinations([]);
       fetchBackups();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create backup';
@@ -463,6 +517,40 @@ export default function BackupManagement() {
                       />
                     </div>
                   </div>
+                  {destinations.length > 0 && (
+                    <div>
+                      <label className='block text-sm font-medium text-foreground mb-2'>
+                        <span className='inline-flex items-center gap-1'>
+                          <Upload className='w-4 h-4' />
+                          Upload to External Destinations (Optional)
+                        </span>
+                      </label>
+                      <div className='flex flex-wrap gap-2'>
+                        {destinations.map((dest) => (
+                          <label
+                            key={dest.id}
+                            className='flex items-center gap-2 px-3 py-2 border border-border rounded-md cursor-pointer hover:bg-muted'
+                          >
+                            <input
+                              type='checkbox'
+                              checked={selectedDestinations.includes(dest.id)}
+                              onChange={(e) =>
+                                setSelectedDestinations(
+                                  e.target.checked
+                                    ? [...selectedDestinations, dest.id]
+                                    : selectedDestinations.filter((id) => id !== dest.id)
+                                )
+                              }
+                              className='rounded'
+                            />
+                            <Cloud className='w-3.5 h-3.5 text-muted-foreground' />
+                            <span className='text-sm'>{dest.name}</span>
+                            <span className='text-xs text-muted-foreground capitalize'>({dest.type})</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className='flex gap-3 pt-4'>
                     <button
                       type='button'
@@ -492,13 +580,14 @@ export default function BackupManagement() {
                     <th className='px-6 py-3 text-left text-sm font-medium'>Size</th>
                     <th className='px-6 py-3 text-left text-sm font-medium'>Created</th>
                     <th className='px-6 py-3 text-left text-sm font-medium'>Created By</th>
+                    <th className='px-6 py-3 text-left text-sm font-medium'>Uploads</th>
                     <th className='px-6 py-3 text-right text-sm font-medium'>Actions</th>
                   </tr>
                 </thead>
                 <tbody className='divide-y'>
                   {backups.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className='px-6 py-8 text-center text-muted-foreground'>
+                      <td colSpan={7} className='px-6 py-8 text-center text-muted-foreground'>
                         No backups found. Create your first backup to get started.
                       </td>
                     </tr>
@@ -521,6 +610,30 @@ export default function BackupManagement() {
                           {format(new Date(backup.createdAt), 'MMM d, yyyy HH:mm')}
                         </td>
                         <td className='px-6 py-4 text-sm text-muted-foreground'>{backup.user.username}</td>
+                        <td className='px-6 py-4'>
+                          {uploadStatuses[backup.id] && uploadStatuses[backup.id].length > 0 ? (
+                            <div className='flex flex-wrap gap-1'>
+                              {uploadStatuses[backup.id].map((u) => (
+                                <span
+                                  key={u.id}
+                                  title={`${u.destination.name}${u.error ? ': ' + u.error : ''}`}
+                                  className='inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs border'
+                                >
+                                  {u.status === 'success' ? (
+                                    <CheckCircle className='w-3 h-3 text-green-500' />
+                                  ) : u.status === 'failed' ? (
+                                    <XCircle className='w-3 h-3 text-red-500' />
+                                  ) : (
+                                    <Loader2 className='w-3 h-3 animate-spin text-muted-foreground' />
+                                  )}
+                                  <span className='text-muted-foreground'>{u.destination.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className='text-xs text-muted-foreground'>—</span>
+                          )}
+                        </td>
                         <td className='px-6 py-4'>
                           <div className='flex items-center justify-end gap-2'>
                             <button

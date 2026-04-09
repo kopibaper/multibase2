@@ -17,6 +17,7 @@ import AlertRules from './pages/AlertRules';
 import ResetPassword from './pages/ResetPassword';
 import UserManagement from './pages/UserManagement';
 import BackupManagement from './pages/BackupManagement';
+import BackupDestinations from './pages/BackupDestinations';
 import UserProfile from './pages/UserProfile';
 import NotificationSettings from './pages/NotificationSettings';
 import ActivityLog from './pages/ActivityLog';
@@ -98,6 +99,7 @@ function AppContent() {
           <Route path='/alerts' element={<Alerts />} />
           <Route path='/alert-rules' element={<AlertRules />} />
           <Route path='/backups' element={<BackupManagement />} />
+          <Route path='/backup-destinations' element={<BackupDestinations />} />
           <Route path='/notifications' element={<NotificationSettings />} />
           <Route path='/api-keys' element={<ApiKeys />} />
           <Route path='/api-docs' element={<ApiDocs />} />
