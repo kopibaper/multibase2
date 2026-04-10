@@ -97,8 +97,8 @@ export default function EditPolicyModal({
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
-      <div className='glass-modal w-full max-w-2xl max-h-[90vh] flex flex-col'>
-        <div className='flex items-center justify-between p-6 border-b border-border'>
+      <div className='glass-modal w-full max-w-xl max-h-[75vh] flex flex-col'>
+        <div className='flex items-center justify-between px-5 py-3 border-b border-border'>
           <div>
             <h2 className='text-xl font-semibold flex items-center gap-2'>
               <Shield className='w-5 h-5 text-primary' />
@@ -116,7 +116,7 @@ export default function EditPolicyModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className='flex-1 overflow-y-auto p-6 space-y-6'>
+        <form onSubmit={handleSubmit} className='flex-1 overflow-y-auto px-5 py-3 space-y-4'>
           {/* Name */}
           <div>
             <label className='block text-sm font-medium mb-2'>Policy Name</label>
@@ -186,7 +186,7 @@ export default function EditPolicyModal({
           </div>
         </form>
 
-        <div className='p-6 border-t border-border flex justify-end gap-3'>
+        <div className='px-5 py-3 border-t border-border flex justify-end gap-2'>
           <button
             onClick={onClose}
             className='px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors'

@@ -80,8 +80,8 @@ export default function EditRowModal({ instanceName, tableName, row, onClose, on
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm'>
-      <div className='glass-modal w-full max-w-lg max-h-[90vh] flex flex-col'>
-        <div className='flex items-center justify-between p-6 border-b border-border'>
+      <div className='glass-modal w-full max-w-md max-h-[70vh] flex flex-col'>
+        <div className='flex items-center justify-between px-5 py-3 border-b border-border'>
           <h2 className='text-xl font-semibold flex items-center gap-2'>
             <Pencil className='w-5 h-5 text-primary' />
             Edit Row in <span className='font-mono text-primary ml-1'>{tableName}</span>
@@ -91,7 +91,7 @@ export default function EditRowModal({ instanceName, tableName, row, onClose, on
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className='p-6 overflow-y-auto flex-1 space-y-4'>
+        <form onSubmit={handleSubmit} className='px-5 py-3 overflow-y-auto flex-1 space-y-3'>
           {columns.map((col: any) => {
             const isPk = col.column_name === pkCol?.column_name;
             const isIdentity =
@@ -118,7 +118,7 @@ export default function EditRowModal({ instanceName, tableName, row, onClose, on
           })}
         </form>
 
-        <div className='p-6 border-t border-border flex justify-end gap-3'>
+        <div className='px-5 py-3 border-t border-border flex justify-end gap-2'>
           <button
             type='button'
             onClick={onClose}

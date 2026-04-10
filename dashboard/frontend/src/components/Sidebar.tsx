@@ -20,6 +20,7 @@ import {
   ArrowUpCircle,
 } from 'lucide-react';
 import { useState, createContext, useContext } from 'react';
+import { useUpdateStatus } from '../hooks/useUpdates';
 
 // Context for onNavigate callback (for mobile menu close)
 const SidebarContext = createContext<{ onNavigate?: () => void }>({});
@@ -29,9 +30,10 @@ interface SidebarLinkProps {
   icon: React.ElementType;
   children: React.ReactNode;
   end?: boolean;
+  badge?: boolean;
 }
 
-const SidebarLink = ({ to, icon: Icon, children, end }: SidebarLinkProps) => {
+const SidebarLink = ({ to, icon: Icon, children, end, badge }: SidebarLinkProps) => {
   const { onNavigate } = useContext(SidebarContext);
 
   return (
@@ -49,7 +51,10 @@ const SidebarLink = ({ to, icon: Icon, children, end }: SidebarLinkProps) => {
       }
     >
       <Icon className='w-4 h-4 flex-shrink-0' />
-      <span>{children}</span>
+      <span className='flex-1'>{children}</span>
+      {badge && (
+        <span className='w-2 h-2 rounded-full bg-brand-400 ring-2 ring-brand-400/30 animate-pulse flex-shrink-0' />
+      )}
     </NavLink>
   );
 };
@@ -85,6 +90,8 @@ interface SidebarProps {
 
 export default function Sidebar({ onNavigate }: SidebarProps) {
   const { user } = useAuth();
+  const { data: updateStatus } = useUpdateStatus();
+  const hasUpdate = updateStatus?.multibase?.hasUpdate ?? false;
 
   return (
     <SidebarContext.Provider value={{ onNavigate }}>
@@ -145,7 +152,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
               <SidebarLink to='/settings/smtp' icon={Mail}>
                 SMTP Settings
               </SidebarLink>
-              <SidebarLink to='/updates' icon={ArrowUpCircle}>
+              <SidebarLink to='/updates' icon={ArrowUpCircle} badge={hasUpdate}>
                 Updates
               </SidebarLink>
             </SidebarGroup>
