@@ -60,6 +60,7 @@ backups/
 #Nginx
 /nginx/sites-enabled/*
 /nginx
+./github/workflows
 
 # Environment variables that may contain secrets
 */.env
