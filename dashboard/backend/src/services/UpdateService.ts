@@ -228,8 +228,9 @@ export class UpdateService extends EventEmitter {
       this.emitStepDone('backend install', 1);
 
       // Step 3: frontend npm install + build
+      // --include=dev: force devDependencies (TypeScript etc) even if NODE_ENV=production
       this.emitStep('frontend build', 2, steps.length);
-      await this.runCommand('npm', ['install', '--prefer-offline'], path.join(this.rootDir, 'dashboard', 'frontend'));
+      await this.runCommand('npm', ['install', '--prefer-offline', '--include=dev'], path.join(this.rootDir, 'dashboard', 'frontend'));
       await this.runCommand(
         'npm',
         ['run', 'build'],
