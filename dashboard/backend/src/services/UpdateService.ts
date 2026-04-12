@@ -221,14 +221,15 @@ export class UpdateService extends EventEmitter {
       await this.runCommand('git', ['reset', '--hard', 'origin/main'], this.rootDir);
       this.emitStepDone('git pull', 0);
 
-      // Step 2: backend npm ci
+      // Step 2: backend npm install
+      // (npm ci würde node_modules löschen — scheitert wenn owned by root nach deploy)
       this.emitStep('backend install', 1, steps.length);
-      await this.runCommand('npm', ['ci'], path.join(this.rootDir, 'dashboard', 'backend'));
+      await this.runCommand('npm', ['install', '--prefer-offline'], path.join(this.rootDir, 'dashboard', 'backend'));
       this.emitStepDone('backend install', 1);
 
-      // Step 3: frontend npm ci + build
+      // Step 3: frontend npm install + build
       this.emitStep('frontend build', 2, steps.length);
-      await this.runCommand('npm', ['ci'], path.join(this.rootDir, 'dashboard', 'frontend'));
+      await this.runCommand('npm', ['install', '--prefer-offline'], path.join(this.rootDir, 'dashboard', 'frontend'));
       await this.runCommand(
         'npm',
         ['run', 'build'],

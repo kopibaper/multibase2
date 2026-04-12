@@ -115,6 +115,10 @@ jobs:
             # --- DevDependencies entfernen (prisma CLI nicht mehr benötigt) ---
             npm prune --omit=dev
 
+            # --- Ownership: sicherstellen dass multibase user node_modules verwalten kann ---
+            # (npm ci lief als root → node_modules gehört root → UpdateService kann sonst nicht updaten)
+            chown -R multibase:multibase /opt/multibase/dashboard/backend/node_modules 2>/dev/null || true
+
             # --- Backend neu starten (PM2 läuft unter dem 'multibase' User) ---
             su - multibase -s /bin/bash -c "pm2 restart multibase-backend && pm2 save"
 
