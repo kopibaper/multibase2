@@ -1,12 +1,24 @@
-# Multibase - Deep Technical Architecture
+# Multibase
 
-**Multibase** is a hybrid orchestration platform combining a Node.js management API with robust Python-based automation scripts. It is designed to act as a "Single Pane of Glass" for managing self-hosted Supabase instances, leveraging the standard Docker Compose runtime for reliability.
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-This document details the internal technical operations of the platform.
+**Multibase** is a hybrid orchestration platform combining a Node.js management API with Python-based automation. It is designed as a **"Single Pane of Glass"** for managing self-hosted Supabase instances, leveraging the standard Docker Compose runtime for reliability.
 
-Youtube Preview
+---
 
-## https://www.youtube.com/watch?v=hOz1U8KKDyc
+## 🎬 Preview & Feedback
+
+**YouTube Demo:** https://www.youtube.com/watch?v=hOz1U8KKDyc
+
+**Live Demo / Feedback:** https://multibase.tyto-design.de
+Found a bug or have a feature request? Post your feedback directly on the website.
+
+> 📸 Screenshots coming soon
+
+---
 
 ## 🚀 Quick Install
 
@@ -18,208 +30,95 @@ The interactive wizard handles everything: dependencies, domains, SSL, admin acc
 
 ---
 
-## 🏗️ Core Architecture & Tech Stack
+## ✅ Feature Overview
 
-The system is composed of three distinct layers:
+All features from v1.0 to v1.8 are **released and production-ready**. Click a version to open its detailed feature document.
 
-### 1. The Management Layer (Dashboard)
+| Feature | Version | Docs |
+| :--- | :---: | :---: |
+| Multi-Instance Docker Orchestration | v1.0 | [→](Markdowns/README.md) |
+| Auth & Session Management (JWT, Bcrypt, 2FA) | v1.0 | [→](Markdowns/README.md) |
+| Backup & Restore (S3, Scheduling, PITR) | v1.1 | [→](Markdowns/Readme1_1_feature.md) |
+| Monitoring, Alerts & Audit Logs | v1.1 | [→](Markdowns/Readme1_1_feature.md) |
+| Storage Manager (Upload, Signed URLs, Folders) | v1.2 | [→](Markdowns/Readme1_2_Feature.md) |
+| Instance Cloning & Snapshots | v1.2 | [→](Markdowns/Readme1_2_Feature.md) |
+| Cloud Architecture (Shared Services, ~75% RAM savings) | v1.3 | [→](Markdowns/Readme1_3_Feature.md) |
+| Kong → Nginx Gateway Migration | v1.3 | [→](Markdowns/Readme1_3_Feature.md) |
+| AI Chat Agent (30+ Tools, Multi-Provider) | v1.3 | [→](Markdowns/Readme1_3_Feature.md) |
+| Workspace Page (Studio, API Keys, SMTP) | v1.3 | [→](Markdowns/Readme1_3_Feature.md) |
+| Multi-Tenancy / Organizations / RBAC | v1.4 | [→](Markdowns/Readme1_4_Feature.md) |
+| GraphQL API Playground (pg_graphql) | v1.5 | [→](Markdowns/Readme1_5_Feature.md) |
+| Database Webhooks (pg_net) | v1.5 | [→](Markdowns/Readme1_5_Feature.md) |
+| Cron Job Manager (pg_cron) | v1.5 | [→](Markdowns/Readme1_5_Feature.md) |
+| AI & Vectors (pgvector, Semantic Search) | v1.5 | [→](Markdowns/Readme1_5_Feature.md) |
+| Message Queues (pgmq) | v1.5 | [→](Markdowns/Readme1_5_Feature.md) |
+| Auth Extensions (Phone/CAPTCHA/SAML/Social Login) | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Custom Domains per Tenant | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Environment Labels + Clone Shortcuts | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Storage: Tus Resumable Uploads + Nginx CDN Cache | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Vault Secrets UI (pgsodium) | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Network Restrictions (IP Whitelist, Rate Limiting) | v1.6 | [→](Markdowns/Readme1_6_Feature.md) |
+| Edge Functions IDE (CodeMirror, TypeScript, Test Runner) | v1.7 | [→](Markdowns/Readme1_7_Feature.md) |
+| Realtime Dashboard (Channels, Presence, Live Stats) | v1.7 | [→](Markdowns/Readme1_7_Feature.md) |
+| Log Drains (Webhook Export, json/ndjson) | v1.7 | [→](Markdowns/Readme1_7_Feature.md) |
+| Read Replicas (External PostgreSQL Registration) | v1.7 | [→](Markdowns/Readme1_7_Feature.md) |
+| MCP Server (12 Tools, JSON-RPC 2.0) | v1.7 | [→](Markdowns/Readme1_7_Feature.md) |
+| Extension Marketplace (51 Extensions) | v1.8 | ✅ |
+| Feedback Feature (Public API + Admin Settings) | v1.8 | ✅ |
 
-The Dashboard serves as the central control plane.
-
-- **Backend Runtime**: Node.js 20+ with Express.
-- **Database**: SQLite (via Prisma ORM) stores metadata, user accounts, and audit logs. This lightweight choices ensures zero-dependency installation.
-- **Interoperability**: The Node.js backend spawns Python 3 subprocesses to execute complex infrastructure tasks (like project generation), bridging the gap between the web UI and system-level scripts.
-- **Docker Integration**: Uses the `dockerode` library to communicate directly with the Docker Socket (`/var/run/docker.sock`) for container lifecycle management and stats collection.
-
-### 2. The Infrastructure Layer (Projects)
-
-Every Supabase instance ("Project") is an isolated file-system based entity.
-
-- **Directory Structure**: Located in `projects/<project-name>/`.
-- **Configuration**: Each project has its own `.env` file containing unique credentials and port mappings, and a `docker-compose.yml` defining the service stack.
-- **Data Persistence**: All state (Database, Storage, Logs) is stored in the `projects/<project-name>/volumes/` directory. This makes backups simple: creating a tarball of the project directory captures the entire state.
-
-### 3. The Runtime Layer (Containers)
-
-Instances run as standard Docker Compose stacks.
-
-- **Networking**: Each instance is assigned a dedicated Docker Bridge Network to ensure isolation.
-- **Ports**: The system manages a strict port registry to prevent conflicts.
-- **Services**: A standard classic stack includes 7-9 containers per project. Cloud tenants run 5 containers:
-
-  **Classic Stack:** `kong`, `db`, `auth`, `rest`, `realtime`, `storage`, `meta`, `analytics`, `functions`
-
-  **Cloud Stack:** `auth`, `rest`, `realtime`, `storage`, `functions` (+ 8 shared services)
-
----
-
-## ☁️ Cloud Architecture (v1.3 – Shared Infrastructure)
-
-Starting with v1.3, Multibase supports a **Shared Infrastructure** mode inspired by how Supabase Cloud operates. Instead of running 13 containers per project, heavy services are shared across all tenants.
-
-### Shared Services (8 Containers, fixed)
-
-| Service           | Container                 | Purpose                                                     |
-| ----------------- | ------------------------- | ----------------------------------------------------------- |
-| **PostgreSQL**    | `multibase-db`            | Single cluster with per-project databases                   |
-| **Studio**        | `multibase-studio`        | Shared dashboard, switches between tenants                  |
-| **Analytics**     | `multibase-analytics`     | Centralized Logflare instance                               |
-| **Vector**        | `multibase-vector`        | Multi-tenant log collector                                  |
-| **imgproxy**      | `multibase-imgproxy`      | Shared image proxy                                          |
-| **Pooler**        | `multibase-pooler`        | Shared Supavisor connection pooler                          |
-| **Meta**          | `multibase-meta`          | Shared postgres-meta for Studio                             |
-| **Nginx Gateway** | `multibase-nginx-gateway` | Single API gateway replacing all per-tenant Kong containers |
-
-### Per-Tenant Services (5 Containers each)
-
-Each project runs only its unique, stateful services: `auth`, `rest`, `realtime`, `storage`, `edge-functions`.
-
-### Resource Savings
-
-| Metric                   | Classic (10 Projects) | Cloud (10 Projects) | Saving   |
-| ------------------------ | --------------------- | ------------------- | -------- |
-| **Containers**           | 130                   | 58                  | **-55%** |
-| **RAM (idle)**           | ~20 GB                | ~5 GB               | **-75%** |
-| **PostgreSQL instances** | 10                    | 1                   | **-90%** |
-
-### Nginx Gateway (replaces Kong)
-
-The `multibase-nginx-gateway` container replaces all per-tenant Kong API gateways. A single Nginx process (~20 MB) handles path-based routing, API key validation (via `map` directives), CORS, and WebSocket upgrades for all tenants simultaneously.
-
-- **Config per tenant:** `shared/volumes/nginx/tenants/{tenant}.conf`
-- **Reload:** `nginx -s reload` (~50ms, zero downtime)
-- **Docker DNS:** Uses deferred `set $var` resolution (`resolver 127.0.0.11`) so tenants can start/stop independently
-
-#### ⚠️ Port Binding: Linux vs. Windows/Docker Desktop
-
-The `nginx-gateway` uses a **`docker-compose.override.yml`** (auto-generated by `setup_shared.py`) to manage all tenant port bindings. The bind address is controlled by a single variable in `shared/.env.shared`:
-
-```bash
-# Linux default (loopback only — more secure)
-NGINX_BIND_HOST=127.0.0.1
-
-# Windows / Docker Desktop (must be 0.0.0.0 to be reachable from the host)
-NGINX_BIND_HOST=0.0.0.0
-```
-
-After changing this value, run once to apply:
-```bash
-cd shared
-docker compose -f docker-compose.shared.yml -f docker-compose.override.yml --env-file .env.shared up -d --no-deps nginx-gateway
-```
-
-> **Why this matters:** `docker-compose.shared.yml` defines the main gateway port `8000`. All tenant-specific ports (e.g. `8786`, `8091`) live **only** in the override file. If the same port appears in both files (once with `0.0.0.0` and once with `127.0.0.1`), Docker raises `address already in use` and the container fails to start. This was the root cause of the gateway crashing on every new instance creation — never add `NGINX_PORT_N` entries directly to `docker-compose.shared.yml`.
+> 🔮 **Planned features (v2.0+):** Multi-Region Control Plane, GitOps/Terraform Provider, AI-Powered Database Advisor, Reseller & White-Label, Database Branching, Management SDK/CLI, and more — see the full [Feature Roadmap →](Markdowns/4.0.0_Feature_Roadmap.md)
 
 ---
 
-## 🖥️ Workspace Page
+## 🛠️ Tech Stack
 
-The Workspace page provides a unified project management interface:
-
-- **Project Sidebar** – Browse and filter all instances with health status indicators
-- **Studio Activation** – One-click shared Studio launch per tenant (auto-configures Meta routing)
-- **API Keys Panel** – Quick view and copy for Anon Key, Service Role Key, JWT Secret
-- **SMTP Configuration** – Per-instance email settings (host, port, sender)
-- **Supabase Manager** – Inline access to database operations, edge functions, and storage
-
----
-
-## ⚙️ Detailed Operational Workflows
-
-### 1. Instance Creation Lifecycle
-
-The creation process is a hybrid operation involving both the Node.js API and Python scripts:
-
-1.  **Request**: The Frontend sends a `POST /api/instances` request with the desired name.
-2.  **Validation**: The `InstanceManager` service validates the name and checks for existing directories.
-3.  **Port Allocation**: The system scans the `projects/` directory to identify used ports (Kong, DB, Studio). It assigns the next available block of 10 ports to the new instance.
-4.  **Python Delegation**: The Node.js backend spawns a child process executing `python supabase_manager.py create <name> --base-port <port>`.
-5.  **Generation**: The Python script:
-    - Creates the directory structure.
-    - Generates secure random secrets (JWTs, Database Passwords) using Python's `secrets` module.
-    - Writes the custom `.env` and `docker-compose.yml`.
-6.  **Registration**: Upon success, the Node.js backend registers the new instance in its SQLite database for tracking metrics and history.
-
-### 2. Monitoring Pipeline
-
-Multibase allows for real-time monitoring without external agents like Prometheus.
-
-1.  **Polling**: The `DockerManager` service polls the Docker Engine stats API every 2-5 seconds.
-2.  **Calculation**: It calculates CPU percentage by comparing the `cpu_usage` delta against `system_cpu_usage` (simulating the `docker stats` command). Memory is calculated from `memory_stats.usage`.
-3.  **Broadcasting**: These metrics are pushed to the Frontend via a WebSocket connection (`socket.io`).
-4.  **Visualization**: The Frontend subscribes to a specific "Room" (e.g., `instance:<id>`) to receive relevant updates, ensuring low bandwidth usage.
-
-### 3. Backup & Recovery Mechanism
-
-The backup system allows for automated "point-in-time" snapshots of the PostgreSQL database.
-
-- **Trigger**: Can be manual (API request) or automated (Cron schedule via `node-schedule`).
-- **Execution**: The backend uses `docker exec` to run `pg_dump` directly inside the target `db` container.
-- **Storage**: The resulting SQL stream is piped to a compressed file in `backups/<instance-id>/<timestamp>.sql.gz`.
-- **Direct I/O**: The dump data is streamed directly from the container to the disk, minimizing memory usage on the dashboard server.
-
-### 4. Security & Authentication
-
-- **Dashboard Access**: Protected by JWT authentication independent of the Supabase instances. First-party user management prevents unauthorized infrastructure access.
-- **Instance Security**:
-  - **JWT Secrets**: Unique `HS256` secrets are generated for every instance.
-  - **API Gateway**: The `Kong` container is configured to strip internal headers and enforce CORS, preventing leakage of internal topology.
-  - **Postgres**: The database is not exposed to the public internet by default; it is only accessible via the internal Docker network or the API Gateway.
+| Layer | Technology |
+| :--- | :--- |
+| **Dashboard Backend** | Node.js 20+, Express, TypeScript |
+| **Dashboard Database** | SQLite via Prisma ORM |
+| **Dashboard Frontend** | React 19, Vite, Radix UI |
+| **Infrastructure Scripting** | Python 3 (project generation, secret management) |
+| **Container Runtime** | Docker + Docker Compose |
+| **API Gateway** | Nginx (replaces per-tenant Kong from v1.3) |
+| **Process Manager** | PM2 |
+| **SSL** | Certbot (Let's Encrypt) |
 
 ---
 
-## 📚 Documentation Library
+## 🏗️ Architecture Overview
 
-A complete reference of all technical documentation available in this repository.
+Multibase has three layers:
 
-### 🗺️ Features & Roadmap (`/Markdowns`)
+| Layer | What it does |
+| :--- | :--- |
+| **Management Layer** | Node.js + Express dashboard. SQLite stores metadata & audit logs. Spawns Python subprocesses for infrastructure tasks. Communicates with Docker via `dockerode`. |
+| **Infrastructure Layer** | Each Supabase instance lives in `projects/<name>/` with its own `.env`, `docker-compose.yml`, and `volumes/` directory. Backup = tar the directory. |
+| **Runtime Layer** | Instances run as isolated Docker Compose stacks on dedicated bridge networks, with a central port registry preventing conflicts. |
 
-| Document                                                      | Description                                              | Status       |
-| :------------------------------------------------------------ | :------------------------------------------------------- | :----------- |
-| [**Feature Guide v1.0**](Markdowns/README.md)                 | Complete manual for the current production version.      | ✅ Active    |
-| [**Features v1.1**](Markdowns/Readme1_1_feature.md)           | User Mgmt, Alerts, Backups, Security, Templates, SMTP.   | ✅ Released  |
-| [**Features v1.2**](Markdowns/Readme1_2_Feature.md)           | Storage Manager, Advanced Monitoring, Instance Cloning.  | ✅ Released  |
-| [**Features v1.3**](Markdowns/Readme1_3_Feature.md)           | AI Chat, Cloud Arch, Kong→Nginx, Workspace.              | ✅ Released  |
-| [**Features v1.4**](Markdowns/Readme1_4_Feature.md)           | Multi-Tenancy, Organisations, Role-Based Access.         | ✅ Released  |
-| [**Features v1.5**](Markdowns/Readme1_5_Feature.md)           | GraphQL Playground, Webhooks, Cron, pgvector, pgmq.      | ✅ Released  |
-| [**Features v1.6**](Markdowns/Readme1_6_Feature.md)           | Custom Domains, Vault, Network Restrictions, Tus Upload. | ✅ Released  |
-| [**Features v1.7**](Markdowns/Readme1_7_Feature.md)           | Functions IDE, Read Replicas, Log Drains, MCP Server.    | ✅ Released  |
-| [**Multi-Tenancy Guide**](docs/MULTI_TENANCY.md)              | Organisation model, roles, isolation & migration guide.  | ✅ Released  |
-| [**Cloud Architecture**](Markdowns/CLOUD_ARCHITECTURE.md)     | Shared Infra design & implementation log (Phase 0-8).    | 📐 Reference |
-| [**Kong→Nginx Migration**](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status.         | ✅ Done      |
-| [**AI Chat Agent**](Markdowns/AIchat.md)                      | Deep-dive: AI assistant with 30+ tools & multi-provider. | 🤖 Tech      |
-| [**Version Overview**](Markdowns/VERSION_OVERVIEW.md)         | High-level summary of the update strategy.               | ℹ️ Info      |
-| [**Scripts Reference**](Markdowns/SCRIPTS.md)                 | Guide to the maintenance scripts in the root directory.  | 🔧 Tech      |
+### Cloud Architecture (v1.3+ — Shared Infrastructure)
 
-### 🛠️ Deployment & Operations (`/deployment`, `/docs`)
+Instead of running 13 containers per project, heavy services are shared across all tenants.
 
-| Document                                       | Description                                              | Context       |
-| :--------------------------------------------- | :------------------------------------------------------- | :------------ |
-| [**Deployment Guide**](deployment/README.md)   | Primary manual for automated server installation.        | 🚀 Production |
-| [**AWS Deployment**](docs/AWS_DEPLOYMENT.md)   | Specific architectural guide for AWS VPC/EC2 setups.     | ☁️ Cloud      |
-| [**Port Reference**](docs/PORT_REFERENCE.md)   | Complete list of all TCP/UDP ports used by the stack.    | 🌐 Network    |
-| [**Realtime Config**](docs/REALTIME_CONFIG.md) | deep dive into WebSocket/Realtime service configuration. | 🔌 Config     |
+**Shared Services** (8 containers, fixed): PostgreSQL, Studio, Analytics, Vector, imgproxy, Connection Pooler, Meta, **Nginx Gateway**
 
-### 🔍 Maintenance & Support (`/docs`)
+**Per-Tenant Services** (5 containers each): `auth`, `rest`, `realtime`, `storage`, `edge-functions`
 
-| Document                                                  | Description                                             |
-| :-------------------------------------------------------- | :------------------------------------------------------ |
-| [**Troubleshooting**](docs/TROUBLESHOOTING.md)            | Solutions for common Docker, Kong, and Database issues. |
-| [**Cleanup Guide**](Markdowns/CLEANUP_RECOMMENDATIONS.md) | Best practices for removing unused orphans and volumes. |
+| Metric | Classic (10 Projects) | Cloud (10 Projects) | Saving |
+| :--- | :---: | :---: | :---: |
+| **Containers** | 130 | 58 | **-55%** |
+| **RAM (idle)** | ~20 GB | ~5 GB | **-75%** |
+| **PostgreSQL instances** | 10 | 1 | **-90%** |
 
 ---
 
 ## 💻 Local Development Setup
 
-If you want to clone the repository and run Multibase locally for development (not on a VPS), follow these steps:
-
 ### 1. Start Shared Infrastructure
 
-Multibase requires a shared database cluster and gateway.
-
 ```bash
-# Copy the example environment file
+# Copy and edit the shared environment file
 cp shared/.env.shared.example shared/.env.shared
+nano shared/.env.shared  # at minimum change passwords and JWT secret
 
 # Start the shared infrastructure
 docker compose -f shared/docker-compose.shared.yml up -d
@@ -230,11 +129,9 @@ docker compose -f shared/docker-compose.shared.yml up -d
 ```bash
 cd dashboard/backend
 
-# Copy the example environment file
-# (This contains 'DEPLOYMENT_MODE=local' by default)
 cp .env.example .env
+nano .env  # DEPLOYMENT_MODE=local is the safe default
 
-# Install dependencies and start
 npm install
 npm run build
 npm start
@@ -242,116 +139,255 @@ npm start
 
 ### 3. Configure & Start Frontend
 
-In a new terminal:
-
 ```bash
 cd dashboard/frontend
 
-# Copy the example environment file
 cp .env.example .env
 
-# Install dependencies and start
 npm install
 npm run dev
 ```
 
-The dashboard will be available at `http://localhost:5173`. When creating instances locally, the system automatically detects `DEPLOYMENT_MODE=local` and skips Nginx domain configurations, binding ports directly to localhost.
+Dashboard available at `http://localhost:5173`.
+
+> When creating instances locally, `DEPLOYMENT_MODE=local` automatically skips Nginx domain configuration and binds ports directly to localhost.
 
 ---
 
-## 🚀 Quick Start & Installation
+## ⚙️ Environment Files
 
-### One-Line Installation
+### `dashboard/backend/.env`
 
-```bash
-# Download and run the installer
-curl -sSL https://raw.githubusercontent.com/your-org/multibase/main/deployment/install.sh | sudo bash
-```
-
-### Manual Installation
+Copied from `dashboard/backend/.env.example`:
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/multibase.git /opt/multibase
-cd /opt/multibase/deployment
+# Server port — dashboard backend listens here
+PORT=3001
+NODE_ENV=development  # change to "production" on a VPS
 
-# 2. Make scripts executable
-chmod +x install.sh uninstall.sh
+# ─── DEPLOYMENT MODE ──────────────────────────────────────────────────────────
+# local  → no nginx config generated, services accessible on localhost:<port>
+# cloud  → nginx configs with domain + SSL are generated automatically
+DEPLOYMENT_MODE=local
 
-# 3. Run installer
-sudo ./install.sh
+# ─── DATABASE ─────────────────────────────────────────────────────────────────
+DATABASE_URL="file:./data/multibase.db"  # SQLite — no external DB needed
+
+# ─── DOCKER ───────────────────────────────────────────────────────────────────
+# Linux (default):
+# DOCKER_SOCKET_PATH=/var/run/docker.sock
+# Windows Docker Desktop (named pipe):
+DOCKER_HOST=npipe:////./pipe/docker_engine
+
+# ─── PATHS ────────────────────────────────────────────────────────────────────
+PROJECTS_PATH=../../projects  # relative path from dashboard/backend/
+
+# ─── SECURITY ─────────────────────────────────────────────────────────────────
+# Must be at least 32 characters — change before going to production!
+SESSION_SECRET=your-secret-key-change-in-production-min-32-chars
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+# Add all origins that should be allowed to call the API
+CORS_ORIGIN=http://localhost:5173
+
+# ─── APP URLs ─────────────────────────────────────────────────────────────────
+APP_URL=http://localhost:5173
+DASHBOARD_URL=http://localhost:5173
+BACKEND_URL=http://localhost:3001
+
+# ─── CLOUD-ONLY (DEPLOYMENT_MODE=cloud) ───────────────────────────────────────
+# BACKEND_DOMAIN=backend.example.com
+# ROOT_DOMAIN=example.com
+# FRONTEND_DOMAIN=app.example.com
+# COOKIE_DOMAIN=.example.com  # enables cross-subdomain auth for instances
+
+# ─── SMTP (optional — can also be configured in Dashboard Settings UI) ────────
+# SMTP_HOST=smtp.example.com
+# SMTP_PORT=587
+# SMTP_USER=your-smtp-user
+# SMTP_PASS=your-smtp-password
+# SMTP_FROM="Multibase" <noreply@example.com>
 ```
 
-## What the Installer Does
+### `dashboard/frontend/.env`
 
-1. **Pre-Flight Checks**
-   - Verifies OS compatibility (Ubuntu/Debian)
-   - Checks available memory and disk space
-   - Prompts for domain name
+Copied from `dashboard/frontend/.env.example`. Minimal:
 
-2. **Installs Dependencies**
-   - Node.js 20
-   - Docker + Docker Compose
-   - PostgreSQL
-   - Redis
-   - Nginx
-   - Certbot (Let's Encrypt)
+```bash
+VITE_PORT=5173
+# Must point to the backend — change to your VPS IP/domain in production
+VITE_API_URL=http://localhost:3001
+```
 
-3. **Creates User & Directories**
-   - Creates `multibase` system user
-   - Sets up `/opt/multibase` directory structure
+### `shared/.env.shared`
 
-4. **Database Setup**
-   - Creates PostgreSQL database and user
-   - Generates secure credentials
+Copied from `shared/.env.shared.example`. Controls the shared infrastructure:
 
-5. **Builds Application**
-   - Installs npm dependencies
-   - Compiles TypeScript backend
-   - Builds React frontend
-   - Runs database migrations
+```bash
+# ─── SHARED POSTGRESQL ────────────────────────────────────────────────────────
+# Change this password before first start — used by all tenant databases
+SHARED_POSTGRES_PASSWORD=CHANGE_THIS_BEFORE_FIRST_START
+SHARED_PG_PORT=5432
 
-6. **Configures Services**
-   - Sets up Nginx reverse proxy with WebSocket support
-   - Creates systemd service for backend
-   - Obtains SSL certificate from Let's Encrypt
+# Must be at least 32 characters — used to sign all per-tenant JWTs
+SHARED_JWT_SECRET=CHANGE_THIS_BEFORE_FIRST_START_MIN_32_CHARS
+SHARED_JWT_EXPIRY=3600
 
-7. **Creates Admin User**
-   - Generates secure admin password
-   - Creates initial admin account
+# ─── SHARED STUDIO/KONG KEYS ──────────────────────────────────────────────────
+# Pre-generated for local dev. Replace on a production VPS.
+SHARED_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+SHARED_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
+
+# ─── STUDIO ───────────────────────────────────────────────────────────────────
+SHARED_STUDIO_PORT=3000
+SHARED_DASHBOARD_USERNAME=supabase       # Supabase Studio login
+SHARED_DASHBOARD_PASSWORD=supabase_local_dev  # Change in production!
+SHARED_PUBLIC_URL=http://localhost:8000  # External URL of the Nginx Gateway
+
+# ─── ANALYTICS ────────────────────────────────────────────────────────────────
+SHARED_ANALYTICS_PORT=4000
+
+# ─── CONNECTION POOLER ────────────────────────────────────────────────────────
+SHARED_POOLER_PORT=6543
+SHARED_POOLER_POOL_SIZE=50
+SHARED_POOLER_MAX_CONN=500
+
+# ─── DOCKER SOCKET ────────────────────────────────────────────────────────────
+# Linux:                 /var/run/docker.sock
+# Windows/Mac Desktop:   check Docker Desktop settings
+DOCKER_SOCKET_LOCATION=/var/run/docker.sock
+
+# ─── NGINX BIND HOST (see "Port Binding" section below) ───────────────────────
+# Linux:                 127.0.0.1  (loopback only — more secure)
+# Windows/Docker Desktop: 0.0.0.0  (must be reachable from host)
+NGINX_BIND_HOST=127.0.0.1
+```
 
 ---
 
-## 📁 Repository Structure
+## ⚠️ Port Binding: Linux vs. Windows / Docker Desktop
 
-- **/dashboard**: The unified monorepo for the management UI.
-  - **/backend**: Express.js API, Dockerode logic, SQLite DB.
-  - **/frontend**: React SPA, Shadcn UI components.
-- **/deployment**: Production infrastructure scripts (`install.sh`, `nginx.conf`).
-- **/projects**: The data directory. **Git-Ignored**. Contains all running instances.
-- **/templates**: Blueprints for `docker-compose.yml` and configuration files used during instance creation.
-- **supabase_manager.py**: The legacy but robust CLI tool for scripting.
+The `nginx-gateway` uses a `docker-compose.override.yml` (auto-generated by `setup_shared.py`) to manage all tenant port bindings. The bind address is controlled by a single variable in `shared/.env.shared`:
+
+```bash
+# Linux — loopback only (more secure, recommended for VPS)
+NGINX_BIND_HOST=127.0.0.1
+
+# Windows / Docker Desktop — must be 0.0.0.0 to be reachable from the host
+NGINX_BIND_HOST=0.0.0.0
+```
+
+After changing this value, apply it with:
+
+```bash
+cd shared
+docker compose -f docker-compose.shared.yml -f docker-compose.override.yml --env-file .env.shared up -d --no-deps nginx-gateway
+```
+
+> **Why this matters:** `docker-compose.shared.yml` defines the main gateway port `8000`. All tenant-specific ports (e.g. `8786`, `8091`) live **only** in the override file. If the same port gets bound twice with conflicting addresses, Docker raises `address already in use` and the gateway fails to start. Never add `NGINX_PORT_N` entries directly to `docker-compose.shared.yml`.
 
 ---
 
-## 🔧 CLI Commands (Reference)
+## 🤖 MCP Server Quick-Start
 
-For headless management, you can bypass the Dashboard and use the Python CLI tools directly.
+Multibase v1.7 ships a built-in **MCP Server** (Model Context Protocol, JSON-RPC 2.0) that exposes 12 management tools to AI assistants like Claude Desktop, Cursor, or VS Code Copilot.
 
-**Start an instance:**
+Add to your MCP client config (e.g. `claude_desktop_config.json`):
 
-```bash
-python supabase_manager.py start <project_name>
+```json
+{
+  "mcpServers": {
+    "multibase": {
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
 ```
 
-**Create an instance:**
+**Available tools:** `list_instances` · `get_instance` · `create_instance` · `start_instance` · `stop_instance` · `delete_instance` · `get_instance_logs` · `create_backup` · `list_backups` · `restore_backup` · `execute_sql` · `system_overview`
+
+For full documentation see [Features v1.7 →](Markdowns/Readme1_7_Feature.md)
+
+---
+
+## 🧪 Testprojekt / System Checker
+
+The [`Testprojekt/`](Testprojekt/) folder contains an **interactive test web app** that verifies all core Multibase features end-to-end:
+
+| Area | Tests | What it checks |
+| :--- | :---: | :--- |
+| **MCP Connection** | 5 | Server info, tool listing, tool calls (`list_instances`, `get_instance`), system overview |
+| **Database (CRUD)** | 6 | Create table → Insert → Read → Update → Delete → Cleanup |
+| **Storage** | 6 | Create bucket → Upload → List → Download+Verify → Public URL → Cleanup |
+| **Edge Functions** | 3 | List functions, invoke main function, fetch logs |
+| **Realtime** | 4 | Fetch config/stats, subscribe+broadcast test, connection info |
+
+Quick start:
 
 ```bash
-python supabase_manager.py create <project_name>
+cd Testprojekt
+cp backend/.env.example backend/.env
+# Set MULTIBASE_API_URL, MULTIBASE_TOKEN, and INSTANCE_NAME in backend/.env
+npm run install:all
+npm run dev
+# Open http://localhost:5173
 ```
 
-**List all instances:**
+See [Testprojekt/README.md](Testprojekt/README.md) for full setup instructions.
 
-```bash
-python supabase_manager.py list
-```
+---
+
+## 📚 Documentation Library
+
+### Features & Roadmap (`/Markdowns`)
+
+| Document | Description | Status |
+| :--- | :--- | :---: |
+| [Feature Guide v1.0](Markdowns/README.md) | Complete manual for the initial production version | ✅ Active |
+| [Features v1.1](Markdowns/Readme1_1_feature.md) | User Mgmt, Alerts, Backups, Security, Templates, SMTP | ✅ Released |
+| [Features v1.2](Markdowns/Readme1_2_Feature.md) | Storage Manager, Advanced Monitoring, Instance Cloning | ✅ Released |
+| [Features v1.3](Markdowns/Readme1_3_Feature.md) | AI Chat, Cloud Arch, Kong→Nginx, Workspace | ✅ Released |
+| [Features v1.4](Markdowns/Readme1_4_Feature.md) | Multi-Tenancy, Organisations, Role-Based Access | ✅ Released |
+| [Features v1.5](Markdowns/Readme1_5_Feature.md) | GraphQL Playground, Webhooks, Cron, pgvector, pgmq | ✅ Released |
+| [Features v1.6](Markdowns/Readme1_6_Feature.md) | Custom Domains, Vault, Network Restrictions, Tus Upload | ✅ Released |
+| [Features v1.7](Markdowns/Readme1_7_Feature.md) | Functions IDE, Read Replicas, Log Drains, MCP Server | ✅ Released |
+| [Feature Roadmap v2.0+](Markdowns/4.0.0_Feature_Roadmap.md) | Multi-Region, GitOps, AI Advisor, White-Label, Branching | 🔮 Planned |
+| [Cloud Architecture](Markdowns/CLOUD_ARCHITECTURE.md) | Shared Infra design & implementation log (Phase 0–8) | 📐 Reference |
+| [Kong→Nginx Migration](Markdowns/KONG_NGINX_MIGRATION.md) | Complete migration plan & post-migration status | ✅ Done |
+| [AI Chat Agent](Markdowns/AIchat.md) | Deep-dive: AI assistant with 30+ tools & multi-provider | 🤖 Tech |
+| [Version Overview](Markdowns/VERSION_OVERVIEW.md) | High-level summary of the update strategy | ℹ️ Info |
+| [Scripts Reference](Markdowns/SCRIPTS.md) | Guide to the maintenance scripts in the root directory | 🔧 Tech |
+
+### Deployment & Operations
+
+| Document | Description |
+| :--- | :--- |
+| [Deployment Guide](deployment/README.md) | Primary manual for automated server installation |
+| [AWS Deployment](docs/AWS_DEPLOYMENT.md) | Specific guide for AWS VPC/EC2 setups |
+| [Port Reference](docs/PORT_REFERENCE.md) | Complete list of all TCP/UDP ports used by the stack |
+| [Realtime Config](docs/REALTIME_CONFIG.md) | Deep dive into WebSocket/Realtime service configuration |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Solutions for common Docker, Kong, and Database issues |
+| [Cleanup Guide](Markdowns/CLEANUP_RECOMMENDATIONS.md) | Best practices for removing unused orphans and volumes |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push to your branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+For bug reports and feature ideas, use [GitHub Issues](https://github.com/skipper159/multibase2/issues) or post feedback at [multibase.tyto-design.de](https://multibase.tyto-design.de).
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.

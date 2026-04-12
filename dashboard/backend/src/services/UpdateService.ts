@@ -215,19 +215,22 @@ export class UpdateService extends EventEmitter {
     this.emit('update:start', { type: 'multibase', steps });
 
     try {
-      // Step 1: git pull
+      // Step 1: git fetch + reset (avoids diverged-branch errors from git pull)
       this.emitStep('git pull', 0, steps.length);
-      await this.runCommand('git', ['pull', 'origin', 'main'], this.rootDir);
+      await this.runCommand('git', ['fetch', 'origin', 'main'], this.rootDir);
+      await this.runCommand('git', ['reset', '--hard', 'origin/main'], this.rootDir);
       this.emitStepDone('git pull', 0);
 
-      // Step 2: backend npm ci
+      // Step 2: backend npm install
+      // (npm ci würde node_modules löschen — scheitert wenn owned by root nach deploy)
       this.emitStep('backend install', 1, steps.length);
-      await this.runCommand('npm', ['ci'], path.join(this.rootDir, 'dashboard', 'backend'));
+      await this.runCommand('npm', ['install', '--prefer-offline'], path.join(this.rootDir, 'dashboard', 'backend'));
       this.emitStepDone('backend install', 1);
 
-      // Step 3: frontend npm ci + build
+      // Step 3: frontend npm install + build
+      // --include=dev: force devDependencies (TypeScript etc) even if NODE_ENV=production
       this.emitStep('frontend build', 2, steps.length);
-      await this.runCommand('npm', ['ci'], path.join(this.rootDir, 'dashboard', 'frontend'));
+      await this.runCommand('npm', ['install', '--prefer-offline', '--include=dev'], path.join(this.rootDir, 'dashboard', 'frontend'));
       await this.runCommand(
         'npm',
         ['run', 'build'],

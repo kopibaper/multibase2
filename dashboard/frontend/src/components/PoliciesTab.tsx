@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { instancesApi } from '../lib/api';
-import { Shield, ShieldAlert, ShieldCheck, Loader2, RefreshCw, Trash2, CheckCircle, XCircle, Plus } from 'lucide-react';
+import { Shield, ShieldAlert, ShieldCheck, Loader2, RefreshCw, Trash2, CheckCircle, XCircle, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import CreatePolicyModal from './CreatePolicyModal';
+import EditPolicyModal from './EditPolicyModal';
 
 interface PoliciesTabProps {
   instanceName: string;
@@ -28,6 +29,7 @@ interface TableRLS {
 export default function PoliciesTab({ instanceName }: PoliciesTabProps) {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
 
   // Fetch RLS Status for all tables
   const {
@@ -254,17 +256,26 @@ export default function PoliciesTab({ instanceName }: PoliciesTabProps) {
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Delete policy "${policy.policyname}"?`)) {
-                              deletePolicyMutation.mutate({ tableName: selectedTable, policyName: policy.policyname });
-                            }
-                          }}
-                          className='text-muted-foreground hover:text-destructive p-2'
-                          title='Delete Policy'
-                        >
-                          <Trash2 className='w-4 h-4' />
-                        </button>
+                        <div className='flex items-center gap-1 ml-2 shrink-0'>
+                          <button
+                            onClick={() => setEditingPolicy(policy)}
+                            className='text-muted-foreground hover:text-primary p-2 transition-colors'
+                            title='Edit Policy'
+                          >
+                            <Pencil className='w-4 h-4' />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete policy "${policy.policyname}"?`)) {
+                                deletePolicyMutation.mutate({ tableName: selectedTable, policyName: policy.policyname });
+                              }
+                            }}
+                            className='text-muted-foreground hover:text-destructive p-2'
+                            title='Delete Policy'
+                          >
+                            <Trash2 className='w-4 h-4' />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -285,6 +296,16 @@ export default function PoliciesTab({ instanceName }: PoliciesTabProps) {
           instanceName={instanceName}
           tableName={selectedTable}
           onClose={() => setShowCreateModal(false)}
+          onSuccess={() => refetchPolicies()}
+        />
+      )}
+
+      {editingPolicy && selectedTable && (
+        <EditPolicyModal
+          instanceName={instanceName}
+          tableName={selectedTable}
+          policy={editingPolicy}
+          onClose={() => setEditingPolicy(null)}
           onSuccess={() => refetchPolicies()}
         />
       )}

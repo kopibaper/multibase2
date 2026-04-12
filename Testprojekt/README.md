@@ -1,131 +1,133 @@
 # Multibase System Checker
 
-Interaktive Test-Webapp zum Überprüfen aller Kernfunktionen des Multibase-Systems.
+Interactive test web app to verify all core functions of the Multibase system.
 
-## Was wird getestet?
+## What is tested?
 
-| Bereich             | Tests   | Beschreibung                                                                            |
+| Area                | Tests   | Description                                                                             |
 | ------------------- | ------- | --------------------------------------------------------------------------------------- |
 | **MCP Connection**  | 5 Tests | Server Info, Tool Listing, Tool Calls (list_instances, get_instance), System Overview   |
-| **Database (CRUD)** | 6 Tests | Tabelle erstellen → Insert → Read → Update → Delete → Cleanup                           |
-| **Storage**         | 6 Tests | Bucket erstellen → Datei hochladen → Auflisten → Download+Verify → Public URL → Cleanup |
-| **Edge Functions**  | 3 Tests | Functions auflisten, Function aufrufen (main), Logs abrufen                             |
-| **Realtime**        | 4 Tests | Config abrufen, Stats abrufen, Subscribe+Broadcast Test, Connection Info                |
+| **Database (CRUD)** | 6 Tests | Create table → Insert → Read → Update → Delete → Cleanup                                |
+| **Storage**         | 6 Tests | Create bucket → Upload file → List → Download+Verify → Public URL → Cleanup             |
+| **Edge Functions**  | 3 Tests | List functions, invoke function (main), fetch logs                                      |
+| **Realtime**        | 4 Tests | Fetch config, fetch stats, Subscribe+Broadcast test, Connection info                    |
 
-## Voraussetzungen
+## Requirements
 
 - **Node.js 20+**
-- **Multibase Dashboard** läuft auf `http://localhost:3001`
-- Mindestens eine Supabase-Instanz (z.B. `dein-project`) ist gestartet
+- **Multibase Dashboard** running at `http://localhost:3001`
+- At least one Supabase instance (e.g. `your-project`) is started
 
 ## Setup
 
-### 1. Dependencies installieren
+### 1. Install dependencies
 
 ```bash
 cd Testprojekt
 npm run install:all
 ```
 
-### 2. Backend konfigurieren
+### 2. Configure the backend
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Dann die `.env` Datei anpassen:
+Then edit the `.env` file:
 
 ```env
 # Multibase Dashboard API
 MULTIBASE_API_URL=http://localhost:3001
-MULTIBASE_TOKEN=dein-dashboard-auth-token
+MULTIBASE_TOKEN=your-dashboard-auth-token
 
-# Welche Instanz soll getestet werden?
-INSTANCE_NAME=dein-project
+# Which instance should be tested?
+INSTANCE_NAME=your-project
 
-# Direkter Zugang zur Supabase-Instanz (aus der Projekt-.env)
-SUPABASE_URL=http://localhost:4645
-SUPABASE_ANON_KEY=dein-anon-key
-SUPABASE_SERVICE_KEY=dein-service-role-key
+# Test Server Port
+PORT=3002
+
+# NOTE: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY are NO LONGER NEEDED.
+# The backend fetches them automatically from the Multibase API at startup.
+# Connection uses http://localhost:{gateway_port} directly (bypasses nginx auth_request).
 ```
 
-Die Werte für `SUPABASE_URL`, `SUPABASE_ANON_KEY` und `SUPABASE_SERVICE_KEY` findest du in
-`projects/dein-project/.env` unter `API_EXTERNAL_URL`, `ANON_KEY` und `SERVICE_ROLE_KEY`.
+You can find your `MULTIBASE_TOKEN` in the Dashboard under **Settings → API Keys**.
+The `INSTANCE_NAME` must match an existing project in your `projects/` directory.
 
-### 3. Starten
+### 3. Start
 
 ```bash
-# Beides gleichzeitig (Frontend + Backend)
+# Both at once (Frontend + Backend)
 npm run dev
 
-# Oder einzeln:
-npm run dev:backend   # Backend auf Port 3002
-npm run dev:frontend  # Frontend auf Port 5173
+# Or individually:
+npm run dev:backend   # Backend on port 3002
+npm run dev:frontend  # Frontend on port 5173
 ```
 
-### 4. Browser öffnen
+### 4. Open in browser
 
 ```
 http://localhost:5173
 ```
 
-## Architektur
+## Architecture
 
 ```
 Testprojekt/
 ├── frontend/           # React 19 + Vite + Radix UI Themes
 │   └── src/
-│       ├── App.tsx             # Haupt-Layout
+│       ├── App.tsx             # Main layout
 │       ├── components/
-│       │   ├── TestPanel.tsx   # Wiederverwendbares Test-Panel
-│       │   ├── McpTests.tsx    # MCP-Verbindungstests
+│       │   ├── TestPanel.tsx   # Reusable test panel
+│       │   ├── McpTests.tsx    # MCP connection tests
 │       │   ├── DatabaseTests.tsx
 │       │   ├── StorageTests.tsx
 │       │   ├── EdgeFunctionTests.tsx
 │       │   └── RealtimeTests.tsx
-│       └── lib/api.ts          # API-Client (Proxy zu Backend)
+│       └── lib/api.ts          # API client (proxy to backend)
 ├── backend/            # Node.js + Express + TypeScript
 │   └── src/
 │       ├── index.ts            # Express Server (Port 3002)
 │       ├── routes/
-│       │   ├── mcp.ts          # MCP JSON-RPC Tests
+│       │   ├── mcp.ts          # MCP JSON-RPC tests
 │       │   ├── database.ts     # Supabase DB CRUD
-│       │   ├── storage.ts      # Supabase Storage Ops
-│       │   ├── functions.ts    # Edge Function Invoke
+│       │   ├── storage.ts      # Supabase Storage operations
+│       │   ├── functions.ts    # Edge Function invoke
 │       │   └── realtime.ts     # Realtime Subscribe/Broadcast
 │       └── lib/
 │           ├── multibaseClient.ts  # Axios → Multibase Dashboard API
-│           └── supabaseClient.ts   # @supabase/supabase-js → Instanz
-└── package.json        # Root mit concurrently
+│           └── supabaseClient.ts   # @supabase/supabase-js → Instance
+└── package.json        # Root with concurrently
 ```
 
 ## Ports
 
-| Service                         | Port |
-| ------------------------------- | ---- |
-| Frontend (Vite)                 | 5173 |
-| Backend (Express)               | 3002 |
-| Multibase Dashboard             | 3001 |
-| Supabase Instanz (dein-project) | 4645 |
+| Service                             | Port |
+| ----------------------------------- | ---- |
+| Frontend (Vite)                     | 5173 |
+| Backend (Express)                   | 3002 |
+| Multibase Dashboard                 | 3001 |
+| Supabase Instance (your-project)    | 4645 |
 
 ## Troubleshooting
 
-**Backend Offline?**
+**Backend offline?**
 
-- Prüfe ob `MULTIBASE_TOKEN` in `.env` gesetzt ist (Login im Dashboard → Token kopieren)
-- Prüfe ob das Multibase Dashboard auf Port 3001 läuft
+- Make sure `MULTIBASE_TOKEN` is set in `.env` (log in to the Dashboard → copy the token)
+- Make sure the Multibase Dashboard is running on port 3001
 
-**Database Tests schlagen fehl?**
+**Database tests failing?**
 
-- Prüfe ob die Supabase-Instanz läuft: `docker ps | grep dein-project`
-- Prüfe `SUPABASE_URL` und `SUPABASE_SERVICE_KEY` in `.env`
+- Check if the Supabase instance is running: `docker ps | grep your-project`
+- Verify `MULTIBASE_TOKEN` and `INSTANCE_NAME` in `.env`
 
-**Storage Tests schlagen fehl?**
+**Storage tests failing?**
 
-- Storage-Service muss laufen: `docker ps | grep storage`
-- Service-Key (nicht Anon-Key) wird für Bucket-Erstellung benötigt
+- The storage service must be running: `docker ps | grep storage`
+- A service key (not the anon key) is required for bucket creation
 
-**Realtime Subscribe-Test Timeout?**
+**Realtime subscribe test timeout?**
 
-- Realtime-Container muss laufen: `docker ps | grep realtime`
-- Prüfe ob der Tenant korrekt konfiguriert ist (siehe `docs/REALTIME_CONFIG.md`)
+- The realtime container must be running: `docker ps | grep realtime`
+- Check that the tenant is correctly configured (see `docs/REALTIME_CONFIG.md`)
