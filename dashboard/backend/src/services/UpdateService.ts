@@ -215,9 +215,10 @@ export class UpdateService extends EventEmitter {
     this.emit('update:start', { type: 'multibase', steps });
 
     try {
-      // Step 1: git pull
+      // Step 1: git fetch + reset (avoids diverged-branch errors from git pull)
       this.emitStep('git pull', 0, steps.length);
-      await this.runCommand('git', ['pull', 'origin', 'main'], this.rootDir);
+      await this.runCommand('git', ['fetch', 'origin', 'main'], this.rootDir);
+      await this.runCommand('git', ['reset', '--hard', 'origin/main'], this.rootDir);
       this.emitStepDone('git pull', 0);
 
       // Step 2: backend npm ci

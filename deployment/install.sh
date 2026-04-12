@@ -1840,7 +1840,8 @@ run_update() {
 
     step "Pulling latest changes..."
     cd "$INSTALL_DIR"
-    sudo -u "$INSTALL_USER" git pull >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" git fetch origin main >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" git reset --hard origin/main >> "$LOG_FILE" 2>&1
     step_ok "Repository updated"
 
     step "Rebuilding backend..."
