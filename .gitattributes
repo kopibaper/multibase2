@@ -25,6 +25,11 @@
 *.env       text eol=lf
 .env*       text eol=lf
 
+# Merge strategy: keep main's version of deploy workflows when merging Feature_Roadmap → main
+# Requires one-time local setup: git config merge.ours.driver true
+.github/workflows/deploy.yml          merge=ours
+.github/workflows/deploy-backend.yml  merge=ours
+
 # TypeScript/JavaScript (can stay with native, no impact on containers)
 *.ts        text eol=lf
 *.tsx       text eol=lf
