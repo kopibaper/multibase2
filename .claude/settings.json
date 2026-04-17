@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run format:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(sqlite3 dashboard/backend/prisma/data/multibase.db:*)",
+      "Bash(git status)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(curl -s http://localhost:3001/api/health:*)",
+      "Bash(curl -s https://backend.tyto-design.de/api/health:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null); if echo \"$file\" | grep -qE '\\.(ts|tsx)$' && ! echo \"$file\" | grep -qE '(node_modules|dist|build|\\.prisma)'; then npx prettier --write \"$file\" 2>/dev/null || true; fi",
+            "statusMessage": "Formatting TypeScript...",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty' 2>/dev/null); if echo \"$cmd\" | grep -qiE '(DROP TABLE|DROP DATABASE|DELETE FROM .* WHERE 1|rm -rf /opt|git push --force|git reset --hard)'; then echo \"{\\\"systemMessage\\\": \\\"⚠️ Destructive command detected: $cmd\\\", \\\"continue\\\": true}\"; fi",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
