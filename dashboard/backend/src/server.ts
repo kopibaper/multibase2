@@ -102,7 +102,7 @@ dotenv.config();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 // Parse CORS origins - supports comma-separated list for multiple origins
 const CORS_ORIGIN = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
   : ['http://localhost:5173'];
 const PROJECTS_PATH = process.env.PROJECTS_PATH || path.join(process.cwd(), '../../projects');
 const DOCKER_SOCKET_PATH = process.env.DOCKER_SOCKET_PATH;
@@ -127,10 +127,24 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // Middleware
+import { requestId } from './middleware/requestId';
+app.use(requestId);
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for Vite HMR in dev
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", ...CORS_ORIGIN, 'wss:', 'ws:'],
+        fontSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
   })
 );
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
@@ -150,7 +164,7 @@ import { apiKeyAuth } from './middleware/apiKeyAuth';
 
 // Request logging
 app.use((req, _res, next) => {
-  logger.info(`${req.method} ${req.path}`);
+  logger.info(`${req.method} ${req.path} [${req.requestId}]`);
   next();
 });
 
@@ -184,7 +198,14 @@ const customDomainService = new CustomDomainService(prisma, PROJECTS_PATH);
 const vectorService = new VectorService(instanceManager);
 const queueService = new QueueService(instanceManager);
 const logDrainService = new LogDrainService(prisma, dockerManager);
-const mcpService = new McpService(instanceManager, dockerManager, metricsCollector, prisma, functionService, storageService);
+const mcpService = new McpService(
+  instanceManager,
+  dockerManager,
+  metricsCollector,
+  prisma,
+  functionService,
+  storageService
+);
 const updateService = new UpdateService(dockerManager, path.resolve(__dirname, '../../..'));
 
 // Register services with Scheduler
@@ -284,11 +305,11 @@ app.get('/', (_req, res) => {
 });
 
 // Socket.IO connection handling
-io.on('connection', (socket) => {
+io.on('connection', socket => {
   logger.info(`Client connected: ${socket.id}`);
 
   // Socket error handling
-  socket.on('error', (error) => {
+  socket.on('error', error => {
     logger.error(`Socket error for client ${socket.id}:`, error);
   });
 
@@ -304,13 +325,13 @@ io.on('connection', (socket) => {
       logger.info(`Client ${socket.id} subscribed to logs: ${instanceName}:${serviceName}`);
 
       const containers = await dockerManager.listProjectContainers(instanceName);
-      const container = containers.find((c) => {
+      const container = containers.find(c => {
         const containerName = c.Names[0].replace('/', '');
         return containerName.includes(serviceName);
       });
 
       if (container) {
-        dockerManager.streamContainerLogs(container.Id, (chunk) => {
+        dockerManager.streamContainerLogs(container.Id, chunk => {
           socket.emit('logs:data', {
             instanceName,
             serviceName,
@@ -339,19 +360,19 @@ io.on('connection', (socket) => {
 // Event handlers for real-time updates
 
 // Health status changes
-healthMonitor.on('health:changed', (event) => {
+healthMonitor.on('health:changed', event => {
   logger.info('Health changed event:', event);
   io.emit('health:update', event);
 });
 
 // Alert triggers
-healthMonitor.on('alert:triggered', (event) => {
+healthMonitor.on('alert:triggered', event => {
   logger.warn('Alert triggered:', event);
   io.emit('alert:triggered', event);
 });
 
 // Metrics collected
-metricsCollector.on('metrics:collected', (metrics) => {
+metricsCollector.on('metrics:collected', metrics => {
   io.emit('metrics:update', metrics);
 });
 
@@ -390,7 +411,7 @@ async function startServices() {
 
     // Start extension update checker (runs once after 30s, then weekly)
     const extensionUpdateChecker = new ExtensionUpdateChecker(prisma);
-    extensionUpdateChecker.on('update:available', (evt) => {
+    extensionUpdateChecker.on('update:available', evt => {
       logger.info(
         `Extension update available: ${evt.extensionId} ${evt.currentVersion} → ${evt.latestVersion}`
       );
@@ -398,6 +419,7 @@ async function startServices() {
     });
     extensionUpdateChecker.start();
     // Store reference for graceful shutdown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (app as any)._extensionUpdateChecker = extensionUpdateChecker;
 
     logger.info('Background services started successfully');
@@ -415,6 +437,7 @@ async function shutdown() {
   metricsCollector.stop();
   SchedulerService.stop();
   logDrainService.stop();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (app as any)._extensionUpdateChecker?.stop();
 
   await redisCache.close();
@@ -441,7 +464,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
   logger.error('Unhandled Rejection at:', {
     promise: promise.toString(),
     reason: reason instanceof Error ? reason.message : String(reason),
@@ -449,7 +472,7 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   });
 });
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   logger.error('Uncaught Exception:', error);
   shutdown();
 });
@@ -472,7 +495,9 @@ async function seedMarketplace(): Promise<void> {
   }
 
   if (created > 0 || updated > 0) {
-    logger.info(`Marketplace sync: +${created} new, ${updated} updated (${MARKETPLACE_EXTENSIONS.length} total)`);
+    logger.info(
+      `Marketplace sync: +${created} new, ${updated} updated (${MARKETPLACE_EXTENSIONS.length} total)`
+    );
   }
 }
 
