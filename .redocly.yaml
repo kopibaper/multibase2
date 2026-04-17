@@ -1,0 +1,6 @@
+apis:
+  main:
+    root: dashboard/backend/openapi.yaml
+
+rules:
+  operation-4xx-response: warn

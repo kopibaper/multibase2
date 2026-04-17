@@ -1,0 +1,1121 @@
+openapi: '3.1.0'
+info:
+  title: Multibase API
+  version: '3.0.1'
+  description: |
+    Single Pane of Glass management API for self-hosted Supabase instances.
+
+    ## Authentication
+
+    All protected endpoints accept one of two authentication methods:
+
+    | Method | Header | Format |
+    |--------|--------|--------|
+    | Session token | `Authorization` | `Bearer <token>` |
+    | API Key | `X-Api-Key` | `mb_<hex>` |
+
+    ## Roles
+
+    - `admin` — full access
+    - `user` — standard access
+    - `viewer` — read-only
+
+    ## Scopes
+
+    API keys can be restricted to specific scopes (e.g. `instances:read`, `backups:create`).
+    Use `*` for full access.
+  contact:
+    name: Multibase
+    url: https://multibase.tyto-design.de
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+  - url: https://backend.tyto-design.de/api
+    description: Production
+
+tags:
+  - name: auth
+    description: Authentication and user account management
+  - name: instances
+    description: Supabase instance lifecycle management
+  - name: api-keys
+    description: API key management
+  - name: audit
+    description: Audit log access
+  - name: webhooks
+    description: Webhook management
+  - name: health
+    description: System health
+
+# ---------------------------------------------------------------------------
+# Reusable components
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  schemas:
+    # --- Common ---
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: 'Invalid credentials'
+
+    # --- Auth ---
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user, viewer]
+        isActive:
+          type: boolean
+        twoFactorEnabled:
+          type: boolean
+        avatar:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        ipAddress:
+          type: [string, 'null']
+        userAgent:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+
+    RegisterRequest:
+      type: object
+      required: [email, username, password]
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        password:
+          type: string
+          minLength: 8
+          description: Must contain uppercase, lowercase, digit, and special character
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        twoFactorToken:
+          type: string
+          description: TOTP code (required when 2FA is enabled)
+
+    # --- Instances ---
+    Instance:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Unique identifier used in URLs and Docker names
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [running, stopped, starting, stopping, error, paused]
+        orgId:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateInstanceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          description: Lowercase alphanumeric + hyphens only
+        displayName:
+          type: string
+        orgId:
+          type: string
+
+    # --- API Keys ---
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        keyPrefix:
+          type: string
+          description: First 11 chars of the key (mb_ + 8 chars)
+        scopes:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: [string, 'null']
+          format: date-time
+        lastUsedAt:
+          type: [string, 'null']
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateApiKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+          default: ['*']
+          description: Use '*' for full access or specific scope strings
+        expiresIn:
+          type: integer
+          description: Expiry in seconds from now (optional)
+
+    # --- Audit ---
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+          example: USER_LOGIN
+        userId:
+          type: [string, 'null']
+        resource:
+          type: [string, 'null']
+        ipAddress:
+          type: [string, 'null']
+        userAgent:
+          type: [string, 'null']
+        metadata:
+          type: [object, 'null']
+        createdAt:
+          type: string
+          format: date-time
+
+    # --- Webhooks ---
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Validation error or bad input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+  # ========================
+  # AUTH
+  # ========================
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          description: Rate limit exceeded (3 registrations per hour per IP)
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login with email and password
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  session:
+                    $ref: '#/components/schemas/Session'
+                  requiresTwoFactor:
+                    type: boolean
+                    description: True when 2FA is required but token not provided
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded (5 attempts per 15 minutes per IP)
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout current session
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/profile:
+    put:
+      tags: [auth]
+      summary: Update own profile
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/users:
+    get:
+      tags: [auth]
+      summary: List all users (admin only)
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /auth/users/{id}:
+    get:
+      tags: [auth]
+      summary: Get user by ID (admin only)
+      operationId: getUserById
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [auth]
+      summary: Delete user (admin only)
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /auth/2fa/enable:
+    post:
+      tags: [auth]
+      summary: Initiate 2FA setup — returns TOTP QR code
+      operationId: enable2FA
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: TOTP secret and QR code URI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                  otpauthUrl:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/2fa/verify:
+    post:
+      tags: [auth]
+      summary: Confirm 2FA setup with TOTP code
+      operationId: verify2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: 6-digit TOTP code
+      responses:
+        '200':
+          description: 2FA enabled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: Request password reset email
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (always returns 200 to prevent email enumeration)
+
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Reset password with token from email
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ========================
+  # INSTANCES
+  # ========================
+  /instances:
+    get:
+      tags: [instances]
+      summary: List instances
+      operationId: listInstances
+      description: |
+        Returns instances scoped to the active organisation (X-Org-Id header).
+        Admin without X-Org-Id sees all instances.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: X-Org-Id
+          in: header
+          schema:
+            type: string
+          description: Organisation ID to scope the response
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Instance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [instances]
+      summary: Create a new Supabase instance
+      operationId: createInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '200':
+          description: Instance created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /instances/{name}:
+    get:
+      tags: [instances]
+      summary: Get instance details
+      operationId: getInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Org-Id
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [instances]
+      summary: Delete an instance
+      operationId: deleteInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /instances/{name}/start:
+    post:
+      tags: [instances]
+      summary: Start a stopped instance
+      operationId: startInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance started
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /instances/{name}/stop:
+    post:
+      tags: [instances]
+      summary: Stop a running instance
+      operationId: stopInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance stopped
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /instances/{name}/restart:
+    post:
+      tags: [instances]
+      summary: Restart an instance
+      operationId: restartInstance
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance restarted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /instances/{name}/services:
+    get:
+      tags: [instances]
+      summary: Get service status for an instance
+      operationId: getInstanceServices
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service status map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum: [running, stopped, error]
+
+  /instances/{name}/env:
+    get:
+      tags: [instances]
+      summary: Get instance environment variables
+      operationId: getInstanceEnv
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Environment variables (sensitive values masked)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ========================
+  # API KEYS
+  # ========================
+  /keys:
+    get:
+      tags: [api-keys]
+      summary: List API keys for the current user
+      operationId: listApiKeys
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [api-keys]
+      summary: Create a new API key
+      operationId: createApiKey
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '200':
+          description: API key created — the full key is only shown once
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    description: Full API key — store this securely, it will not be shown again
+                    example: mb_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /keys/scopes:
+    get:
+      tags: [api-keys]
+      summary: List all available scopes
+      operationId: listScopes
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Available scopes grouped by category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  groups:
+                    type: object
+
+  /keys/{id}:
+    get:
+      tags: [api-keys]
+      summary: Get API key details
+      operationId: getApiKey
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [api-keys]
+      summary: Revoke (delete) an API key
+      operationId: revokeApiKey
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ========================
+  # AUDIT
+  # ========================
+  /audit:
+    get:
+      tags: [audit]
+      summary: List audit log entries (admin only)
+      operationId: listAuditLogs
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Filter by action type (e.g. USER_LOGIN)
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ========================
+  # WEBHOOKS
+  # ========================
+  /webhooks:
+    get:
+      tags: [webhooks]
+      summary: List webhooks
+      operationId: listWebhooks
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Webhook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [webhooks]
+      summary: Create a webhook
+      operationId: createWebhook
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, url, events]
+              properties:
+                name:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items:
+                    type: string
+                  description: Event types to subscribe to (e.g. instance.started, instance.stopped)
+      responses:
+        '200':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /webhooks/{id}:
+    delete:
+      tags: [webhooks]
+      summary: Delete a webhook
+      operationId: deleteWebhook
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ========================
+  # HEALTH
+  # ========================
+  /health:
+    get:
+      tags: [health]
+      summary: Backend health check
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: number
+                  timestamp:
+                    type: string
+                    format: date-time

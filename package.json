@@ -1,0 +1,47 @@
+{
+  "name": "multibase2",
+  "version": "3.0.1",
+  "private": true,
+  "description": "Multibase – Single Pane of Glass for self-hosted Supabase",
+  "workspaces": [
+    "dashboard/backend",
+    "dashboard/frontend",
+    "e2e"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w dashboard/backend",
+    "dev:frontend": "npm run dev -w dashboard/frontend",
+    "build:backend": "npm run build -w dashboard/backend",
+    "build:frontend": "npm run build -w dashboard/frontend",
+    "test": "npm run test -w dashboard/backend && npm run test -w dashboard/frontend",
+    "test:backend": "npm run test -w dashboard/backend",
+    "test:frontend": "npm run test -w dashboard/frontend",
+    "test:coverage": "npm run test:coverage -w dashboard/backend",
+    "e2e": "cd e2e && npx playwright test",
+    "e2e:ui": "cd e2e && npx playwright test --ui",
+    "lint": "npm run lint -w dashboard/frontend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.8.3"
+  },
+  "lint-staged": {
+    "dashboard/backend/src/**/*.ts": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0"
+    ],
+    "dashboard/frontend/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.prisma/
+*.min.js
+*.min.css
+dashboard/backend/prisma/migrations/
+dashboard/frontend/src/content/docs/
+coverage/
+.nyc_output/
+e2e/test-results/
+e2e/playwright-report/
