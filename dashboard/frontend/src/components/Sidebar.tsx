@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrg } from '../contexts/OrgContext';
 import { cn } from '../lib/utils';
 import {
   LayoutDashboard,
@@ -50,10 +51,10 @@ const SidebarLink = ({ to, icon: Icon, children, end, badge }: SidebarLinkProps)
         )
       }
     >
-      <Icon className='w-4 h-4 flex-shrink-0' />
-      <span className='flex-1'>{children}</span>
+      <Icon className="w-4 h-4 flex-shrink-0" />
+      <span className="flex-1">{children}</span>
       {badge && (
-        <span className='w-2 h-2 rounded-full bg-brand-400 ring-2 ring-brand-400/30 animate-pulse flex-shrink-0' />
+        <span className="w-2 h-2 rounded-full bg-brand-400 ring-2 ring-brand-400/30 animate-pulse flex-shrink-0" />
       )}
     </NavLink>
   );
@@ -71,15 +72,15 @@ const SidebarGroup = ({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className='mb-2'>
+    <div className="mb-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className='flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors'
+        className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors"
       >
         {title}
         <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen ? '' : '-rotate-90')} />
       </button>
-      {isOpen && <div className='space-y-0.5 mt-1'>{children}</div>}
+      {isOpen && <div className="space-y-0.5 mt-1">{children}</div>}
     </div>
   );
 };
@@ -95,74 +96,73 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
 
   return (
     <SidebarContext.Provider value={{ onNavigate }}>
-      <aside className='glass-panel w-64 h-screen flex flex-col pt-16'>
+      <aside className="glass-panel w-64 h-screen flex flex-col pt-16">
         {/* Navigation */}
-        <nav className='flex-1 overflow-y-auto py-4 px-3 space-y-1'>
-
-          <SidebarGroup title='Overview'>
-            <SidebarLink to='/dashboard' icon={LayoutDashboard} end>
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+          <SidebarGroup title="Overview">
+            <SidebarLink to="/dashboard" icon={LayoutDashboard} end>
               Dashboard
             </SidebarLink>
-            <SidebarLink to='/shared' icon={Cloud}>
+            <SidebarLink to="/shared" icon={Cloud}>
               Shared Infra
             </SidebarLink>
-            <SidebarLink to='/templates' icon={Database}>
+            <SidebarLink to="/templates" icon={Database}>
               Templates
             </SidebarLink>
           </SidebarGroup>
 
-          <SidebarGroup title='Monitoring'>
-            <SidebarLink to='/alerts' icon={Bell}>
+          <SidebarGroup title="Monitoring">
+            <SidebarLink to="/alerts" icon={Bell}>
               Alerts
             </SidebarLink>
-            <SidebarLink to='/alert-rules' icon={Shield}>
+            <SidebarLink to="/alert-rules" icon={Shield}>
               Alert Rules
             </SidebarLink>
-            <SidebarLink to='/backups' icon={HardDrive}>
+            <SidebarLink to="/backups" icon={HardDrive}>
               Backups
             </SidebarLink>
-            <SidebarLink to='/backup-destinations' icon={Cloud}>
+            <SidebarLink to="/backup-destinations" icon={Cloud}>
               Destinations
             </SidebarLink>
           </SidebarGroup>
 
-          <SidebarGroup title='Developer'>
-            <SidebarLink to='/api-keys' icon={Key}>
+          <SidebarGroup title="Developer">
+            <SidebarLink to="/api-keys" icon={Key}>
               API Keys
             </SidebarLink>
-            <SidebarLink to='/api-docs' icon={FileText}>
+            <SidebarLink to="/api-docs" icon={FileText}>
               API Docs
             </SidebarLink>
-            <SidebarLink to='/settings/mcp' icon={Server}>
+            <SidebarLink to="/settings/mcp" icon={Server}>
               MCP Server
             </SidebarLink>
           </SidebarGroup>
 
           {user?.role === 'admin' && (
-            <SidebarGroup title='Admin'>
-              <SidebarLink to='/users' icon={Users}>
+            <SidebarGroup title="Admin">
+              <SidebarLink to="/users" icon={Users}>
                 Users
               </SidebarLink>
-              <SidebarLink to='/activity' icon={Activity}>
+              <SidebarLink to="/activity" icon={Activity}>
                 Activity Log
               </SidebarLink>
-              <SidebarLink to='/migrations' icon={Database}>
+              <SidebarLink to="/migrations" icon={Database}>
                 Migrations
               </SidebarLink>
-              <SidebarLink to='/settings/smtp' icon={Mail}>
+              <SidebarLink to="/settings/smtp" icon={Mail}>
                 SMTP Settings
               </SidebarLink>
-              <SidebarLink to='/updates' icon={ArrowUpCircle} badge={hasUpdate}>
+              <SidebarLink to="/updates" icon={ArrowUpCircle} badge={hasUpdate}>
                 Updates
               </SidebarLink>
             </SidebarGroup>
           )}
 
-          <SidebarGroup title='Resources'>
-            <SidebarLink to='/setup' icon={BookOpen}>
+          <SidebarGroup title="Resources">
+            <SidebarLink to="/setup" icon={BookOpen}>
               Setup Guide
             </SidebarLink>
-            <SidebarLink to='/setup/ai-assistant/overview' icon={Bot}>
+            <SidebarLink to="/setup/ai-assistant/overview" icon={Bot}>
               AI Assistant Docs
             </SidebarLink>
           </SidebarGroup>
