@@ -100,6 +100,9 @@ jobs:
               echo "DB-Pfad in .env gesetzt: file:./${RELATIVE_DB}"
             fi
 
+            # --- Security audit (warn only, don't block deploy) ---
+            npm audit --audit-level=high || echo "⚠️ npm audit found high/critical issues – review manually"
+
             # --- Dependencies installieren (inkl. better-sqlite3 native compile) ---
             npm ci
 
