@@ -3,7 +3,7 @@
 # Multibase Dashboard - Automated Installer v2.0
 # =============================================================================
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/skipper159/multibase2/main/deployment/install.sh | sudo bash
+#   curl -sSL https://raw.githubusercontent.com/kopibaper/multibase2/main/deployment/install.sh | sudo bash
 #   sudo bash install.sh              # Fresh install
 #   sudo bash install.sh --update     # Update existing installation
 #   sudo bash install.sh --uninstall  # Remove installation
@@ -15,10 +15,10 @@ set -euo pipefail
 # --- Configuration ---
 INSTALL_DIR="/opt/multibase"
 INSTALL_USER="multibase"
-REPO_URL="https://github.com/skipper159/multibase2.git"
-REPO_BRANCH="${REPO_BRANCH:-Feature_Roadmap}"
+REPO_URL="https://github.com/kopibaper/multibase2.git"
+REPO_BRANCH="${REPO_BRANCH:-main}"
 case "${REPO_BRANCH}" in
-  "Feature_Roadmap") SCRIPT_VERSION="3.0.0" ;;
+  "main")            SCRIPT_VERSION="3.0.0" ;;
   "cloud-version")   SCRIPT_VERSION="2.0.0" ;;
   *)                 SCRIPT_VERSION="1.0.0" ;;
 esac
