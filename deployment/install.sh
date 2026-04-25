@@ -1084,7 +1084,7 @@ EOF
             _frontend_app=", {
     name: 'multibase-frontend',
     cwd: '${INSTALL_DIR}/dashboard/frontend/dist',
-    script: '$(command -v serve)',
+    script: 'serve',
     args: '-s . -l 3002 --no-clipboard',
     interpreter: 'none',
     exec_mode: 'fork',
