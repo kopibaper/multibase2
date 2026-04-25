@@ -762,9 +762,11 @@ clone_repo() {
     step "Cloning repository..."
 
     if [ -d "$INSTALL_DIR/.git" ]; then
-        step_ok "Repository already exists, pulling latest..."
+        step_ok "Repository already exists, updating..."
         cd "$INSTALL_DIR"
-        sudo -u "$INSTALL_USER" git pull origin "$REPO_BRANCH" >> "$LOG_FILE" 2>&1
+        sudo -u "$INSTALL_USER" git remote set-url origin "$REPO_URL" >> "$LOG_FILE" 2>&1
+        sudo -u "$INSTALL_USER" git fetch origin "$REPO_BRANCH" >> "$LOG_FILE" 2>&1
+        sudo -u "$INSTALL_USER" git reset --hard "origin/$REPO_BRANCH" >> "$LOG_FILE" 2>&1
         step_ok "Repository updated"
     else
         # Clone into a temp dir first, then move contents
