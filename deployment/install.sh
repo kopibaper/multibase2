@@ -868,6 +868,7 @@ build_backend() {
     cd "$INSTALL_DIR/dashboard/backend"
 
     sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm rebuild >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
@@ -876,7 +877,6 @@ build_backend() {
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
-    # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
     chown -R "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/dashboard/backend/data"
 }
@@ -906,6 +906,7 @@ run_db_migrations() {
 
     cd "$INSTALL_DIR/dashboard/backend"
     sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm rebuild >> "$LOG_FILE" 2>&1
     step_ok "Backend devDependencies removed"
 }
 
@@ -1898,6 +1899,7 @@ run_update() {
     step "Rebuilding backend..."
     cd "$INSTALL_DIR/dashboard/backend"
     sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm rebuild >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
@@ -1909,6 +1911,7 @@ run_update() {
         exit 1
     fi
     sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm rebuild >> "$LOG_FILE" 2>&1
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
