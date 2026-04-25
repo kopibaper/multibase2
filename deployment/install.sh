@@ -54,6 +54,7 @@ ADMIN_PASS=""
 SSL_ENABLED="y"
 SSL_EMAIL=""
 SSL_TYPE="per-tenant"
+SKIP_NGINX="n"
 UFW_ENABLED="y"
 SWAP_ENABLED="y"
 TOTAL_STEPS=14
@@ -365,9 +366,18 @@ wizard_admin() {
 wizard_ssl() {
     echo ""
     separator
-    echo -e "  ${BOLD}STEP 4/6 -- SSL Certificate${NC}"
+    echo -e "  ${BOLD}STEP 4/6 -- Reverse Proxy & SSL${NC}"
     separator
     echo ""
+
+    prompt_yn SKIP_NGINX "Using an external reverse proxy (Zoraxy, Caddy, Traefik, etc.)?" "${SKIP_NGINX:-n}"
+
+    if [ "$SKIP_NGINX" = "y" ]; then
+        SSL_ENABLED="n"
+        echo -e "  ${DIM}Skipping Nginx and SSL setup — configure your proxy to forward to port 3001 (API)${NC}"
+        echo -e "  ${DIM}and serve static files from ${INSTALL_DIR}/dashboard/frontend/dist/${NC}"
+        return
+    fi
 
     prompt_yn SSL_ENABLED "Set up SSL via Let's Encrypt?" "${SSL_ENABLED:-y}"
 
@@ -444,8 +454,17 @@ wizard_confirm() {
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
         echo -e "  Admin:            ${BOLD}${ADMIN_USER}${NC} (${ADMIN_EMAIL})"
     fi
+    local _proxy_label
+    if [ "$SKIP_NGINX" = "y" ]; then
+        _proxy_label="External (Nginx skipped)"
+    else
+        _proxy_label="Nginx (built-in)"
+    fi
+    echo -e "  Reverse Proxy:    ${BOLD}${_proxy_label}${NC}"
     local _ssl_label
-    if [ "$SSL_ENABLED" = "y" ]; then
+    if [ "$SKIP_NGINX" = "y" ]; then
+        _ssl_label="Managed externally"
+    elif [ "$SSL_ENABLED" = "y" ]; then
         [ "$SSL_TYPE" = "wildcard" ] && _ssl_label="Yes (wildcard)" || _ssl_label="Yes (per-tenant)"
     else
         _ssl_label="No"
@@ -476,6 +495,7 @@ INSTALLER_DEPLOY_MODE=${DEPLOY_MODE}
 INSTALLER_ADMIN_USER=${ADMIN_USER}
 INSTALLER_ADMIN_EMAIL=${ADMIN_EMAIL}
 INSTALLER_SSL_ENABLED=${SSL_ENABLED}
+INSTALLER_SKIP_NGINX=${SKIP_NGINX}
 INSTALLER_UFW_ENABLED=${UFW_ENABLED}
 FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
 BACKEND_DOMAIN=${BACKEND_DOMAIN}
@@ -512,6 +532,8 @@ load_existing_config() {
     prev_admin=$(_get INSTALLER_ADMIN_USER)
     prev_email=$(_get INSTALLER_ADMIN_EMAIL)
     prev_ssl=$(_get INSTALLER_SSL_ENABLED)
+    local prev_skip_nginx
+    prev_skip_nginx=$(_get INSTALLER_SKIP_NGINX)
     prev_ufw=$(_get INSTALLER_UFW_ENABLED)
 
     [ -z "$prev_mode" ] && return
@@ -520,8 +542,9 @@ load_existing_config() {
     [ -n "$prev_mode" ]  && DEPLOY_MODE="$prev_mode"
     [ -n "$prev_admin" ] && ADMIN_USER="$prev_admin"
     [ -n "$prev_email" ] && ADMIN_EMAIL="$prev_email"
-    [ -n "$prev_ssl" ]   && SSL_ENABLED="$prev_ssl"
-    [ -n "$prev_ufw" ]   && UFW_ENABLED="$prev_ufw"
+    [ -n "$prev_ssl" ]        && SSL_ENABLED="$prev_ssl"
+    [ -n "$prev_skip_nginx" ] && SKIP_NGINX="$prev_skip_nginx"
+    [ -n "$prev_ufw" ]        && UFW_ENABLED="$prev_ufw"
     local prev_frontend prev_backend prev_ssl_email prev_ssl_type prev_backend_url prev_frontend_url
     prev_frontend=$(_get FRONTEND_DOMAIN)
     prev_backend=$(_get BACKEND_DOMAIN)
@@ -552,7 +575,7 @@ load_existing_config() {
     echo -e "  ${DIM}Mode:    ${BOLD}${prev_mode}${NC}"
     echo -e "  ${DIM}Domain:  ${BOLD}${BACKEND_DOMAIN:-${FRONTEND_DOMAIN}}${NC}"
     echo -e "  ${DIM}Admin:   ${BOLD}${prev_admin}${NC} ${DIM}(${prev_email})${NC}"
-    echo -e "  ${DIM}SSL:     ${BOLD}${prev_ssl}${NC}  |  UFW: ${BOLD}${prev_ufw}${NC}"
+    echo -e "  ${DIM}Proxy:   ${BOLD}$([ "$SKIP_NGINX" = "y" ] && echo "External" || echo "Nginx")${NC}  |  SSL: ${BOLD}${prev_ssl}${NC}  |  UFW: ${BOLD}${prev_ufw}${NC}"
     echo ""
     echo -e "  ${BOLD}[1]${NC} Use these settings and start installation directly"
     echo -e "  ${BOLD}[2]${NC} Edit settings (go through wizard with pre-filled defaults)"
@@ -689,7 +712,9 @@ DAEMON_EOF
     fi
 
     # Nginx
-    if command -v nginx &>/dev/null; then
+    if [ "$SKIP_NGINX" = "y" ]; then
+        step_skip "Nginx (external proxy)"
+    elif command -v nginx &>/dev/null; then
         step_ok "Nginx $(nginx -v 2>&1 | awk -F/ '{print $2}') (already installed)"
     else
         apt-get install -y -qq nginx >> "$LOG_FILE" 2>&1
@@ -698,7 +723,9 @@ DAEMON_EOF
     fi
 
     # Certbot
-    if [ "$SSL_ENABLED" = "y" ]; then
+    if [ "$SKIP_NGINX" = "y" ]; then
+        :
+    elif [ "$SSL_ENABLED" = "y" ]; then
         if command -v certbot &>/dev/null; then
             step_ok "Certbot (already installed)"
         else
@@ -1088,6 +1115,11 @@ setup_sudoers() {
         return
     fi
 
+    if [ "$SKIP_NGINX" = "y" ]; then
+        step_skip "sudoers (external proxy)"
+        return
+    fi
+
     step "Configuring sudoers for nginx and certbot..."
 
     cat > /etc/sudoers.d/multibase <<EOF
@@ -1256,6 +1288,11 @@ start_redis() {
 # =============================================================================
 
 configure_nginx() {
+    if [ "$SKIP_NGINX" = "y" ]; then
+        step_skip "Nginx configuration (external proxy)"
+        return
+    fi
+
     step "Configuring Nginx..."
 
     # Frontend vhost (single + split-frontend)
@@ -1452,7 +1489,7 @@ start_pm2() {
 # =============================================================================
 
 setup_ssl() {
-    if [ "$SSL_ENABLED" != "y" ]; then
+    if [ "$SKIP_NGINX" = "y" ] || [ "$SSL_ENABLED" != "y" ]; then
         return
     fi
 
@@ -1705,7 +1742,9 @@ verify_installation() {
     local all_ok=true
 
     # Check Nginx
-    if systemctl is-active --quiet nginx; then
+    if [ "$SKIP_NGINX" = "y" ]; then
+        step_skip "Nginx (external proxy)"
+    elif systemctl is-active --quiet nginx; then
         step_ok "Nginx is running"
     else
         step_fail "Nginx is not running"
@@ -1819,8 +1858,10 @@ show_completion() {
         echo "    pm2 restart multibase-backend  -- Restart backend"
     fi
 
-    echo "    sudo nginx -t                  -- Test Nginx config"
-    echo "    sudo systemctl reload nginx    -- Reload Nginx"
+    if [ "$SKIP_NGINX" != "y" ]; then
+        echo "    sudo nginx -t                  -- Test Nginx config"
+        echo "    sudo systemctl reload nginx    -- Reload Nginx"
+    fi
 
     echo ""
     echo -e "  ${BOLD}Management:${NC}"
@@ -1844,6 +1885,17 @@ run_update() {
 
     if [ ! -d "$INSTALL_DIR/.git" ]; then
         error_exit "No installation found at $INSTALL_DIR"
+    fi
+
+    # Load saved state (for SKIP_NGINX, DEPLOY_MODE, etc.)
+    if [ -f "$STATE_FILE" ]; then
+        local _get
+        _get() { grep -m1 "^${1}=" "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true; }
+        local _skip_nginx _deploy_mode
+        _skip_nginx=$(_get INSTALLER_SKIP_NGINX)
+        _deploy_mode=$(_get INSTALLER_DEPLOY_MODE)
+        [ -n "$_skip_nginx" ]  && SKIP_NGINX="$_skip_nginx"
+        [ -n "$_deploy_mode" ] && DEPLOY_MODE="$_deploy_mode"
     fi
 
     TOTAL_STEPS=6
@@ -1896,9 +1948,11 @@ ENVEOF
     step "Restarting services..."
     sudo -u "$INSTALL_USER" pm2 restart "$PM2_APP_NAME" >> "$LOG_FILE" 2>&1
     step_ok "Backend restarted"
-    nginx -t >> "$LOG_FILE" 2>&1
-    systemctl reload nginx
-    step_ok "Nginx reloaded"
+    if [ "$SKIP_NGINX" != "y" ]; then
+        nginx -t >> "$LOG_FILE" 2>&1
+        systemctl reload nginx
+        step_ok "Nginx reloaded"
+    fi
 
     step "Verifying..."
     if sudo -u "$INSTALL_USER" pm2 show "$PM2_APP_NAME" &>/dev/null; then
@@ -1920,6 +1974,14 @@ run_uninstall() {
     local keep_data=false
     if [[ "${2:-}" == "--keep-data" ]]; then
         keep_data=true
+    fi
+
+    if [ -f "$STATE_FILE" ]; then
+        local _get
+        _get() { grep -m1 "^${1}=" "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true; }
+        local _skip_nginx
+        _skip_nginx=$(_get INSTALLER_SKIP_NGINX)
+        [ -n "$_skip_nginx" ] && SKIP_NGINX="$_skip_nginx"
     fi
 
     echo ""
@@ -1960,24 +2022,28 @@ run_uninstall() {
     echo -e "  ${GREEN}[OK]${NC} PM2 processes stopped"
 
     # Remove Nginx vhosts
-    echo -e "  Removing Nginx vhosts..."
-    rm -f /etc/nginx/sites-enabled/multibase-frontend
-    rm -f /etc/nginx/sites-enabled/multibase-backend
-    rm -f /etc/nginx/sites-available/multibase-frontend
-    rm -f /etc/nginx/sites-available/multibase-backend
-    nginx -t &>/dev/null && systemctl reload nginx
-    echo -e "  ${GREEN}[OK]${NC} Nginx vhosts removed"
+    if [ "$SKIP_NGINX" != "y" ]; then
+        echo -e "  Removing Nginx vhosts..."
+        rm -f /etc/nginx/sites-enabled/multibase-frontend
+        rm -f /etc/nginx/sites-enabled/multibase-backend
+        rm -f /etc/nginx/sites-available/multibase-frontend
+        rm -f /etc/nginx/sites-available/multibase-backend
+        nginx -t &>/dev/null && systemctl reload nginx
+        echo -e "  ${GREEN}[OK]${NC} Nginx vhosts removed"
+    fi
 
     # Remove SSL certificates
-    echo -e "  Removing SSL certificates..."
-    for cert_dir in /etc/letsencrypt/live/*/; do
-        local cert_name
-        cert_name=$(basename "$cert_dir")
-        if [[ "$cert_name" == *"multibase"* ]] || [[ "$cert_name" == "$FRONTEND_DOMAIN" ]] || [[ "$cert_name" == "$BACKEND_DOMAIN" ]]; then
-            certbot delete --cert-name "$cert_name" --non-interactive 2>/dev/null || true
-        fi
-    done
-    echo -e "  ${GREEN}[OK]${NC} SSL certificates removed"
+    if [ "$SKIP_NGINX" != "y" ]; then
+        echo -e "  Removing SSL certificates..."
+        for cert_dir in /etc/letsencrypt/live/*/; do
+            local cert_name
+            cert_name=$(basename "$cert_dir")
+            if [[ "$cert_name" == *"multibase"* ]] || [[ "$cert_name" == "$FRONTEND_DOMAIN" ]] || [[ "$cert_name" == "$BACKEND_DOMAIN" ]]; then
+                certbot delete --cert-name "$cert_name" --non-interactive 2>/dev/null || true
+            fi
+        done
+        echo -e "  ${GREEN}[OK]${NC} SSL certificates removed"
+    fi
 
     # Stop Redis container
     echo -e "  Stopping Redis container..."
