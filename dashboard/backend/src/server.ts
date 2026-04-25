@@ -511,8 +511,8 @@ async function start() {
 
     await startServices();
 
-    httpServer.listen(PORT, '127.0.0.1', () => {
-      logger.info(`🚀 Multibase Dashboard API running on 127.0.0.1:${PORT}`, {
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      logger.info(`🚀 Multibase Dashboard API running on 0.0.0.0:${PORT}`, {
         service: 'multibase-dashboard',
       });
       logger.info(`📂 Projects Path: ${PROJECTS_PATH} (resolved: ${path.resolve(PROJECTS_PATH)})`, {
