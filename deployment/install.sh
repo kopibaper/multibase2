@@ -837,7 +837,7 @@ build_backend() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
-    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
@@ -896,7 +896,7 @@ build_frontend() {
 
     cd "$INSTALL_DIR/dashboard/frontend"
 
-    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
@@ -1848,7 +1848,7 @@ run_update() {
 
     step "Rebuilding backend..."
     cd "$INSTALL_DIR/dashboard/backend"
-    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
@@ -1880,7 +1880,7 @@ VITE_ROOT_DOMAIN=${_root_domain}
 ENVEOF
         step_ok "Frontend .env.production updated (VITE_API_URL=${_backend_url})"
     fi
-    sudo -u "$INSTALL_USER" npm ci >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
