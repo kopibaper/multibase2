@@ -734,6 +734,16 @@ DAEMON_EOF
             step_new "PM2 $(pm2 -v) (installed)"
         fi
     fi
+
+    # Static file server for frontend when Nginx is skipped
+    if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+        if command -v serve &>/dev/null; then
+            step_ok "serve $(serve -v 2>/dev/null || echo '?') (already installed)"
+        else
+            npm install -g serve >> "$LOG_FILE" 2>&1
+            step_new "serve (installed — static file server for frontend)"
+        fi
+    fi
 }
 
 # =============================================================================
@@ -1069,6 +1079,23 @@ EOF
 
     # PM2 ecosystem (only for single + split-backend)
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
+        local _frontend_app=""
+        if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+            _frontend_app=", {
+    name: 'multibase-frontend',
+    cwd: '${INSTALL_DIR}/dashboard/frontend/dist',
+    script: '$(command -v serve)',
+    args: '-s . -l 3002 --no-clipboard',
+    interpreter: 'none',
+    exec_mode: 'fork',
+    instances: 1,
+    autorestart: true,
+    max_memory_restart: '256M',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    error_file: '${INSTALL_DIR}/logs/frontend-error.log',
+    out_file: '${INSTALL_DIR}/logs/frontend-out.log'
+  }"
+        fi
         cat > "$INSTALL_DIR/ecosystem.config.js" <<EOF
 module.exports = {
   apps: [{
@@ -1087,7 +1114,7 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
     error_file: '${INSTALL_DIR}/logs/backend-error.log',
     out_file: '${INSTALL_DIR}/logs/backend-out.log'
-  }]
+  }${_frontend_app}]
 };
 EOF
         chown "$INSTALL_USER":"$INSTALL_USER" "$INSTALL_DIR/ecosystem.config.js"
@@ -1450,15 +1477,19 @@ start_pm2() {
         return
     fi
 
-    step "Starting backend via PM2..."
+    step "Starting services via PM2..."
 
     # Stop existing if running
     su - "$INSTALL_USER" -s /bin/bash -c "pm2 delete '$PM2_APP_NAME'" 2>/dev/null || true
+    su - "$INSTALL_USER" -s /bin/bash -c "pm2 delete 'multibase-frontend'" 2>/dev/null || true
 
     # Start with ecosystem file (requires login shell for PM2 daemon spawn)
     cd "$INSTALL_DIR"
     su - "$INSTALL_USER" -s /bin/bash -c "cd '$INSTALL_DIR' && pm2 start ecosystem.config.js"  >> "$LOG_FILE" 2>&1
     step_ok "Backend started"
+    if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+        step_ok "Frontend static server started (port 3002)"
+    fi
 
     # Save PM2 process list
     su - "$INSTALL_USER" -s /bin/bash -c "pm2 save" >> "$LOG_FILE" 2>&1
@@ -1766,6 +1797,14 @@ verify_installation() {
             step_fail "Frontend build files not found"
             all_ok=false
         fi
+        if [ "$SKIP_NGINX" = "y" ]; then
+            if su - "$INSTALL_USER" -s /bin/bash -c "pm2 show multibase-frontend" &>/dev/null; then
+                step_ok "Frontend static server is running (port 3002)"
+            else
+                step_fail "Frontend static server is not running"
+                all_ok=false
+            fi
+        fi
     fi
 
     if [ "$all_ok" = false ]; then
@@ -1845,6 +1884,13 @@ show_completion() {
         echo "    pm2 status                     -- Check backend status"
         echo "    pm2 logs multibase-backend     -- View backend logs"
         echo "    pm2 restart multibase-backend  -- Restart backend"
+        if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+            echo "    pm2 logs multibase-frontend    -- View frontend logs"
+            echo "    pm2 restart multibase-frontend -- Restart frontend"
+            echo ""
+            echo -e "  ${BOLD}Frontend Static Server:${NC}"
+            echo -e "    Listening on port ${CYAN}3002${NC} (point your reverse proxy here)"
+        fi
     fi
 
     if [ "$SKIP_NGINX" != "y" ]; then
@@ -1937,7 +1983,10 @@ ENVEOF
     step "Restarting services..."
     sudo -u "$INSTALL_USER" pm2 restart "$PM2_APP_NAME" >> "$LOG_FILE" 2>&1
     step_ok "Backend restarted"
-    if [ "$SKIP_NGINX" != "y" ]; then
+    if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+        sudo -u "$INSTALL_USER" pm2 restart multibase-frontend >> "$LOG_FILE" 2>&1
+        step_ok "Frontend static server restarted"
+    elif [ "$SKIP_NGINX" != "y" ]; then
         nginx -t >> "$LOG_FILE" 2>&1
         systemctl reload nginx
         step_ok "Nginx reloaded"
@@ -2007,6 +2056,7 @@ run_uninstall() {
     # Stop PM2
     echo -e "  Stopping PM2 processes..."
     sudo -u "$INSTALL_USER" pm2 delete "$PM2_APP_NAME" 2>/dev/null || true
+    sudo -u "$INSTALL_USER" pm2 delete "multibase-frontend" 2>/dev/null || true
     sudo -u "$INSTALL_USER" pm2 save --force 2>/dev/null || true
     echo -e "  ${GREEN}[OK]${NC} PM2 processes stopped"
 
