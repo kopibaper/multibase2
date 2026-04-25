@@ -1081,10 +1081,12 @@ EOF
     if [ "$DEPLOY_MODE" != "split-frontend" ]; then
         local _frontend_app=""
         if [ "$SKIP_NGINX" = "y" ] && [ "$DEPLOY_MODE" != "split-backend" ]; then
+            local _serve_bin
+            _serve_bin="$(command -v serve)"
             _frontend_app=", {
     name: 'multibase-frontend',
     cwd: '${INSTALL_DIR}/dashboard/frontend/dist',
-    script: 'serve',
+    script: '${_serve_bin}',
     args: '-s . -l 3002 --no-clipboard',
     interpreter: 'none',
     exec_mode: 'fork',
