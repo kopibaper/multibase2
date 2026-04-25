@@ -23,7 +23,7 @@ case "${REPO_BRANCH}" in
   *)                 SCRIPT_VERSION="1.0.0" ;;
 esac
 LOG_FILE="/var/log/multibase-install.log"
-NODE_MAJOR=20
+NODE_MAJOR=24
 REDIS_CONTAINER="multibase-redis"
 PM2_APP_NAME="multibase-backend"
 
@@ -639,7 +639,7 @@ install_dependencies() {
         fi
     done
 
-    # Node.js (required for PM2 process manager)
+    # Node.js
     if command -v node &>/dev/null; then
         local node_ver
         node_ver=$(node -v)
@@ -648,15 +648,6 @@ install_dependencies() {
         curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >> "$LOG_FILE" 2>&1
         apt-get install -y -qq nodejs >> "$LOG_FILE" 2>&1
         step_new "Node.js $(node -v) (installed)"
-    fi
-
-    # Bun (runtime + package manager)
-    if command -v bun &>/dev/null; then
-        step_ok "Bun $(bun --version) (already installed)"
-    else
-        export BUN_INSTALL="/usr/local"
-        curl -fsSL https://bun.sh/install | bash >> "$LOG_FILE" 2>&1
-        step_new "Bun $(bun --version) (installed)"
     fi
 
     # Docker (only for single + split-backend)
@@ -876,15 +867,14 @@ build_backend() {
 
     cd "$INSTALL_DIR/dashboard/backend"
 
-    sudo -u "$INSTALL_USER" bun install --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
-    sudo -u "$INSTALL_USER" bunx prisma generate >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
     step_ok "Prisma client generated"
 
-    sudo -u "$INSTALL_USER" bun run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
-    # Pruning deferred to run_db_migrations() — prisma CLI (devDep) needed for migrate deploy
 
     # Ensure data directory exists for SQLite
     mkdir -p "$INSTALL_DIR/dashboard/backend/data"
@@ -907,7 +897,7 @@ run_db_migrations() {
     # Prisma reads DATABASE_URL from .env automatically when run in the project directory.
     # Do NOT extract and re-pass DATABASE_URL manually – grep/cut leaves literal quotes in
     # the value (e.g. "file:./data/multibase.db") which causes Prisma P1003 errors.
-    if ! sudo -u "$INSTALL_USER" bunx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
         echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
         tail -20 "$LOG_FILE" >&2
         exit 1
@@ -915,8 +905,7 @@ run_db_migrations() {
     step_ok "Database migrations applied"
 
     cd "$INSTALL_DIR/dashboard/backend"
-    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" bun install --production --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Backend devDependencies removed"
 }
 
@@ -933,12 +922,11 @@ build_frontend() {
 
     cd "$INSTALL_DIR/dashboard/frontend"
 
-    sudo -u "$INSTALL_USER" bun install --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
     step_ok "Dependencies installed"
 
-    sudo -u "$INSTALL_USER" bun run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
-    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
 }
 
 # =============================================================================
@@ -1086,7 +1074,7 @@ module.exports = {
     name: '${PM2_APP_NAME}',
     cwd: '${INSTALL_DIR}/dashboard/backend',
     script: 'dist/server.js',
-    interpreter: 'bun',
+    interpreter: 'node',
     exec_mode: 'fork',
     instances: 1,
     env: {
@@ -1653,7 +1641,7 @@ create_admin() {
     # Check if a non-default admin already exists in the DB
     local existing_email
     existing_email=$(DATABASE_URL="file:./data/multibase.db" \
-        sudo -u "$INSTALL_USER" -E bun -e "
+        sudo -u "$INSTALL_USER" -E node -e "
         const {PrismaClient}=require('/opt/multibase/dashboard/backend/node_modules/@prisma/client');
         const p=new PrismaClient();
         p.user.findFirst({where:{role:'admin'}}).then(u=>{process.stdout.write(u?u.email:'');p.\$disconnect();});
@@ -1726,7 +1714,7 @@ SCRIPT
     ADMIN_EMAIL="$ADMIN_EMAIL" \
     ADMIN_PASS="$ADMIN_PASS" \
     DATABASE_URL="file:./data/multibase.db" \
-    sudo -u "$INSTALL_USER" -E bun /tmp/multibase-create-admin.js >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" -E node /tmp/multibase-create-admin.js >> "$LOG_FILE" 2>&1
 
     rm -f /tmp/multibase-create-admin.js
     step_ok "Admin account created ($ADMIN_USER)"
@@ -1909,19 +1897,18 @@ run_update() {
 
     step "Rebuilding backend..."
     cd "$INSTALL_DIR/dashboard/backend"
-    sudo -u "$INSTALL_USER" bun install --ignore-scripts >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" bunx prisma generate >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" bun run build >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npx prisma generate >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Backend built"
 
     step "Running database migrations..."
-    if ! sudo -u "$INSTALL_USER" bunx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
+    if ! sudo -u "$INSTALL_USER" npx prisma migrate deploy >> "$LOG_FILE" 2>&1; then
         echo -e "${RED}ERROR: Database migration failed. Check $LOG_FILE for details.${NC}" >&2
         tail -20 "$LOG_FILE" >&2
         exit 1
     fi
-    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" bun install --production --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm prune --omit=dev >> "$LOG_FILE" 2>&1
     step_ok "Migrations applied"
 
     step "Rebuilding frontend..."
@@ -1940,9 +1927,8 @@ VITE_ROOT_DOMAIN=${_root_domain}
 ENVEOF
         step_ok "Frontend .env.production updated (VITE_API_URL=${_backend_url})"
     fi
-    sudo -u "$INSTALL_USER" bun install --ignore-scripts >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" bun run build >> "$LOG_FILE" 2>&1
-    sudo -u "$INSTALL_USER" rm -rf node_modules >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm ci --ignore-scripts >> "$LOG_FILE" 2>&1
+    sudo -u "$INSTALL_USER" npm run build >> "$LOG_FILE" 2>&1
     step_ok "Frontend built"
 
     step "Restarting services..."
