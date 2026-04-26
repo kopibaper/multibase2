@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "init:admin": "node scripts/init-admin.js",
+    "reset-password": "tsx scripts/reset-admin-password.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
@@ -63,8 +64,10 @@
     "rate-limit-redis": "^4.3.1",
     "socket.io": "^4.6.1",
     "ssh2-sftp-client": "^12.1.1",
+    "swagger-ui-express": "^5.0.1",
     "webdav": "^5.9.0",
     "winston": "^3.11.0",
+    "yaml": "^2.8.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -82,6 +85,7 @@
     "@types/pg": "^8.10.9",
     "@types/ssh2-sftp-client": "^9.0.6",
     "@types/supertest": "^7.2.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^10.2.0",
     "globals": "^17.5.0",
