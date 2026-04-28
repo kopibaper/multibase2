@@ -32,6 +32,7 @@ import {
   reloadNginxGateway,
   removeNginxTenantConfig,
 } from './NginxGatewayGenerator';
+import { ZoraxyService } from './ZoraxyService';
 
 const execAsync = promisify(exec);
 
@@ -41,6 +42,7 @@ export class InstanceManager {
   private dockerManager: DockerManager;
   private prisma: PrismaClient;
   private redisCache?: RedisCache;
+  private zoraxyService?: ZoraxyService;
 
   constructor(
     projectsPath: string,
@@ -53,6 +55,7 @@ export class InstanceManager {
     this.dockerManager = dockerManager;
     this.prisma = prisma;
     this.redisCache = redisCache;
+    this.zoraxyService = ZoraxyService.fromEnv() ?? undefined;
 
     // Ensure projects directory exists
     if (!fs.existsSync(this.projectsPath)) {
@@ -724,6 +727,9 @@ export class InstanceManager {
       // Generate Nginx Config
       await this.createNginxConfig(instance, request.deploymentType);
 
+      // Register Zoraxy proxy rule (cloud mode only)
+      await this.registerZoraxyProxy(instance);
+
       // Store instance in database for metrics and tracking
       try {
         await this.prisma.instance.create({
@@ -754,6 +760,32 @@ export class InstanceManager {
       }
       logger.error(`Error creating instance ${name}:`, error);
       throw error;
+    }
+  }
+
+  private async registerZoraxyProxy(instance: SupabaseInstance): Promise<void> {
+    if (!this.zoraxyService || process.env.DEPLOYMENT_MODE === 'local') return;
+
+    const gatewayPort = instance.ports.gateway_port;
+    if (!gatewayPort) {
+      logger.warn(`No gateway port for ${instance.name}, skipping Zoraxy registration`);
+      return;
+    }
+
+    try {
+      await this.zoraxyService.addProxyRule(instance.name, gatewayPort);
+    } catch (error: any) {
+      logger.error(`Zoraxy proxy registration failed for ${instance.name}: ${error.message}`);
+    }
+  }
+
+  private async unregisterZoraxyProxy(tenantName: string): Promise<void> {
+    if (!this.zoraxyService) return;
+
+    try {
+      await this.zoraxyService.removeProxyRule(tenantName);
+    } catch (error: any) {
+      logger.warn(`Zoraxy proxy removal failed for ${tenantName}: ${error.message}`);
     }
   }
 
@@ -1819,6 +1851,9 @@ ${sslBlock}
       } catch (error) {
         logger.warn('Error stopping containers, continuing with deletion:', error);
       }
+
+      // Remove Zoraxy proxy rule
+      await this.unregisterZoraxyProxy(name);
 
       // Remove project directory
       fs.rmSync(projectPath, { recursive: true, force: true });
